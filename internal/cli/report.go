@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -76,10 +77,12 @@ var reportCmd = &cobra.Command{
 			}
 			pyArgs := []string{"-m", "nimbus", "report", "--framework", key, "--format", reportFlags.format}
 			if reportFlags.out != "" {
-				pyArgs = append(pyArgs, "--out", reportFlags.out)
+				abs, _ := filepath.Abs(reportFlags.out)
+				pyArgs = append(pyArgs, "--out", abs)
 			}
 			if reportFlags.custom != "" {
-				pyArgs = append(pyArgs, "--custom", reportFlags.custom)
+				abs, _ := filepath.Abs(reportFlags.custom)
+				pyArgs = append(pyArgs, "--custom", abs)
 			}
 			out, err := runPython(cmd.Context(), exe, []string{"CLOUD_POSTURE_DB=" + st.Path()}, pyArgs...)
 			os.Stdout.Write(out)
