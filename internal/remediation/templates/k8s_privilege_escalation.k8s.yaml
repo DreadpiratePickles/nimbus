@@ -1,0 +1,9 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: {{ default "app" .Attr.container }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

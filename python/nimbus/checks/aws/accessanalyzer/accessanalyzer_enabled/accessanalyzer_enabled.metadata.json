@@ -1,0 +1,61 @@
+{
+  "Provider": "aws",
+  "CheckID": "accessanalyzer_enabled",
+  "CheckTitle": "Check if IAM Access Analyzer is enabled",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "accessanalyzer",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:access-analyzer:region:account-id:analyzer/name",
+  "Severity": "low",
+  "ResourceType": "AwsIamAccessAnalyzer",
+  "Description": "Checks that an active IAM Access Analyzer exists in every audited region.",
+  "Risk": "Without Access Analyzer, resources shared with external principals or the public go unnoticed.",
+  "RelatedUrl": "https://docs.aws.amazon.com/IAM/latest/UserGuide/what-is-access-analyzer.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws accessanalyzer create-analyzer --analyzer-name default --type ACCOUNT",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Create an account (or organization) analyzer in every region.",
+      "Url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/what-is-access-analyzer.html"
+    }
+  },
+  "Categories": [
+    "identity-access"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "1.20"
+    ],
+    "nist_800_53": [
+      "AC-6",
+      "CA-7",
+      "RA-5"
+    ],
+    "pci_dss": [
+      "7.2.4"
+    ],
+    "hipaa": [
+      "164.312(a)(1)",
+      "164.312(d)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ]
+  }
+}

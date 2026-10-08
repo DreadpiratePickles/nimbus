@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Enforce IMDSv2 via a launch template for {{ .Name }}
+Resources:
+  {{ .Slug }}LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: {{ .Slug }}-imdsv2
+      LaunchTemplateData:
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+          HttpPutResponseHopLimit: 1
+# Running instance: aws ec2 modify-instance-metadata-options --instance-id {{ .Name }} --http-tokens required

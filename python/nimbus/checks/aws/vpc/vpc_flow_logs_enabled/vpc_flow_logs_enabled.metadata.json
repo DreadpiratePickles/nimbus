@@ -1,0 +1,59 @@
+{
+  "Provider": "aws",
+  "CheckID": "vpc_flow_logs_enabled",
+  "CheckTitle": "Ensure VPC Flow Logging is Enabled in all VPCs",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "vpc",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:ec2:region:account-id:vpc/vpc-id",
+  "Severity": "medium",
+  "ResourceType": "AwsEc2Vpc",
+  "Description": "Checks that every VPC has at least one active flow log.",
+  "Risk": "Without flow logs, network-level reconnaissance, lateral movement and exfiltration cannot be detected or investigated.",
+  "RelatedUrl": "https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws ec2 create-flow-logs --resource-type VPC --resource-ids <vpc> --traffic-type ALL --log-destination-type s3 --log-destination <bucket-arn>",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable VPC flow logs (at least REJECT traffic, preferably ALL) to CloudWatch Logs or S3.",
+      "Url": "https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html"
+    }
+  },
+  "Categories": [
+    "logging"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "3.7"
+    ],
+    "nist_800_53": [
+      "AU-2",
+      "AU-12",
+      "SI-4"
+    ],
+    "pci_dss": [
+      "10.2.1"
+    ],
+    "hipaa": [
+      "164.312(b)",
+      "164.308(a)(1)(ii)(D)"
+    ],
+    "gdpr": [
+      "Art.30",
+      "Art.33"
+    ],
+    "soc2": [
+      "CC7.2",
+      "CC7.3"
+    ]
+  }
+}

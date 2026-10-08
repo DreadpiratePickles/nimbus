@@ -1,0 +1,59 @@
+{
+  "Provider": "aws",
+  "CheckID": "ec2_instance_imdsv2_enabled",
+  "CheckTitle": "Check if EC2 Instance Metadata Service Version 2 (IMDSv2) is Enabled and Required",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "ec2",
+  "SubServiceName": "instance",
+  "ResourceIdTemplate": "arn:partition:ec2:region:account-id:instance/instance-id",
+  "Severity": "medium",
+  "ResourceType": "AwsEc2Instance",
+  "Description": "Checks that EC2 instances require IMDSv2 session tokens (HttpTokens=required) or have the metadata endpoint disabled.",
+  "Risk": "IMDSv1 can be abused through SSRF vulnerabilities to steal the instance role's temporary credentials.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws ec2 modify-instance-metadata-options --instance-id <id> --http-tokens required --http-endpoint enabled",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Require IMDSv2 on all instances and set the account default to IMDSv2-only.",
+      "Url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "5.6"
+    ],
+    "nist_800_53": [
+      "AC-3",
+      "SC-7",
+      "CM-6"
+    ],
+    "pci_dss": [
+      "2.2.1"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

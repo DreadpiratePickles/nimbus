@@ -1,0 +1,12 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Make RDS instance {{ .Name }} private
+Resources:
+  {{ .Slug }}:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      DBInstanceIdentifier: {{ .Name }}
+      PubliclyAccessible: false
+      DBInstanceClass: {{ default "db.t3.medium" .Attr.DBInstanceClass }}
+      Engine: {{ default "postgres" .Attr.Engine }}

@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Restrict ingress on {{ .Name }} (ports {{ range .Ports }}{{ . }} {{ end }})
+Parameters:
+  AllowedCidr:
+    Type: String
+    Description: CIDR allowed to reach the previously world-open ports
+    Default: 10.0.0.0/8
+Resources:
+{{- range .Ports }}
+  Ingress{{ . }}:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: {{ $.ID }}
+      IpProtocol: tcp
+      FromPort: {{ . }}
+      ToPort: {{ . }}
+      CidrIp: !Ref AllowedCidr
+{{- end }}
+# Remove the 0.0.0.0/0 rule after deploying:
+#   aws ec2 revoke-security-group-ingress --group-id {{ .ID }} --protocol tcp --port {{ index .Ports 0 }} --cidr 0.0.0.0/0

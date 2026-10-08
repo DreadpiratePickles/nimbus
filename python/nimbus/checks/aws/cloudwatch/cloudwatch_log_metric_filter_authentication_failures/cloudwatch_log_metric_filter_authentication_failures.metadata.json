@@ -1,0 +1,60 @@
+{
+  "Provider": "aws",
+  "CheckID": "cloudwatch_log_metric_filter_authentication_failures",
+  "CheckTitle": "Ensure a log metric filter and alarm exist for AWS Management Console authentication failures",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "cloudwatch",
+  "SubServiceName": "logs",
+  "ResourceIdTemplate": "arn:partition:logs:region:account-id:metric-filter/filter-name",
+  "Severity": "medium",
+  "ResourceType": "AwsLogsMetricFilter",
+  "Description": "Checks that a CloudWatch Logs metric filter and alarm exist for AWS Management Console authentication failures on the log group of an active multi-region CloudTrail trail.",
+  "Risk": "Without real-time alerting on AWS Management Console authentication failures, malicious or accidental changes go unnoticed until long after the damage is done.",
+  "RelatedUrl": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudwatch-alarms-for-cloudtrail.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws logs put-metric-filter --log-group-name <trail-log-group> --filter-name <name> --metric-transformations metricName=<m>,metricNamespace=CISBenchmark,metricValue=1 --filter-pattern '<pattern>' && aws cloudwatch put-metric-alarm --alarm-name <m> --metric-name <m> --namespace CISBenchmark --statistic Sum --period 300 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --evaluation-periods 1 --alarm-actions <sns-topic-arn>",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Create a metric filter on the CloudTrail log group matching AWS Management Console authentication failures, and a CloudWatch alarm with an SNS notification on the resulting metric.",
+      "Url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudwatch-alarms-for-cloudtrail.html"
+    }
+  },
+  "Categories": [
+    "logging"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "4.6"
+    ],
+    "nist_800_53": [
+      "AU-6",
+      "SI-4",
+      "SI-4(4)"
+    ],
+    "pci_dss": [
+      "10.4.1",
+      "10.7.2"
+    ],
+    "hipaa": [
+      "164.312(b)",
+      "164.308(a)(1)(ii)(D)"
+    ],
+    "gdpr": [
+      "Art.30",
+      "Art.33"
+    ],
+    "soc2": [
+      "CC7.2",
+      "CC7.3"
+    ]
+  }
+}

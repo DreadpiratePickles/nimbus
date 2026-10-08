@@ -1,0 +1,153 @@
+# Attack-path rules. Each rule is an ordered chain of stages; a stage matches a FAIL
+# finding carrying the weakness, joined to the previous step by `relation`:
+#   same_resource  - identical resource ID
+#   related        - resources linked by an edge (attachment, same cluster/namespace, ID containment)
+#   same_account   - same provider + account (weakest link; flagged in narrative as "confirm attachment")
+#   any            - any finding of this provider
+# `resource_types` optionally narrows a stage. Score = severity weight × relation tightness.
+rules:
+  - id: INTERNET_TO_ACCOUNT_ADMIN
+    name: Internet-exposed compute to account admin via metadata credentials
+    impact: Full cloud account compromise
+    mitre: [T1190, T1552.005, T1078.004]
+    stages:
+      - weakness: PUBLIC_NETWORK_EXPOSURE
+        label: Attacker reaches the workload from the internet
+      - weakness: IMDSV1_ENABLED
+        relation: related
+        fallback: same_account
+        label: SSRF or RCE on the workload steals role credentials from IMDSv1
+      - weakness: OVERPRIVILEGED_IDENTITY
+        relation: same_account
+        label: Stolen credentials carry administrative privileges
+
+  - id: PUBLIC_BUCKET_SILENT_EXFIL
+    name: Public storage with no encryption and no access logs
+    impact: Undetected bulk data exfiltration
+    mitre: [T1530, T1562.008]
+    stages:
+      - weakness: PUBLIC_DATA_STORE
+        label: Bucket readable by anyone on the internet
+      - weakness: UNENCRYPTED_AT_REST
+        relation: same_resource
+        label: Objects stored in clear text
+      - weakness: NO_LOGGING
+        relation: same_resource
+        fallback: same_account
+        label: Reads leave no audit trail
+
+  - id: PUBLIC_DATABASE_BREACH
+    name: Internet-reachable database holding unencrypted data
+    impact: Direct database compromise and data theft
+    mitre: [T1190, T1213]
+    stages:
+      - weakness: PUBLIC_NETWORK_EXPOSURE
+        requires: [DATABASE]
+        label: Database endpoint reachable from the internet
+      - weakness: UNENCRYPTED_AT_REST
+        relation: same_resource
+        label: Storage and snapshots are unencrypted
+
+  - id: CREDENTIAL_THEFT_TO_ADMIN
+    name: Phished identity without MFA holding admin rights, with logging gaps
+    impact: Persistent privileged access
+    mitre: [T1078, T1556.006, T1562.008]
+    stages:
+      - weakness: NO_MFA
+        label: Password alone unlocks the identity
+      - weakness: OVERPRIVILEGED_IDENTITY
+        relation: same_resource
+        fallback: same_account
+        label: Identity or account carries wildcard privileges
+      - weakness: NO_LOGGING
+        relation: same_account
+        label: Activity is not captured by audit logging
+
+  - id: STALE_KEY_ABUSE
+    name: Long-lived access key with broad privileges
+    impact: Silent persistence via leaked long-lived credentials
+    mitre: [T1552.001, T1078.004]
+    stages:
+      - weakness: STALE_CREDENTIALS
+        label: Access key not rotated or unused for 90+ days
+      - weakness: OVERPRIVILEGED_IDENTITY
+        relation: same_account
+        label: Account contains wildcard admin policies the key may exercise
+
+  - id: CROSS_ACCOUNT_PIVOT
+    name: Externally assumable role with admin rights
+    impact: Lateral movement from a foreign account
+    mitre: [T1078.004, T1098.003]
+    stages:
+      - weakness: CROSS_ACCOUNT_TRUST
+        label: Role trusts external or wildcard principals
+      - weakness: OVERPRIVILEGED_IDENTITY
+        relation: related
+        fallback: same_account
+        label: Trusted role is attached to an admin policy
+
+  - id: CONTAINER_ESCAPE_TO_CLUSTER_ADMIN
+    name: Privileged pod escapes to the node and takes the cluster
+    impact: Full Kubernetes cluster compromise
+    mitre: [T1611, T1552.007, T1078]
+    stages:
+      - weakness: PRIVILEGED_CONTAINER
+        label: Container runs privileged or allows privilege escalation
+      - weakness: HOST_ACCESS
+        relation: same_resource
+        fallback: related
+        label: Host namespaces or hostPath expose the node
+      - weakness: CLUSTER_ADMIN
+        relation: same_account
+        label: cluster-admin bindings make any stolen token omnipotent
+
+  - id: VULNERABLE_IMAGE_LATERAL_MOVEMENT
+    name: Exploitable image in a flat network with mounted service account tokens
+    impact: Lateral movement across the cluster
+    mitre: [T1190, T1021, T1528]
+    stages:
+      - weakness: UNPATCHED
+        label: Known exploitable vulnerability in a running image
+      - weakness: NO_NETWORK_POLICY
+        relation: same_account
+        label: No NetworkPolicy limits east-west traffic
+      - weakness: SERVICE_ACCOUNT_TOKEN
+        relation: same_account
+        label: Pods auto-mount service account tokens for API access
+
+  - id: PUBLIC_K8S_API_TAKEOVER
+    name: Public control plane with over-permissive authorization
+    impact: Cluster takeover from the internet
+    mitre: [T1190, T1078]
+    stages:
+      - weakness: PUBLIC_NETWORK_EXPOSURE
+        requires: [K8S_API]
+        label: Kubernetes API reachable from the internet
+      - weakness: OVERPRIVILEGED_IDENTITY
+        relation: same_account
+        label: Legacy ABAC, disabled RBAC or cluster-admin bindings
+
+  - id: SUPPLY_CHAIN_TO_CLOUD
+    name: Unprotected repository leaks cloud credentials
+    impact: Pipeline-driven cloud compromise
+    mitre: [T1195.002, T1552.001, T1078.004]
+    stages:
+      - weakness: BRANCH_UNPROTECTED
+        label: Anyone with push access can land code without review
+      - weakness: SECRET_EXPOSURE
+        relation: any
+        label: Secrets live in source or are not scanned for
+      - weakness: OVERPRIVILEGED_IDENTITY
+        relation: any
+        label: Leaked credential maps to an admin identity
+
+  - id: IDENTITY_PROVIDER_TAKEOVER
+    name: Weak identity-provider policy guarding privileged accounts
+    impact: SSO compromise cascading to every connected app
+    mitre: [T1556, T1078.004, T1098]
+    stages:
+      - weakness: WEAK_AUTH
+        label: Sign-on policy allows legacy auth or skips MFA
+      - weakness: OVERPRIVILEGED_IDENTITY
+        relation: same_account
+        label: Privileged administrators exist under that policy

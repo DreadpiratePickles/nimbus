@@ -1,0 +1,58 @@
+{
+  "Provider": "aws",
+  "CheckID": "ec2_elastic_ip_unassigned",
+  "CheckTitle": "Check if there is any unassigned Elastic IP",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "ec2",
+  "SubServiceName": "eip",
+  "ResourceIdTemplate": "arn:partition:ec2:region:account-id:eip-allocation/allocation-id",
+  "Severity": "low",
+  "ResourceType": "AwsEc2Eip",
+  "Description": "Checks for Elastic IP addresses that are not associated with any instance or network interface.",
+  "Risk": "Orphaned public IPs incur cost, clutter inventory and can be re-associated to unintended resources.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws ec2 release-address --allocation-id <allocation-id>",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Release Elastic IPs that are not in use.",
+      "Url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "Not a numbered CIS AWS 3.0 control; mapped to 5.2 (network exposure). Also a cost finding.",
+  "Compliance": {
+    "cis_aws": [
+      "5.2"
+    ],
+    "nist_800_53": [
+      "CM-8",
+      "SC-7"
+    ],
+    "pci_dss": [
+      "1.2.7"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

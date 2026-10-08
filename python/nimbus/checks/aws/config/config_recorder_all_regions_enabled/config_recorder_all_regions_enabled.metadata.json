@@ -1,0 +1,60 @@
+{
+  "Provider": "aws",
+  "CheckID": "config_recorder_all_regions_enabled",
+  "CheckTitle": "Ensure AWS Config is enabled in all regions",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "config",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:config:region:account-id:recorder",
+  "Severity": "medium",
+  "ResourceType": "AwsConfigConfigurationRecorder",
+  "Description": "Checks that an AWS Config configuration recorder is recording without failure in every region.",
+  "Risk": "Without AWS Config, configuration history and drift needed for incident response and compliance evidence are missing.",
+  "RelatedUrl": "https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws configservice put-configuration-recorder --configuration-recorder name=default,roleARN=<role> --recording-group allSupported=true,includeGlobalResourceTypes=true && aws configservice start-configuration-recorder --configuration-recorder-name default",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable an AWS Config recorder (all supported resources, including global resources in one region) in every region.",
+      "Url": "https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html"
+    }
+  },
+  "Categories": [
+    "logging"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "3.3"
+    ],
+    "nist_800_53": [
+      "CM-8",
+      "CM-3",
+      "CA-7"
+    ],
+    "pci_dss": [
+      "10.2.1",
+      "11.5.2"
+    ],
+    "hipaa": [
+      "164.312(b)",
+      "164.308(a)(1)(ii)(D)"
+    ],
+    "gdpr": [
+      "Art.30",
+      "Art.33"
+    ],
+    "soc2": [
+      "CC7.2",
+      "CC7.3"
+    ]
+  }
+}

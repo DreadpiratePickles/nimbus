@@ -1,0 +1,31 @@
+{
+  "name": "cloud-posture",
+  "displayName": "cloud-posture: cloud security inline",
+  "description": "Shows cloud misconfigurations inline in Terraform, CloudFormation, Bicep and Kubernetes files, with one-click fixes, powered by the cloud-posture CLI.",
+  "version": "0.1.0",
+  "publisher": "nimbus-cspm",
+  "license": "Apache-2.0",
+  "repository": {"type": "git", "url": "https://github.com/DreadpiratePickles/nimbus"},
+  "engines": {"vscode": "^1.85.0"},
+  "categories": ["Linters", "Other"],
+  "activationEvents": ["workspaceContains:**/*.tf", "workspaceContains:**/*.bicep", "workspaceContains:**/*.yaml", "workspaceContains:**/*.yml", "workspaceContains:**/*.json"],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {"command": "cloudPosture.scanWorkspace", "title": "cloud-posture: Scan workspace IaC"},
+      {"command": "cloudPosture.scanFile", "title": "cloud-posture: Scan current file"},
+      {"command": "cloudPosture.showAttackPaths", "title": "cloud-posture: Show attack paths (Mermaid)"},
+      {"command": "cloudPosture.openDashboard", "title": "cloud-posture: Open dashboard"}
+    ],
+    "configuration": {
+      "title": "cloud-posture",
+      "properties": {
+        "cloudPosture.binaryPath": {"type": "string", "default": "cloud-posture", "description": "Path to the cloud-posture binary."},
+        "cloudPosture.scanOnSave": {"type": "boolean", "default": true, "description": "Re-scan IaC files on save."},
+        "cloudPosture.minSeverity": {"type": "string", "default": "LOW", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]},
+        "cloudPosture.extraArgs": {"type": "array", "default": [], "description": "Extra arguments for `cloud-posture scan --iac`."}
+      }
+    }
+  },
+  "scripts": {"package": "npx @vscode/vsce package"}
+}

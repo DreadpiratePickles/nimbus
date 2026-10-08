@@ -1,0 +1,63 @@
+{
+  "Provider": "aws",
+  "CheckID": "ec2_securitygroup_allow_ingress_from_internet_to_any_port",
+  "CheckTitle": "Ensure no security groups allow ingress from 0.0.0.0/0 or ::/0 to any port",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "ec2",
+  "SubServiceName": "securitygroup",
+  "ResourceIdTemplate": "arn:partition:ec2:region:account-id:security-group/sg-id",
+  "Severity": "high",
+  "ResourceType": "AwsEc2SecurityGroup",
+  "Description": "Checks whether security groups allow ingress from 0.0.0.0/0 or ::/0 to any port.",
+  "Risk": "Security groups open on every port expose all services on attached resources. Exposure to the whole internet invites brute-force, credential-stuffing and exploit attempts.",
+  "RelatedUrl": "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws ec2 revoke-security-group-ingress --group-id <sg> --ip-permissions <perm>",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Restrict ingress to any port to known administrative CIDRs, or use SSM Session Manager / a bastion instead of direct exposure.",
+      "Url": "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "5.2",
+      "5.3"
+    ],
+    "nist_800_53": [
+      "SC-7",
+      "SC-7(5)",
+      "AC-17",
+      "CM-7"
+    ],
+    "pci_dss": [
+      "1.3.1",
+      "1.3.2",
+      "1.4.1"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

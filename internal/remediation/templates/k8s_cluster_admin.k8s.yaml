@@ -1,0 +1,25 @@
+# Replace the cluster-admin binding {{ .Name }} with a namespaced, scoped role.
+# Delete the offending binding first:  kubectl delete clusterrolebinding {{ .Name }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Slug }}-scoped
+  namespace: {{ .Namespace }}
+rules:
+  - apiGroups: ["", "apps"]
+    resources: ["pods", "deployments", "services", "configmaps"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Slug }}-scoped
+  namespace: {{ .Namespace }}
+subjects:
+  - kind: {{ default "ServiceAccount" .Attr.subject_kind }}
+    name: {{ default "TODO-subject" .Attr.subject }}
+    namespace: {{ .Namespace }}
+roleRef:
+  kind: Role
+  name: {{ .Slug }}-scoped
+  apiGroup: rbac.authorization.k8s.io

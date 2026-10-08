@@ -1,0 +1,58 @@
+{
+  "Provider": "aws",
+  "CheckID": "s3_bucket_default_encryption",
+  "CheckTitle": "Check if S3 buckets have default encryption (SSE) enabled or use a bucket policy to enforce it",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "s3",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:s3:::bucket-name",
+  "Severity": "medium",
+  "ResourceType": "AwsS3Bucket",
+  "Description": "Checks that S3 buckets have a default server-side encryption configuration.",
+  "Risk": "Objects stored without encryption at rest may be exposed if storage media or backups are accessed.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws s3api put-bucket-encryption --bucket <bucket> --server-side-encryption-configuration '{\"Rules\":[{\"ApplyServerSideEncryptionByDefault\":{\"SSEAlgorithm\":\"aws:kms\"}}]}'",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Configure default bucket encryption with SSE-KMS (preferably a customer managed key) or SSE-S3.",
+      "Url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html"
+    }
+  },
+  "Categories": [
+    "encryption"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "CIS AWS 3.0 2.1.1 groups S3 data-in-transit/at-rest enforcement; nimbus frameworks.yaml labels 2.1.1 'deny HTTP / encryption enforced'.",
+  "Compliance": {
+    "cis_aws": [
+      "2.1.1"
+    ],
+    "nist_800_53": [
+      "SC-28",
+      "SC-28(1)",
+      "SC-13"
+    ],
+    "pci_dss": [
+      "3.5.1"
+    ],
+    "hipaa": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(2)(ii)"
+    ],
+    "gdpr": [
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.7"
+    ]
+  }
+}

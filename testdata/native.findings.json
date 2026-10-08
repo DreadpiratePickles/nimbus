@@ -1,0 +1,1 @@
+[{"source":"okta-plugin","check_id":"okta_admin_user_mfa_enrolled","canonical_id":"OKTA_ADMIN_NO_MFA","title":"Okta admin without MFA","severity":"CRITICAL","status":"FAIL","provider":"okta","account":"acme.okta.com","resource":{"id":"00u1alice","type":"okta_user","name":"alice@acme.com"},"weaknesses":["NO_MFA","OVERPRIVILEGED_IDENTITY"]}]

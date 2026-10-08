@@ -1,0 +1,61 @@
+{
+  "Provider": "aws",
+  "CheckID": "iam_support_role_created",
+  "CheckTitle": "Ensure a support role has been created to manage incidents with AWS Support",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark",
+    "Software and Configuration Checks/AWS Security Best Practices/Identity and Access Management"
+  ],
+  "ServiceName": "iam",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:iam::aws:policy/AWSSupportAccess",
+  "Severity": "medium",
+  "ResourceType": "AwsIamRole",
+  "Description": "Checks that the AWSSupportAccess managed policy is attached to at least one IAM role.",
+  "Risk": "Without a dedicated support role, incident responders either cannot open AWS support cases or are given overly broad access to do so.",
+  "RelatedUrl": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws iam attach-role-policy --role-name <support-role> --policy-arn arn:aws:iam::aws:policy/AWSSupportAccess",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Create an IAM role that trusted users can assume and attach the AWSSupportAccess managed policy to it.",
+      "Url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    }
+  },
+  "Categories": [
+    "identity-access"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "1.17"
+    ],
+    "nist_800_53": [
+      "IR-7",
+      "AC-2"
+    ],
+    "pci_dss": [
+      "12.10.1"
+    ],
+    "hipaa": [
+      "164.312(a)(1)",
+      "164.312(d)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ]
+  }
+}

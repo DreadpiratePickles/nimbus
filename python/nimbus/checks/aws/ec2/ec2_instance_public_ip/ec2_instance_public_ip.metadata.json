@@ -1,0 +1,59 @@
+{
+  "Provider": "aws",
+  "CheckID": "ec2_instance_public_ip",
+  "CheckTitle": "Check for EC2 Instances with a Public IP",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "ec2",
+  "SubServiceName": "instance",
+  "ResourceIdTemplate": "arn:partition:ec2:region:account-id:instance/instance-id",
+  "Severity": "medium",
+  "ResourceType": "AwsEc2Instance",
+  "Description": "Checks whether EC2 instances have a public IPv4 address.",
+  "Risk": "Instances with public IPs are directly reachable from the internet, so any security group mistake exposes them.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-security.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Place instances in private subnets behind load balancers, NAT and SSM instead of assigning public IPs.",
+      "Url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-security.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "Not a numbered CIS AWS 3.0 control; mapped to 5.2 (network exposure of administration ports).",
+  "Compliance": {
+    "cis_aws": [
+      "5.2"
+    ],
+    "nist_800_53": [
+      "SC-7",
+      "AC-4"
+    ],
+    "pci_dss": [
+      "1.4.1",
+      "1.3.1"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

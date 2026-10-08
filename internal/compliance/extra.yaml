@@ -1,0 +1,42 @@
+# Frameworks derived from weaknesses (so every tool's findings contribute) plus custom-framework support.
+frameworks:
+  soc2:
+    name: SOC 2 Trust Services Criteria
+    version: "2017 (2022 points of focus)"
+    controls:
+      CC6.1: Logical access security software, infrastructure and architectures
+      CC6.2: Registration and authorization of new internal and external users
+      CC6.3: Role-based access and least privilege
+      CC6.6: Boundary protection against threats from outside system boundaries
+      CC6.7: Restriction and encryption of data in transmission
+      CC6.8: Prevention of unauthorized or malicious software
+      CC7.1: Detection and monitoring of vulnerabilities and configuration changes
+      CC7.2: Monitoring of system components for anomalies
+      CC7.3: Evaluation of security events
+      CC8.1: Change management
+      A1.2: Backup and recovery
+      C1.1: Protection of confidential information
+weakness_mappings:
+  PUBLIC_DATA_STORE:        {soc2: [CC6.1, CC6.6, C1.1], iso_27001: [A.5.15, A.8.3, A.8.12]}
+  PUBLIC_NETWORK_EXPOSURE:  {soc2: [CC6.6], iso_27001: [A.8.20]}
+  UNENCRYPTED_AT_REST:      {soc2: [CC6.1, C1.1], iso_27001: [A.8.24]}
+  UNENCRYPTED_IN_TRANSIT:   {soc2: [CC6.7], iso_27001: [A.8.24, A.8.20]}
+  NO_LOGGING:               {soc2: [CC7.2, CC7.3], iso_27001: [A.8.15, A.8.16]}
+  NO_MFA:                   {soc2: [CC6.1, CC6.2], iso_27001: [A.8.5, A.5.17]}
+  OVERPRIVILEGED_IDENTITY:  {soc2: [CC6.3], iso_27001: [A.8.2, A.5.15]}
+  IMDSV1_ENABLED:           {soc2: [CC6.1], iso_27001: [A.8.9]}
+  PRIVILEGED_CONTAINER:     {soc2: [CC6.8], iso_27001: [A.8.9]}
+  HOST_ACCESS:              {soc2: [CC6.8], iso_27001: [A.8.9]}
+  SECRET_EXPOSURE:          {soc2: [CC6.1, C1.1], iso_27001: [A.5.17, A.8.28]}
+  STALE_CREDENTIALS:        {soc2: [CC6.2], iso_27001: [A.5.17]}
+  CROSS_ACCOUNT_TRUST:      {soc2: [CC6.3], iso_27001: [A.5.15]}
+  NO_BACKUP:                {soc2: [A1.2], iso_27001: [A.8.13]}
+  UNPATCHED:                {soc2: [CC7.1], iso_27001: [A.8.8]}
+  WEAK_AUTH:                {soc2: [CC6.1], iso_27001: [A.8.5]}
+  WEAK_CRYPTO:              {soc2: [CC6.1], iso_27001: [A.8.24]}
+  NO_NETWORK_POLICY:        {soc2: [CC6.6], iso_27001: [A.8.22]}
+  BRANCH_UNPROTECTED:       {soc2: [CC8.1], iso_27001: [A.8.32]}
+  CLUSTER_ADMIN:            {soc2: [CC6.3], iso_27001: [A.8.2]}
+  SERVICE_ACCOUNT_TOKEN:    {soc2: [CC6.1], iso_27001: [A.8.2]}
+  NO_RESOURCE_LIMITS:       {soc2: [CC7.1], iso_27001: [A.8.6]}
+  RUNS_AS_ROOT:             {soc2: [CC6.8], iso_27001: [A.8.9]}

@@ -1,0 +1,60 @@
+{
+  "Provider": "aws",
+  "CheckID": "guardduty_is_enabled",
+  "CheckTitle": "Check if GuardDuty is enabled",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "guardduty",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:guardduty:region:account-id:detector/detector-id",
+  "Severity": "medium",
+  "ResourceType": "AwsGuardDutyDetector",
+  "Description": "Checks that an enabled GuardDuty detector exists in every region.",
+  "Risk": "Without GuardDuty, credential compromise, crypto-mining, reconnaissance and data exfiltration indicators are not detected.",
+  "RelatedUrl": "https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws guardduty create-detector --enable",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable GuardDuty in all regions (ideally via a delegated administrator for the organization).",
+      "Url": "https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html"
+    }
+  },
+  "Categories": [
+    "threat-detection"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "Not a numbered CIS AWS 3.0 control; mapped to 4.16 (managed threat detection / Security Hub).",
+  "Compliance": {
+    "cis_aws": [
+      "4.16"
+    ],
+    "nist_800_53": [
+      "SI-4",
+      "SI-4(2)",
+      "IR-4"
+    ],
+    "pci_dss": [
+      "10.7.2",
+      "11.5.1"
+    ],
+    "hipaa": [
+      "164.308(a)(1)(ii)(D)",
+      "164.308(a)(6)(ii)"
+    ],
+    "gdpr": [
+      "Art.32",
+      "Art.33"
+    ],
+    "soc2": [
+      "CC7.1",
+      "CC7.2"
+    ]
+  }
+}

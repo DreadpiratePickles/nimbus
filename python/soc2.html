@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AICPA SOC 2 Trust Services Criteria compliance report</title>
+<style>
+:root{--ink:#0b0b0b;--ink-2:#52514e;--muted:#8a8984;--line:#e4e3de;--surface:#fcfcfb;--panel:#ffffff;
+--good:#0ca30c;--warning:#fab219;--serious:#ec835a;--critical:#d03b3b;--na:#b7b6af;--accent:#2a78d6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:1080px;margin:0 auto;padding:32px 20px}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;margin:36px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+h3{font-size:15px;margin:18px 0 6px}
+.sub{color:var(--ink-2)}.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.tile .v{font-size:24px;font-weight:650}.tile .k{color:var(--ink-2);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.summary{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;background:var(--panel)}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px}
+th{font-size:12px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.03em;background:#f6f5f2}
+.badge{display:inline-flex;align-items:center;gap:5px;font-weight:600;font-size:12px;white-space:nowrap}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.FAIL .dot{background:var(--critical)}.PASS .dot{background:var(--good)}.NOT_ASSESSED .dot{background:var(--na)}
+.sev-CRITICAL .dot{background:var(--critical)}.sev-HIGH .dot{background:var(--serious)}.sev-MEDIUM .dot{background:var(--warning)}
+.sev-LOW .dot{background:var(--accent)}.sev-INFO .dot{background:var(--na)}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+pre{white-space:pre-wrap;word-break:break-all;background:#f6f5f2;border:1px solid var(--line);border-radius:6px;padding:8px;margin:6px 0}
+.ev{border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0;background:var(--panel);break-inside:avoid}
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px;background:var(--surface);margin:8px 0}
+.bar span{display:block;height:100%}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+footer{margin-top:48px;color:var(--muted);font-size:12px}
+.page{break-before:page}
+@media print{body{background:#fff}main{padding:0}.tile,.ev,table{break-inside:avoid}h2{break-after:avoid}a{color:inherit;text-decoration:none}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>AICPA SOC 2 Trust Services Criteria <span class="muted">v2017 (rev. 2022)</span></h1>
+  <div class="sub">Compliance report · generated 2026-10-08T22:51:13Z · scope: aws:123456789012, aws:iac, azure:sub-0000, iac:iac, kubernetes:iac, okta:acme.okta.com · scan <code>20261008T224802Z</code></div>
+</header>
+
+<h2>Executive summary</h2>
+<div class="summary">
+  <svg class="gauge" role="img" aria-label="Compliance score: 18.1% (At risk)" width="180" height="129" viewBox="0 0 180 130" xmlns="http://www.w3.org/2000/svg"><path d="M 20 88 A 70 70 0 0 1 160 88" fill="none" stroke="#e4e3de" stroke-width="14" stroke-linecap="round"/><path d="M 20 88 A 70 70 0 0 1 31.02 50.31" fill="none" stroke="#d03b3b" stroke-width="14" stroke-linecap="round"/><text x="90" y="80" text-anchor="middle" font-size="30" font-weight="700" fill="#0b0b0b" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">18.1%</text><text x="90" y="104" text-anchor="middle" font-size="12" fill="#52514e" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">At risk · Compliance score</text></svg>
+  <div style="flex:1;min-width:260px">
+    <p>AICPA SOC 2 Trust Services Criteria: 18.1% of assessed controls pass (2 of 11); 1 control(s) need manual evidence. Highest-priority fix: Ensure S3 bucket has block public ACLS enabled (S3_PUBLIC_BUCKET, HIGH, 3 resource(s)), affecting controls C1.1, CC6.1, CC6.6. 8 CRITICAL finding(s) are open. 19 attack path(s) chain these weaknesses into breach scenarios.</p>
+    <div class="grid">
+      <div class="tile"><div class="k">Controls</div><div class="v">12</div></div>
+      <div class="tile"><div class="k">Passing</div><div class="v">2</div></div>
+      <div class="tile"><div class="k">Failing</div><div class="v">9</div></div>
+      <div class="tile"><div class="k">Not assessed</div><div class="v">1</div></div>
+      <div class="tile"><div class="k">Attack paths</div><div class="v">19</div></div>
+    </div>
+    
+    <div class="bar" role="img" aria-label="2 passing, 9 failing, 1 not assessed">
+      <span style="width:16.666666666666668%;background:var(--good)"></span>
+      <span style="width:75.0%;background:var(--critical)"></span>
+      <span style="width:8.333333333333334%;background:var(--na)"></span>
+    </div>
+    <div class="legend"><span class="badge PASS"><i class="dot"></i>Passing 2</span><span class="badge FAIL"><i class="dot"></i>Failing 9</span><span class="badge NOT_ASSESSED"><i class="dot"></i>Not assessed 1</span></div>
+    <p class="sub">Open findings in scope:
+      <span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL 8</span>&nbsp; <span class="badge sev-HIGH"><i class="dot"></i>HIGH 12</span>&nbsp; <span class="badge sev-MEDIUM"><i class="dot"></i>MEDIUM 3</span>&nbsp; <span class="badge sev-LOW"><i class="dot"></i>LOW 1</span>&nbsp; </p>
+  </div>
+</div>
+
+<h2>Control status</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Control</th><th>Title</th><th>Status</th><th>Failed</th><th>Passed</th><th>Max severity</th><th>Failing resources</th></tr></thead>
+<tbody>
+<tr>
+  <td><code>A1.2</code></td><td>Environmental protections, backup and recovery infrastructure</td>
+  <td><span class="badge PASS"><i class="dot"></i>PASS</span></td>
+  <td>0</td><td>1</td>
+  <td></td>
+  <td></td>
+</tr><tr>
+  <td><code>C1.1</code></td><td>Identification and protection of confidential information</td>
+  <td><span class="badge FAIL"><i class="dot"></i>FAIL</span></td>
+  <td>8</td><td>1</td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>acmeprodfiles, acmedev, a1b2c3, payments-prod, exports +2 more</td>
+</tr><tr>
+  <td><code>CC6.1</code></td><td>Logical access security software, infrastructure and architectures</td>
+  <td><span class="badge FAIL"><i class="dot"></i>FAIL</span></td>
+  <td>13</td><td>2</td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>root, acmeprodfiles, acmedev, a1b2c3, alice@acme.com +7 more</td>
+</tr><tr>
+  <td><code>CC6.2</code></td><td>User registration and authorization prior to issuing credentials</td>
+  <td><span class="badge FAIL"><i class="dot"></i>FAIL</span></td>
+  <td>4</td><td>0</td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>root, alice@acme.com, 00u1alice, ci-deployer</td>
+</tr><tr>
+  <td><code>CC6.3</code></td><td>Role-based access and least privilege; access is modified or removed as needed</td>
+  <td><span class="badge FAIL"><i class="dot"></i>FAIL</span></td>
+  <td>7</td><td>0</td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>root, alice@acme.com, 00u1alice, web-admin-role, Deployment/api +1 more</td>
+</tr><tr>
+  <td><code>CC6.6</code></td><td>Boundary protection against threats from outside system boundaries</td>
+  <td><span class="badge FAIL"><i class="dot"></i>FAIL</span></td>
+  <td>9</td><td>1</td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>payments-prod, acmeprodfiles, acmedev, web, web-sg +4 more</td>
+</tr><tr>
+  <td><code>CC6.7</code></td><td>Restriction and protection of information in transmission (encryption)</td>
+  <td><span class="badge PASS"><i class="dot"></i>PASS</span></td>
+  <td>0</td><td>2</td>
+  <td></td>
+  <td></td>
+</tr><tr>
+  <td><code>CC6.8</code></td><td>Prevention or detection of unauthorized or malicious software</td>
+  <td><span class="badge FAIL"><i class="dot"></i>FAIL</span></td>
+  <td>3</td><td>0</td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>k8s/prod, Deployment/api</td>
+</tr><tr>
+  <td><code>CC7.1</code></td><td>Detection of configuration changes and newly discovered vulnerabilities</td>
+  <td><span class="badge FAIL"><i class="dot"></i>FAIL</span></td>
+  <td>3</td><td>0</td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>k8s/prod, web, web-1</td>
+</tr><tr>
+  <td><code>CC7.2</code></td><td>Monitoring of system components for anomalies indicative of malicious acts</td>
+  <td><span class="badge FAIL"><i class="dot"></i>FAIL</span></td>
+  <td>2</td><td>0</td>
+  <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>trail, customer-pii-exports</td>
+</tr><tr>
+  <td><code>CC7.3</code></td><td>Evaluation of security events to determine whether they are incidents</td>
+  <td><span class="badge FAIL"><i class="dot"></i>FAIL</span></td>
+  <td>2</td><td>0</td>
+  <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>trail, customer-pii-exports</td>
+</tr><tr>
+  <td><code>CC8.1</code></td><td>Change management - authorization, testing and approval of changes</td>
+  <td><span class="badge NOT_ASSESSED"><i class="dot"></i>NOT ASSESSED</span></td>
+  <td>0</td><td>0</td>
+  <td></td>
+  <td></td>
+</tr>
+</tbody></table></div>
+
+<h2>Remediation roadmap</h2>
+
+<div class="table-wrap"><table>
+<thead><tr><th>#</th><th>Check</th><th>Severity</th><th>Resources</th><th>Controls</th><th>Fix</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td><strong>Ensure S3 bucket has block public ACLS enabled</strong><br><code>S3_PUBLIC_BUCKET</code><br><span class="sub">https://docs.prismacloud.io/...</span></td>
+  <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>3</td><td>C1.1, CC6.1, CC6.6</td>
+  <td><code>cloud-posture fix --finding S3_PUBLIC_BUCKET --generate-terraform</code></td>
+</tr><tr>
+  <td>2</td>
+  <td><strong>Storage Account Allows Public Blob Access</strong><br><code>AZ_STORAGE_PUBLIC_BLOB</code><br><span class="sub">Disable public blob access.</span></td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>2</td><td>C1.1, CC6.1, CC6.6</td>
+  <td><code>cloud-posture fix --finding AZ_STORAGE_PUBLIC_BLOB --generate-terraform</code></td>
+</tr><tr>
+  <td>3</td>
+  <td><strong>Okta admin without MFA</strong><br><code>OKTA_ADMIN_NO_MFA</code></td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>2</td><td>CC6.1, CC6.2, CC6.3</td>
+  <td><code>cloud-posture fix --finding OKTA_ADMIN_NO_MFA --generate-terraform</code></td>
+</tr><tr>
+  <td>4</td>
+  <td><strong>Ensure Instance Metadata Service Version 1 is not enabled</strong><br><code>EC2_IMDSV1</code><br><span class="sub">Require IMDSv2.</span></td>
+  <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>2</td><td>CC6.1, CC7.1</td>
+  <td><code>cloud-posture fix --finding EC2_IMDSV1 --generate-terraform</code></td>
+</tr><tr>
+  <td>5</td>
+  <td><strong>Ensure no security groups allow ingress from 0.0.0.0:0 to port 22</strong><br><code>EC2_SG_OPEN_SSH</code><br><span class="sub">Restrict ingress.</span></td>
+  <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>2</td><td>CC6.6</td>
+  <td><code>cloud-posture fix --finding EC2_SG_OPEN_SSH --generate-terraform</code></td>
+</tr><tr>
+  <td>6</td>
+  <td><strong>CVE-2024-6387 in openssh 9.3_p2-r0</strong><br><code>CVE_VULNERABILITY</code><br><span class="sub">Upgrade openssh to 9.3_p2-r1</span></td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>1</td><td>CC6.8, CC7.1</td>
+  <td><code>cloud-posture fix --finding CVE_VULNERABILITY --generate-terraform</code></td>
+</tr><tr>
+  <td>7</td>
+  <td><strong>Ensure MFA is enabled for the root account</strong><br><code>IAM_ROOT_NO_MFA</code><br><span class="sub">Enable hardware MFA for root.</span></td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>1</td><td>CC6.1, CC6.2, CC6.3</td>
+  <td><code>cloud-posture fix --finding IAM_ROOT_NO_MFA --generate-terraform</code></td>
+</tr><tr>
+  <td>8</td>
+  <td><strong>Ensure there are no Public Accessible RDS instances</strong><br><code>RDS_PUBLIC</code><br><span class="sub">Disable public access.</span></td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>1</td><td>CC6.6</td>
+  <td><code>cloud-posture fix --finding RDS_PUBLIC --generate-terraform</code></td>
+</tr><tr>
+  <td>9</td>
+  <td><strong>Base64 High Entropy String</strong><br><code>SECRET_HARDCODED</code></td>
+  <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>1</td><td>C1.1, CC6.1</td>
+  <td><code>cloud-posture fix --finding SECRET_HARDCODED --generate-terraform</code></td>
+</tr><tr>
+  <td>10</td>
+  <td><strong>Ensure CloudTrail is enabled in all regions</strong><br><code>CLOUDTRAIL_DISABLED</code><br><span class="sub">Create a multi-region trail.</span></td>
+  <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>1</td><td>CC7.2, CC7.3</td>
+  <td><code>cloud-posture fix --finding CLOUDTRAIL_DISABLED --generate-terraform</code></td>
+</tr><tr>
+  <td>11</td>
+  <td><strong>Ensure IAM policies that allow full administrative privileges are not attached</strong><br><code>IAM_ADMIN_POLICY</code><br><span class="sub">Scope the policy.</span></td>
+  <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>1</td><td>CC6.3</td>
+  <td><code>cloud-posture fix --finding IAM_ADMIN_POLICY --generate-terraform</code></td>
+</tr><tr>
+  <td>12</td>
+  <td><strong>Access to host network</strong><br><code>K8S_HOST_NETWORK</code><br><span class="sub">Do not set &#39;spec.template.spec.hostNetwork&#39; to true.</span></td>
+  <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>1</td><td>CC6.3, CC6.8</td>
+  <td><code>cloud-posture fix --finding K8S_HOST_NETWORK --generate-terraform</code></td>
+</tr><tr>
+  <td>13</td>
+  <td><strong>Privileged container</strong><br><code>K8S_PRIVILEGED_CONTAINER</code><br><span class="sub">Change &#39;containers[].securityContext.privileged&#39; to &#39;false&#39;.</span></td>
+  <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>1</td><td>CC6.3, CC6.8</td>
+  <td><code>cloud-posture fix --finding K8S_PRIVILEGED_CONTAINER --generate-terraform</code></td>
+</tr><tr>
+  <td>14</td>
+  <td><strong>Check if RDS instances storage is encrypted</strong><br><code>RDS_UNENCRYPTED</code><br><span class="sub">Encrypt storage.</span></td>
+  <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>1</td><td>C1.1, CC6.1</td>
+  <td><code>cloud-posture fix --finding RDS_UNENCRYPTED --generate-terraform</code></td>
+</tr><tr>
+  <td>15</td>
+  <td><strong>Check for EC2 Instances with Public IP.</strong><br><code>EC2_PUBLIC_IP</code><br><span class="sub">Use a load balancer.</span></td>
+  <td><span class="badge sev-MEDIUM"><i class="dot"></i>MEDIUM</span></td>
+  <td>1</td><td>CC6.6</td>
+  <td><code>cloud-posture fix --finding EC2_PUBLIC_IP --generate-terraform</code></td>
+</tr><tr>
+  <td>16</td>
+  <td><strong>Ensure access keys unused for 90 days are disabled</strong><br><code>IAM_STALE_KEYS</code><br><span class="sub">Rotate the key.</span></td>
+  <td><span class="badge sev-MEDIUM"><i class="dot"></i>MEDIUM</span></td>
+  <td>1</td><td>CC6.2, CC6.3</td>
+  <td><code>cloud-posture fix --finding IAM_STALE_KEYS --generate-terraform</code></td>
+</tr><tr>
+  <td>17</td>
+  <td><strong>Check if S3 buckets have default encryption (SSE) enabled</strong><br><code>S3_UNENCRYPTED</code><br><span class="sub">Enable default encryption</span></td>
+  <td><span class="badge sev-MEDIUM"><i class="dot"></i>MEDIUM</span></td>
+  <td>1</td><td>C1.1, CC6.1</td>
+  <td><code>cloud-posture fix --finding S3_UNENCRYPTED --generate-terraform</code></td>
+</tr><tr>
+  <td>18</td>
+  <td><strong>Check if S3 bucket has server access logging enabled</strong><br><code>S3_NO_LOGGING</code><br><span class="sub">Enable logging</span></td>
+  <td><span class="badge sev-LOW"><i class="dot"></i>LOW</span></td>
+  <td>1</td><td>CC7.2, CC7.3</td>
+  <td><code>cloud-posture fix --finding S3_NO_LOGGING --generate-terraform</code></td>
+</tr>
+</tbody></table></div>
+
+
+<h2>Attack-path summary</h2>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Path</th><th>Impact</th><th>Severity</th><th>Score</th><th>Account</th><th>MITRE</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Internet → customer-pii-exports</strong><br><span class="sub">Entry: Internet
+1. customer-pii-exports (AwsS3Bucket): readable by anyone on the internet [p=1.00]
+Target: customer-pii-exports (AwsS3Bucket) — likelihood 95% × priority 10</span></td>
+  <td>Sensitive data exfiltration from customer-pii-exports</td><td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>9.5</td><td>aws:123456789012</td><td>T1190</td>
+</tr><tr>
+  <td><strong>Internet → payments-prod</strong><br><span class="sub">Entry: Internet
+1. payments-prod (AwsRdsDbInstance): reachable from the internet [p=0.70]
+Target: payments-prod (AwsRdsDbInstance) — likelihood 66% × priority 10</span></td>
+  <td>Sensitive data exfiltration from payments-prod</td><td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>6.7</td><td>aws:123456789012</td><td>T1190</td>
+</tr><tr>
+  <td><strong>Internet → web-admin-role</strong><br><span class="sub">Entry: Internet
+1. web-1 (AwsEc2Instance): reachable from the internet [p=0.70]
+2. web-admin-role (aws_iam_role): role credentials stolen via IMDSv1 (SSRF) [p=0.90]
+Target: web-admin-role (aws_iam_role) — likelihood 57% × priority 10</span></td>
+  <td>Privilege escalation to web-admin-role</td><td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>5.7</td><td>aws:123456789012</td><td>T1190, T1552.005</td>
+</tr><tr>
+  <td><strong>Internet-reachable database holding unencrypted data</strong><br><span class="sub">1. Database endpoint reachable from the internet: payments-prod [RDS_PUBLIC]
+2. Storage and snapshots are unencrypted: payments-prod [RDS_UNENCRYPTED]</span></td>
+  <td>Direct database compromise and data theft</td><td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>5.6</td><td>aws:123456789012</td><td>T1190, T1213</td>
+</tr><tr>
+  <td><strong>Internet-exposed compute to account admin via metadata credentials</strong><br><span class="sub">1. Attacker reaches the workload from the internet: payments-prod [RDS_PUBLIC]
+2. SSRF or RCE on the workload steals role credentials from IMDSv1: web-1 [EC2_IMDSV1]
+3. Stolen credentials carry administrative privileges: root [IAM_ROOT_NO_MFA]</span></td>
+  <td>Full cloud account compromise</td><td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>5.2</td><td>aws:123456789012</td><td>T1190, T1552.005, T1078.004</td>
+</tr><tr>
+  <td><strong>Phished identity without MFA holding admin rights, with logging gaps</strong><br><span class="sub">1. Password alone unlocks the identity: root [IAM_ROOT_NO_MFA]
+2. Identity or account carries wildcard privileges: web-admin-role [IAM_ADMIN_POLICY]
+3. Activity is not captured by audit logging: trail [CLOUDTRAIL_DISABLED]</span></td>
+  <td>Persistent privileged access</td><td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>4.9</td><td>aws:123456789012</td><td>T1078, T1556.006, T1562.008</td>
+</tr><tr>
+  <td><strong>Internet-exposed compute to account admin via metadata credentials</strong><br><span class="sub">1. Attacker reaches the workload from the internet: payments-prod [RDS_PUBLIC]
+2. SSRF or RCE on the workload steals role credentials from IMDSv1: web-1 [EC2_IMDSV1]
+3. Stolen credentials carry administrative privileges: web-admin-role [IAM_ADMIN_POLICY]</span></td>
+  <td>Full cloud account compromise</td><td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>4.9</td><td>aws:123456789012</td><td>T1190, T1552.005, T1078.004</td>
+</tr><tr>
+  <td><strong>Internet → acmeprodfiles</strong><br><span class="sub">Entry: Internet
+1. acmeprodfiles (storage_account): readable by anyone on the internet [p=1.00]
+Target: acmeprodfiles (storage_account) — likelihood 95% × priority 5</span></td>
+  <td>Account compromise: acmeprodfiles</td><td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>4.8</td><td>azure:sub-0000</td><td>T1190</td>
+</tr><tr>
+  <td><strong>Internet → acmedev</strong><br><span class="sub">Entry: Internet
+1. acmedev (storage_account): readable by anyone on the internet [p=1.00]
+Target: acmedev (storage_account) — likelihood 95% × priority 5</span></td>
+  <td>Account compromise: acmedev</td><td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>4.8</td><td>azure:sub-0000</td><td>T1190</td>
+</tr><tr>
+  <td><strong>Internet-exposed compute to account admin via metadata credentials</strong><br><span class="sub">1. Attacker reaches the workload from the internet: web-1 [EC2_PUBLIC_IP]
+2. SSRF or RCE on the workload steals role credentials from IMDSv1: web-1 [EC2_IMDSV1]
+3. Stolen credentials carry administrative privileges: root [IAM_ROOT_NO_MFA]</span></td>
+  <td>Full cloud account compromise</td><td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>4.7</td><td>aws:123456789012</td><td>T1190, T1552.005, T1078.004</td>
+</tr><tr>
+  <td><strong>Internet-exposed compute to account admin via metadata credentials</strong><br><span class="sub">1. Attacker reaches the workload from the internet: web-sg [EC2_SG_OPEN_SSH]
+2. SSRF or RCE on the workload steals role credentials from IMDSv1: web-1 [EC2_IMDSV1]
+3. Stolen credentials carry administrative privileges: root [IAM_ROOT_NO_MFA]</span></td>
+  <td>Full cloud account compromise</td><td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>4.7</td><td>aws:123456789012</td><td>T1190, T1552.005, T1078.004</td>
+</tr><tr>
+  <td><strong>Public storage with no encryption and no access logs</strong><br><span class="sub">1. Bucket readable by anyone on the internet: customer-pii-exports [S3_PUBLIC_BUCKET]
+2. Objects stored in clear text: customer-pii-exports [S3_UNENCRYPTED]
+3. Reads leave no audit trail: customer-pii-exports [S3_NO_LOGGING]</span></td>
+  <td>Undetected bulk data exfiltration</td><td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>4.5</td><td>aws:123456789012</td><td>T1530, T1562.008</td>
+</tr><tr>
+  <td><strong>Public storage with no encryption and no access logs</strong><br><span class="sub">1. Bucket readable by anyone on the internet: arn:aws:s3:::customer-pii-exports [S3_PUBLIC_BUCKET]
+2. Objects stored in clear text: customer-pii-exports [S3_UNENCRYPTED]
+3. Reads leave no audit trail: customer-pii-exports [S3_NO_LOGGING]</span></td>
+  <td>Undetected bulk data exfiltration</td><td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>4.5</td><td>aws:123456789012</td><td>T1530, T1562.008</td>
+</tr><tr>
+  <td><strong>Internet-exposed compute to account admin via metadata credentials</strong><br><span class="sub">1. Attacker reaches the workload from the internet: web-sg [EC2_SG_OPEN_SSH]
+2. SSRF or RCE on the workload steals role credentials from IMDSv1: web-1 [EC2_IMDSV1]
+3. Stolen credentials carry administrative privileges: web-admin-role [IAM_ADMIN_POLICY]</span></td>
+  <td>Full cloud account compromise</td><td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>4.4</td><td>aws:123456789012</td><td>T1190, T1552.005, T1078.004</td>
+</tr><tr>
+  <td><strong>Internet-exposed compute to account admin via metadata credentials</strong><br><span class="sub">1. Attacker reaches the workload from the internet: web-1 [EC2_PUBLIC_IP]
+2. SSRF or RCE on the workload steals role credentials from IMDSv1: web-1 [EC2_IMDSV1]
+3. Stolen credentials carry administrative privileges: web-admin-role [IAM_ADMIN_POLICY]</span></td>
+  <td>Full cloud account compromise</td><td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>4.4</td><td>aws:123456789012</td><td>T1190, T1552.005, T1078.004</td>
+</tr><tr>
+  <td><strong>Phished identity without MFA holding admin rights, with logging gaps</strong><br><span class="sub">1. Password alone unlocks the identity: root [IAM_ROOT_NO_MFA]
+2. Identity or account carries wildcard privileges: web-admin-role [IAM_ADMIN_POLICY]
+3. Activity is not captured by audit logging: customer-pii-exports [S3_NO_LOGGING]</span></td>
+  <td>Persistent privileged access</td><td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>4.3</td><td>aws:123456789012</td><td>T1078, T1556.006, T1562.008</td>
+</tr><tr>
+  <td><strong>Long-lived access key with broad privileges</strong><br><span class="sub">1. Access key not rotated or unused for 90+ days: ci-deployer [IAM_STALE_KEYS]
+2. Account contains wildcard admin policies the key may exercise: root [IAM_ROOT_NO_MFA]</span></td>
+  <td>Silent persistence via leaked long-lived credentials</td><td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span></td>
+  <td>3.8</td><td>aws:123456789012</td><td>T1552.001, T1078.004</td>
+</tr><tr>
+  <td><strong>Long-lived access key with broad privileges</strong><br><span class="sub">1. Access key not rotated or unused for 90+ days: ci-deployer [IAM_STALE_KEYS]
+2. Account contains wildcard admin policies the key may exercise: web-admin-role [IAM_ADMIN_POLICY]</span></td>
+  <td>Silent persistence via leaked long-lived credentials</td><td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span></td>
+  <td>3.4</td><td>aws:123456789012</td><td>T1552.001, T1078.004</td>
+</tr><tr>
+  <td><strong>Internet → exports</strong><br><span class="sub">Entry: Internet
+1. exports (aws_s3_bucket_public_access_block): readable by anyone on the internet [p=1.00]
+Target: exports (aws_s3_bucket_public_access_block) — likelihood 95% × priority 2</span></td>
+  <td>Data access on exports</td><td><span class="badge sev-LOW"><i class="dot"></i>LOW</span></td>
+  <td>1.9</td><td>aws:iac</td><td>T1190</td>
+</tr>
+</tbody></table></div>
+
+
+<h2 class="page">Methodology &amp; scope</h2>
+<p>Findings were collected agentlessly by <code>cloud-posture</code> (native collectors plus Prowler, ScoutSuite, Checkov, Trivy and Steampipe adapters), normalised to canonical check IDs and stored in SQLite. Each finding maps to AICPA SOC 2 Trust Services Criteria controls through (1) the canonical catalog's explicit control mappings, (2) weakness-derived mappings (each finding's weakness vocabulary, e.g. <code>NO_MFA</code>, maps to controls).</p>
+<ul>
+  <li><strong>FAIL</strong>: at least one failing finding maps to the control.</li>
+  <li><strong>PASS</strong>: only passing checks map to the control.</li>
+  <li><strong>NOT ASSESSED</strong>: no automated check covers the control; collect manual evidence.</li>
+  <li><strong>Score</strong> = passing ÷ (passing + failing) controls = 18.1%.</li>
+</ul>
+<div class="grid">
+  <div class="tile"><div class="k">Findings evaluated</div><div class="v">28</div></div>
+  <div class="tile"><div class="k">Latest evidence</div><div class="v" style="font-size:14px">2026-10-08T22:48:02.077529Z</div></div>
+  <div class="tile"><div class="k">Scan finished</div><div class="v" style="font-size:14px">2026-10-08T22:48:02.386289Z</div></div>
+</div>
+<p class="sub">Continuous monitoring: Evidence is refreshed on every `cloud-posture scan`; the dashboard pushes findings_updated events when the database changes.</p>
+
+<h2 class="page">Evidence appendix</h2>
+
+<div class="ev">
+  <h3><code>C1.1</code> Identification and protection of confidential information</h3>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Finding</th><th>Resource</th><th>Source</th><th>First / last seen</th><th>Mapped by</th></tr></thead>
+  <tbody><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Storage Account Allows Public Blob Access<br><code>953f4489f84e69e180a8e8027f488f7e</code></td>
+    <td><code>/subscriptions/sub-0000/resourceGroups/prod/providers/Microsoft.Storage/storageAccounts/acmeprodfiles</code><br><span class="sub">azure:sub-0000 </span></td>
+    <td>scoutsuite<br><code>storageaccounts-public-blob-access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;finding&#34;: &#34;storageaccounts-public-blob-access&#34;, &#34;item&#34;: &#34;storageaccounts.subscriptions.sub-0000.storage_accounts.acmeprodfiles.public_blob&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Storage Account Allows Public Blob Access<br><code>a4e7dcaadf360e3e2875fc44f641f280</code></td>
+    <td><code>/subscriptions/sub-0000/resourceGroups/dev/providers/Microsoft.Storage/storageAccounts/acmedev</code><br><span class="sub">azure:sub-0000 </span></td>
+    <td>scoutsuite<br><code>storageaccounts-public-blob-access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;finding&#34;: &#34;storageaccounts-public-blob-access&#34;, &#34;item&#34;: &#34;storageaccounts.subscriptions.sub-0000.storage_accounts.acmedev.public_blob&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Base64 High Entropy String<br><code>4cc6c7e098c094c5a671b3551610daea</code></td>
+    <td><code>a1b2c3</code><br><span class="sub">iac:iac </span></td>
+    <td>checkov<br><code>CKV_SECRET_6</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;bc_check_id&#34;: &#34;BC_GIT_6&#34;, &#34;check_id&#34;: &#34;CKV_SECRET_6&#34;, &#34;check_name&#34;: &#34;Base64 High Entropy String&#34;, &#34;check_result&#34;: {&#34;result&#34;: &#34;FAILED&#34;}, &#34;file_line_range&#34;: [4, 4], &#34;file_path&#34;: &#34;/infra/vars.tf&#34;, &#34;resource&#34;: &#34;a1b2c3&#34;, &#34;severity&#34;: &#34;CRITICAL&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Check if RDS instances storage is encrypted<br><code>8516f154ca44bccdc867b5026c29133c</code></td>
+    <td><code>arn:aws:rds:us-east-1:123456789012:db:payments-prod</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>rds_instance_storage_encrypted</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Check if RDS instances storage is encrypted&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;rds_instance_storage_encrypted&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Encrypt storage.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;payments-prod&#34;, &#34;type&#34;: &#34;AwsRdsDbInstance&#34;, &#34;uid&#34;: &#34;arn:aws:rds:us-east-1:123456789012:db:...</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure S3 bucket has block public ACLS enabled<br><code>f67cfb45023e3dbdfe80fc19f0bd9656</code></td>
+    <td><code>aws_s3_bucket_public_access_block.exports</code><br><span class="sub">aws:iac </span></td>
+    <td>checkov<br><code>CKV_AWS_53</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;bc_check_id&#34;: &#34;BC_AWS_S3_19&#34;, &#34;check_id&#34;: &#34;CKV_AWS_53&#34;, &#34;check_name&#34;: &#34;Ensure S3 bucket has block public ACLS enabled&#34;, &#34;check_result&#34;: {&#34;result&#34;: &#34;FAILED&#34;}, &#34;file_line_range&#34;: [14, 20], &#34;file_path&#34;: &#34;/infra/s3.tf&#34;, &#34;guideline&#34;: &#34;https://docs.prismacloud.io/...&#34;, &#34;resource&#34;: &#34;aws_s3_bucket_public_access_block.exports&#34;, &#34;severity&#34;: &#34;HIGH&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure there are no S3 buckets open to Everyone or Any AWS user.<br><code>49fea9c4c0ef784b497bd609f4bf7f8a</code></td>
+    <td><code>arn:aws:s3:::customer-pii-exports</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>s3_bucket_public_access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;name&#34;: &#34;prod&#34;, &#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;desc&#34;: &#34;Public buckets expose data.&#34;, &#34;title&#34;: &#34;Ensure there are no S3 buckets open to Everyone or Any AWS user.&#34;, &#34;uid&#34;: &#34;prowler-aws-s3_bucket_public_access-123456789012-us-east-1-customer-pii-exports&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;s3_bucket_public_access&#34;, &#34;product&#34;: {&#34;...</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> S3 buckets should prohibit public read access<br><code>d7d13f23392bff9e82142d67ec996930</code></td>
+    <td><code>arn:aws:s3:::customer-pii-exports</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>steampipe<br><code>s3_bucket_restrict_public_read_access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;dimensions&#34;: [{&#34;key&#34;: &#34;account_id&#34;, &#34;value&#34;: &#34;123456789012&#34;}, {&#34;key&#34;: &#34;region&#34;, &#34;value&#34;: &#34;us-east-1&#34;}], &#34;reason&#34;: &#34;customer-pii-exports allows public read.&#34;, &#34;resource&#34;: &#34;arn:aws:s3:::customer-pii-exports&#34;, &#34;status&#34;: &#34;alarm&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-MEDIUM"><i class="dot"></i>MEDIUM</span> Check if S3 buckets have default encryption (SSE) enabled<br><code>b01eaeb2826091b84620ed44dd66d483</code></td>
+    <td><code>arn:aws:s3:::customer-pii-exports</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>s3_bucket_default_encryption</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;desc&#34;: &#34;&#34;, &#34;title&#34;: &#34;Check if S3 buckets have default encryption (SSE) enabled&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;s3_bucket_default_encryption&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Enable default encryption&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;customer-pii-exports&#34;, &#34;type&#34;: &#34;AwsS3Bucket&#34;, &#34;uid&#34;: &#34;arn...</pre></td></tr></tbody>
+  </table></div>
+  
+</div>
+
+<div class="ev">
+  <h3><code>CC6.1</code> Logical access security software, infrastructure and architectures</h3>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Finding</th><th>Resource</th><th>Source</th><th>First / last seen</th><th>Mapped by</th></tr></thead>
+  <tbody><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Ensure MFA is enabled for the root account<br><code>705ad46c58d360b1b047b7680164b254</code></td>
+    <td><code>arn:aws:iam::123456789012:root</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>iam_root_mfa_enabled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Ensure MFA is enabled for the root account&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;iam_root_mfa_enabled&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Enable hardware MFA for root.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;root&#34;, &#34;type&#34;: &#34;AwsIamUser&#34;, &#34;uid&#34;: &#34;arn:aws:iam::123456789012:root&#34;}], &#34;severity&#34;: &#34;Cri...</pre></td></tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Storage Account Allows Public Blob Access<br><code>953f4489f84e69e180a8e8027f488f7e</code></td>
+    <td><code>/subscriptions/sub-0000/resourceGroups/prod/providers/Microsoft.Storage/storageAccounts/acmeprodfiles</code><br><span class="sub">azure:sub-0000 </span></td>
+    <td>scoutsuite<br><code>storageaccounts-public-blob-access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;finding&#34;: &#34;storageaccounts-public-blob-access&#34;, &#34;item&#34;: &#34;storageaccounts.subscriptions.sub-0000.storage_accounts.acmeprodfiles.public_blob&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Storage Account Allows Public Blob Access<br><code>a4e7dcaadf360e3e2875fc44f641f280</code></td>
+    <td><code>/subscriptions/sub-0000/resourceGroups/dev/providers/Microsoft.Storage/storageAccounts/acmedev</code><br><span class="sub">azure:sub-0000 </span></td>
+    <td>scoutsuite<br><code>storageaccounts-public-blob-access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;finding&#34;: &#34;storageaccounts-public-blob-access&#34;, &#34;item&#34;: &#34;storageaccounts.subscriptions.sub-0000.storage_accounts.acmedev.public_blob&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Base64 High Entropy String<br><code>4cc6c7e098c094c5a671b3551610daea</code></td>
+    <td><code>a1b2c3</code><br><span class="sub">iac:iac </span></td>
+    <td>checkov<br><code>CKV_SECRET_6</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;bc_check_id&#34;: &#34;BC_GIT_6&#34;, &#34;check_id&#34;: &#34;CKV_SECRET_6&#34;, &#34;check_name&#34;: &#34;Base64 High Entropy String&#34;, &#34;check_result&#34;: {&#34;result&#34;: &#34;FAILED&#34;}, &#34;file_line_range&#34;: [4, 4], &#34;file_path&#34;: &#34;/infra/vars.tf&#34;, &#34;resource&#34;: &#34;a1b2c3&#34;, &#34;severity&#34;: &#34;CRITICAL&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Okta admin without MFA<br><code>29fd26d58aea55f346778ee0446a4590</code></td>
+    <td><code>00u1alice</code><br><span class="sub">okta:acme.okta.com </span></td>
+    <td>okta-plugin<br><code>okta_admin_user_mfa_enrolled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Okta admins should have MFA<br><code>a4f927caba454ff914c8c4045e5b2d2d</code></td>
+    <td><code>00u1alice</code><br><span class="sub">okta:acme.okta.com </span></td>
+    <td>steampipe<br><code>okta_admin_user_mfa_enrolled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;dimensions&#34;: [{&#34;key&#34;: &#34;domain&#34;, &#34;value&#34;: &#34;acme.okta.com&#34;}], &#34;reason&#34;: &#34;alice@acme.com has no MFA factors&#34;, &#34;resource&#34;: &#34;00u1alice&#34;, &#34;status&#34;: &#34;alarm&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure Instance Metadata Service Version 1 is not enabled<br><code>9086f4c32d74dd9fa1e0bb34493d6e76</code></td>
+    <td><code>aws_instance.web</code><br><span class="sub">aws:iac </span></td>
+    <td>checkov<br><code>CKV_AWS_79</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;bc_check_id&#34;: &#34;BC_AWS_GENERAL_31&#34;, &#34;check_id&#34;: &#34;CKV_AWS_79&#34;, &#34;check_name&#34;: &#34;Ensure Instance Metadata Service Version 1 is not enabled&#34;, &#34;check_result&#34;: {&#34;result&#34;: &#34;FAILED&#34;}, &#34;file_line_range&#34;: [1, 30], &#34;file_path&#34;: &#34;/infra/ec2.tf&#34;, &#34;resource&#34;: &#34;aws_instance.web&#34;, &#34;severity&#34;: &#34;HIGH&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Check if EC2 Instance Metadata Service Version 2 (IMDSv2) is enabled and required<br><code>6d35325c36b63d3b4b80ed1d7621f0ce</code></td>
+    <td><code>arn:aws:ec2:us-east-1:123456789012:instance/i-0web1</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>ec2_instance_imdsv2_enabled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Check if EC2 Instance Metadata Service Version 2 (IMDSv2) is enabled and required&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;ec2_instance_imdsv2_enabled&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Require IMDSv2.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {&#34;ImageId&#34;: &#34;ami-123&#34;, &#34;InstanceType&#34;: &#34;m5.4xlarge&#34;, &#34;iam_role&#34;: &#34;arn...</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Check if RDS instances storage is encrypted<br><code>8516f154ca44bccdc867b5026c29133c</code></td>
+    <td><code>arn:aws:rds:us-east-1:123456789012:db:payments-prod</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>rds_instance_storage_encrypted</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Check if RDS instances storage is encrypted&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;rds_instance_storage_encrypted&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Encrypt storage.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;payments-prod&#34;, &#34;type&#34;: &#34;AwsRdsDbInstance&#34;, &#34;uid&#34;: &#34;arn:aws:rds:us-east-1:123456789012:db:...</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure S3 bucket has block public ACLS enabled<br><code>f67cfb45023e3dbdfe80fc19f0bd9656</code></td>
+    <td><code>aws_s3_bucket_public_access_block.exports</code><br><span class="sub">aws:iac </span></td>
+    <td>checkov<br><code>CKV_AWS_53</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;bc_check_id&#34;: &#34;BC_AWS_S3_19&#34;, &#34;check_id&#34;: &#34;CKV_AWS_53&#34;, &#34;check_name&#34;: &#34;Ensure S3 bucket has block public ACLS enabled&#34;, &#34;check_result&#34;: {&#34;result&#34;: &#34;FAILED&#34;}, &#34;file_line_range&#34;: [14, 20], &#34;file_path&#34;: &#34;/infra/s3.tf&#34;, &#34;guideline&#34;: &#34;https://docs.prismacloud.io/...&#34;, &#34;resource&#34;: &#34;aws_s3_bucket_public_access_block.exports&#34;, &#34;severity&#34;: &#34;HIGH&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure there are no S3 buckets open to Everyone or Any AWS user.<br><code>49fea9c4c0ef784b497bd609f4bf7f8a</code></td>
+    <td><code>arn:aws:s3:::customer-pii-exports</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>s3_bucket_public_access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;name&#34;: &#34;prod&#34;, &#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;desc&#34;: &#34;Public buckets expose data.&#34;, &#34;title&#34;: &#34;Ensure there are no S3 buckets open to Everyone or Any AWS user.&#34;, &#34;uid&#34;: &#34;prowler-aws-s3_bucket_public_access-123456789012-us-east-1-customer-pii-exports&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;s3_bucket_public_access&#34;, &#34;product&#34;: {&#34;...</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> S3 buckets should prohibit public read access<br><code>d7d13f23392bff9e82142d67ec996930</code></td>
+    <td><code>arn:aws:s3:::customer-pii-exports</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>steampipe<br><code>s3_bucket_restrict_public_read_access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;dimensions&#34;: [{&#34;key&#34;: &#34;account_id&#34;, &#34;value&#34;: &#34;123456789012&#34;}, {&#34;key&#34;: &#34;region&#34;, &#34;value&#34;: &#34;us-east-1&#34;}], &#34;reason&#34;: &#34;customer-pii-exports allows public read.&#34;, &#34;resource&#34;: &#34;arn:aws:s3:::customer-pii-exports&#34;, &#34;status&#34;: &#34;alarm&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-MEDIUM"><i class="dot"></i>MEDIUM</span> Check if S3 buckets have default encryption (SSE) enabled<br><code>b01eaeb2826091b84620ed44dd66d483</code></td>
+    <td><code>arn:aws:s3:::customer-pii-exports</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>s3_bucket_default_encryption</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;desc&#34;: &#34;&#34;, &#34;title&#34;: &#34;Check if S3 buckets have default encryption (SSE) enabled&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;s3_bucket_default_encryption&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Enable default encryption&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;customer-pii-exports&#34;, &#34;type&#34;: &#34;AwsS3Bucket&#34;, &#34;uid&#34;: &#34;arn...</pre></td></tr></tbody>
+  </table></div>
+  
+</div>
+
+<div class="ev">
+  <h3><code>CC6.2</code> User registration and authorization prior to issuing credentials</h3>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Finding</th><th>Resource</th><th>Source</th><th>First / last seen</th><th>Mapped by</th></tr></thead>
+  <tbody><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Ensure MFA is enabled for the root account<br><code>705ad46c58d360b1b047b7680164b254</code></td>
+    <td><code>arn:aws:iam::123456789012:root</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>iam_root_mfa_enabled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Ensure MFA is enabled for the root account&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;iam_root_mfa_enabled&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Enable hardware MFA for root.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;root&#34;, &#34;type&#34;: &#34;AwsIamUser&#34;, &#34;uid&#34;: &#34;arn:aws:iam::123456789012:root&#34;}], &#34;severity&#34;: &#34;Cri...</pre></td></tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Okta admin without MFA<br><code>29fd26d58aea55f346778ee0446a4590</code></td>
+    <td><code>00u1alice</code><br><span class="sub">okta:acme.okta.com </span></td>
+    <td>okta-plugin<br><code>okta_admin_user_mfa_enrolled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Okta admins should have MFA<br><code>a4f927caba454ff914c8c4045e5b2d2d</code></td>
+    <td><code>00u1alice</code><br><span class="sub">okta:acme.okta.com </span></td>
+    <td>steampipe<br><code>okta_admin_user_mfa_enrolled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;dimensions&#34;: [{&#34;key&#34;: &#34;domain&#34;, &#34;value&#34;: &#34;acme.okta.com&#34;}], &#34;reason&#34;: &#34;alice@acme.com has no MFA factors&#34;, &#34;resource&#34;: &#34;00u1alice&#34;, &#34;status&#34;: &#34;alarm&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-MEDIUM"><i class="dot"></i>MEDIUM</span> Ensure access keys unused for 90 days are disabled<br><code>9f1c389bdc68760966264fca417791d4</code></td>
+    <td><code>arn:aws:iam::123456789012:user/ci-deployer</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>iam_user_accesskey_unused</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Ensure access keys unused for 90 days are disabled&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;iam_user_accesskey_unused&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Rotate the key.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;ci-deployer&#34;, &#34;type&#34;: &#34;AwsIamUser&#34;, &#34;uid&#34;: &#34;arn:aws:iam::123456789012:user/ci-deployer&#34;}]...</pre></td></tr></tbody>
+  </table></div>
+  
+</div>
+
+<div class="ev">
+  <h3><code>CC6.3</code> Role-based access and least privilege; access is modified or removed as needed</h3>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Finding</th><th>Resource</th><th>Source</th><th>First / last seen</th><th>Mapped by</th></tr></thead>
+  <tbody><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Ensure MFA is enabled for the root account<br><code>705ad46c58d360b1b047b7680164b254</code></td>
+    <td><code>arn:aws:iam::123456789012:root</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>iam_root_mfa_enabled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Ensure MFA is enabled for the root account&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;iam_root_mfa_enabled&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Enable hardware MFA for root.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;root&#34;, &#34;type&#34;: &#34;AwsIamUser&#34;, &#34;uid&#34;: &#34;arn:aws:iam::123456789012:root&#34;}], &#34;severity&#34;: &#34;Cri...</pre></td></tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Okta admin without MFA<br><code>29fd26d58aea55f346778ee0446a4590</code></td>
+    <td><code>00u1alice</code><br><span class="sub">okta:acme.okta.com </span></td>
+    <td>okta-plugin<br><code>okta_admin_user_mfa_enrolled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Okta admins should have MFA<br><code>a4f927caba454ff914c8c4045e5b2d2d</code></td>
+    <td><code>00u1alice</code><br><span class="sub">okta:acme.okta.com </span></td>
+    <td>steampipe<br><code>okta_admin_user_mfa_enrolled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;dimensions&#34;: [{&#34;key&#34;: &#34;domain&#34;, &#34;value&#34;: &#34;acme.okta.com&#34;}], &#34;reason&#34;: &#34;alice@acme.com has no MFA factors&#34;, &#34;resource&#34;: &#34;00u1alice&#34;, &#34;status&#34;: &#34;alarm&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure IAM policies that allow full administrative privileges are not attached<br><code>cff823c8644508679681330c73252174</code></td>
+    <td><code>arn:aws:iam::123456789012:role/web-admin-role</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>iam_aws_attached_policy_no_administrative_privileges</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Ensure IAM policies that allow full administrative privileges are not attached&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;iam_aws_attached_policy_no_administrative_privileges&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Scope the policy.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {&#34;attached_policies&#34;: [&#34;arn:aws:iam::aws:poli...</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Access to host network<br><code>5036c1360f80b241e2cb65fef75d2ad9</code></td>
+    <td><code>Deployment/api</code><br><span class="sub">kubernetes:iac </span></td>
+    <td>trivy<br><code>AVD-KSV-0009</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>weakness:HOST_ACCESS</td>
+  </tr><tr><td colspan="5"><pre>{&#34;AVDID&#34;: &#34;AVD-KSV-0009&#34;, &#34;CauseMetadata&#34;: {&#34;EndLine&#34;: 15, &#34;Provider&#34;: &#34;Kubernetes&#34;, &#34;Resource&#34;: &#34;Deployment/api&#34;, &#34;Service&#34;: &#34;general&#34;, &#34;StartLine&#34;: 15}, &#34;ID&#34;: &#34;KSV009&#34;, &#34;Message&#34;: &#34;Deployment &#39;api&#39; should not set &#39;spec.template.spec.hostNetwork&#39; to true&#34;, &#34;Resolution&#34;: &#34;Do not set &#39;spec.template.spec.hostNetwork&#39; to true.&#34;, &#34;Severity&#34;: &#34;HIGH&#34;, &#34;Status&#34;: &#34;FAIL&#34;, &#34;Title&#34;: &#34;Access to host networ...</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Privileged container<br><code>d40355378474ad718bc0611a5c60a1ef</code></td>
+    <td><code>Deployment/api</code><br><span class="sub">kubernetes:iac </span></td>
+    <td>trivy<br><code>AVD-KSV-0017</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>weakness:PRIVILEGED_CONTAINER</td>
+  </tr><tr><td colspan="5"><pre>{&#34;AVDID&#34;: &#34;AVD-KSV-0017&#34;, &#34;CauseMetadata&#34;: {&#34;EndLine&#34;: 24, &#34;Provider&#34;: &#34;Kubernetes&#34;, &#34;Resource&#34;: &#34;Deployment/api&#34;, &#34;Service&#34;: &#34;general&#34;, &#34;StartLine&#34;: 22}, &#34;Description&#34;: &#34;Privileged containers share namespaces with the host system.&#34;, &#34;ID&#34;: &#34;KSV017&#34;, &#34;Message&#34;: &#34;Container &#39;api&#39; of Deployment &#39;api&#39; should set &#39;securityContext.privileged&#39; to false&#34;, &#34;Resolution&#34;: &#34;Change &#39;containers[].securityCont...</pre></td></tr><tr>
+    <td><span class="badge sev-MEDIUM"><i class="dot"></i>MEDIUM</span> Ensure access keys unused for 90 days are disabled<br><code>9f1c389bdc68760966264fca417791d4</code></td>
+    <td><code>arn:aws:iam::123456789012:user/ci-deployer</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>iam_user_accesskey_unused</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>weakness:STALE_CREDENTIALS</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Ensure access keys unused for 90 days are disabled&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;iam_user_accesskey_unused&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Rotate the key.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;ci-deployer&#34;, &#34;type&#34;: &#34;AwsIamUser&#34;, &#34;uid&#34;: &#34;arn:aws:iam::123456789012:user/ci-deployer&#34;}]...</pre></td></tr></tbody>
+  </table></div>
+  
+</div>
+
+<div class="ev">
+  <h3><code>CC6.6</code> Boundary protection against threats from outside system boundaries</h3>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Finding</th><th>Resource</th><th>Source</th><th>First / last seen</th><th>Mapped by</th></tr></thead>
+  <tbody><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Ensure there are no Public Accessible RDS instances<br><code>356b350621892802cb578c492524e4c2</code></td>
+    <td><code>arn:aws:rds:us-east-1:123456789012:db:payments-prod</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>rds_instance_no_public_access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Ensure there are no Public Accessible RDS instances&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;rds_instance_no_public_access&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Disable public access.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {&#34;DBInstanceClass&#34;: &#34;db.r5.large&#34;, &#34;Engine&#34;: &#34;postgres&#34;}, &#34;name&#34;: &#34;payments-prod&#34;, &#34;type&#34;:...</pre></td></tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Storage Account Allows Public Blob Access<br><code>953f4489f84e69e180a8e8027f488f7e</code></td>
+    <td><code>/subscriptions/sub-0000/resourceGroups/prod/providers/Microsoft.Storage/storageAccounts/acmeprodfiles</code><br><span class="sub">azure:sub-0000 </span></td>
+    <td>scoutsuite<br><code>storageaccounts-public-blob-access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;finding&#34;: &#34;storageaccounts-public-blob-access&#34;, &#34;item&#34;: &#34;storageaccounts.subscriptions.sub-0000.storage_accounts.acmeprodfiles.public_blob&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> Storage Account Allows Public Blob Access<br><code>a4e7dcaadf360e3e2875fc44f641f280</code></td>
+    <td><code>/subscriptions/sub-0000/resourceGroups/dev/providers/Microsoft.Storage/storageAccounts/acmedev</code><br><span class="sub">azure:sub-0000 </span></td>
+    <td>scoutsuite<br><code>storageaccounts-public-blob-access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;finding&#34;: &#34;storageaccounts-public-blob-access&#34;, &#34;item&#34;: &#34;storageaccounts.subscriptions.sub-0000.storage_accounts.acmedev.public_blob&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure no security groups allow ingress from 0.0.0.0:0 to port 22<br><code>f7c0a506d67917f25a8440d01c9d2b9b</code></td>
+    <td><code>aws_security_group.web</code><br><span class="sub">aws:iac </span></td>
+    <td>checkov<br><code>CKV_AWS_24</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;bc_check_id&#34;: &#34;BC_AWS_NETWORKING_1&#34;, &#34;check_id&#34;: &#34;CKV_AWS_24&#34;, &#34;check_name&#34;: &#34;Ensure no security groups allow ingress from 0.0.0.0:0 to port 22&#34;, &#34;check_result&#34;: {&#34;result&#34;: &#34;FAILED&#34;}, &#34;file_line_range&#34;: [3, 18], &#34;file_path&#34;: &#34;/infra/sg.tf&#34;, &#34;resource&#34;: &#34;aws_security_group.web&#34;, &#34;severity&#34;: &#34;HIGH&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure no security groups allow ingress from 0.0.0.0/0 to SSH port 22<br><code>d1b7bbad27cedcbbc8987c21e0dbe8f8</code></td>
+    <td><code>arn:aws:ec2:us-east-1:123456789012:security-group/sg-0abc123</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>ec2_securitygroup_allow_ingress_from_internet_to_tcp_port_22</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Ensure no security groups allow ingress from 0.0.0.0/0 to SSH port 22&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;ec2_securitygroup_allow_ingress_from_internet_to_tcp_port_22&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Restrict ingress.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {&#34;vpc_id&#34;: &#34;vpc-111&#34;}, &#34;name&#34;: &#34;web-sg&#34;, &#34;type...</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure S3 bucket has block public ACLS enabled<br><code>f67cfb45023e3dbdfe80fc19f0bd9656</code></td>
+    <td><code>aws_s3_bucket_public_access_block.exports</code><br><span class="sub">aws:iac </span></td>
+    <td>checkov<br><code>CKV_AWS_53</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;bc_check_id&#34;: &#34;BC_AWS_S3_19&#34;, &#34;check_id&#34;: &#34;CKV_AWS_53&#34;, &#34;check_name&#34;: &#34;Ensure S3 bucket has block public ACLS enabled&#34;, &#34;check_result&#34;: {&#34;result&#34;: &#34;FAILED&#34;}, &#34;file_line_range&#34;: [14, 20], &#34;file_path&#34;: &#34;/infra/s3.tf&#34;, &#34;guideline&#34;: &#34;https://docs.prismacloud.io/...&#34;, &#34;resource&#34;: &#34;aws_s3_bucket_public_access_block.exports&#34;, &#34;severity&#34;: &#34;HIGH&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure there are no S3 buckets open to Everyone or Any AWS user.<br><code>49fea9c4c0ef784b497bd609f4bf7f8a</code></td>
+    <td><code>arn:aws:s3:::customer-pii-exports</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>s3_bucket_public_access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;name&#34;: &#34;prod&#34;, &#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;desc&#34;: &#34;Public buckets expose data.&#34;, &#34;title&#34;: &#34;Ensure there are no S3 buckets open to Everyone or Any AWS user.&#34;, &#34;uid&#34;: &#34;prowler-aws-s3_bucket_public_access-123456789012-us-east-1-customer-pii-exports&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;s3_bucket_public_access&#34;, &#34;product&#34;: {&#34;...</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> S3 buckets should prohibit public read access<br><code>d7d13f23392bff9e82142d67ec996930</code></td>
+    <td><code>arn:aws:s3:::customer-pii-exports</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>steampipe<br><code>s3_bucket_restrict_public_read_access</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;dimensions&#34;: [{&#34;key&#34;: &#34;account_id&#34;, &#34;value&#34;: &#34;123456789012&#34;}, {&#34;key&#34;: &#34;region&#34;, &#34;value&#34;: &#34;us-east-1&#34;}], &#34;reason&#34;: &#34;customer-pii-exports allows public read.&#34;, &#34;resource&#34;: &#34;arn:aws:s3:::customer-pii-exports&#34;, &#34;status&#34;: &#34;alarm&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-MEDIUM"><i class="dot"></i>MEDIUM</span> Check for EC2 Instances with Public IP.<br><code>721b3024d99804372670c545f473ef95</code></td>
+    <td><code>arn:aws:ec2:us-east-1:123456789012:instance/i-0web1</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>ec2_instance_public_ip</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Check for EC2 Instances with Public IP.&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;ec2_instance_public_ip&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Use a load balancer.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {&#34;public_ip&#34;: &#34;54.1.2.3&#34;, &#34;security_groups&#34;: [&#34;sg-0abc123&#34;]}, &#34;name&#34;: &#34;web-1&#34;, &#34;type&#34;: &#34;AwsEc2Instance&#34;, &#34;uid&#34;:...</pre></td></tr></tbody>
+  </table></div>
+  
+</div>
+
+<div class="ev">
+  <h3><code>CC6.8</code> Prevention or detection of unauthorized or malicious software</h3>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Finding</th><th>Resource</th><th>Source</th><th>First / last seen</th><th>Mapped by</th></tr></thead>
+  <tbody><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> CVE-2024-6387 in openssh 9.3_p2-r0<br><code>ccc03f52d2d80c87197e18df372ba969</code></td>
+    <td><code>k8s/prod</code><br><span class="sub">kubernetes:iac </span></td>
+    <td>trivy<br><code>CVE-2024-6387</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>weakness:UNPATCHED</td>
+  </tr><tr><td colspan="5"><pre>{&#34;FixedVersion&#34;: &#34;9.3_p2-r1&#34;, &#34;InstalledVersion&#34;: &#34;9.3_p2-r0&#34;, &#34;PkgName&#34;: &#34;openssh&#34;, &#34;Severity&#34;: &#34;CRITICAL&#34;, &#34;Title&#34;: &#34;regreSSHion: remote code execution in sshd&#34;, &#34;VulnerabilityID&#34;: &#34;CVE-2024-6387&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Access to host network<br><code>5036c1360f80b241e2cb65fef75d2ad9</code></td>
+    <td><code>Deployment/api</code><br><span class="sub">kubernetes:iac </span></td>
+    <td>trivy<br><code>AVD-KSV-0009</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;AVDID&#34;: &#34;AVD-KSV-0009&#34;, &#34;CauseMetadata&#34;: {&#34;EndLine&#34;: 15, &#34;Provider&#34;: &#34;Kubernetes&#34;, &#34;Resource&#34;: &#34;Deployment/api&#34;, &#34;Service&#34;: &#34;general&#34;, &#34;StartLine&#34;: 15}, &#34;ID&#34;: &#34;KSV009&#34;, &#34;Message&#34;: &#34;Deployment &#39;api&#39; should not set &#39;spec.template.spec.hostNetwork&#39; to true&#34;, &#34;Resolution&#34;: &#34;Do not set &#39;spec.template.spec.hostNetwork&#39; to true.&#34;, &#34;Severity&#34;: &#34;HIGH&#34;, &#34;Status&#34;: &#34;FAIL&#34;, &#34;Title&#34;: &#34;Access to host networ...</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Privileged container<br><code>d40355378474ad718bc0611a5c60a1ef</code></td>
+    <td><code>Deployment/api</code><br><span class="sub">kubernetes:iac </span></td>
+    <td>trivy<br><code>AVD-KSV-0017</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;AVDID&#34;: &#34;AVD-KSV-0017&#34;, &#34;CauseMetadata&#34;: {&#34;EndLine&#34;: 24, &#34;Provider&#34;: &#34;Kubernetes&#34;, &#34;Resource&#34;: &#34;Deployment/api&#34;, &#34;Service&#34;: &#34;general&#34;, &#34;StartLine&#34;: 22}, &#34;Description&#34;: &#34;Privileged containers share namespaces with the host system.&#34;, &#34;ID&#34;: &#34;KSV017&#34;, &#34;Message&#34;: &#34;Container &#39;api&#39; of Deployment &#39;api&#39; should set &#39;securityContext.privileged&#39; to false&#34;, &#34;Resolution&#34;: &#34;Change &#39;containers[].securityCont...</pre></td></tr></tbody>
+  </table></div>
+  
+</div>
+
+<div class="ev">
+  <h3><code>CC7.1</code> Detection of configuration changes and newly discovered vulnerabilities</h3>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Finding</th><th>Resource</th><th>Source</th><th>First / last seen</th><th>Mapped by</th></tr></thead>
+  <tbody><tr>
+    <td><span class="badge sev-CRITICAL"><i class="dot"></i>CRITICAL</span> CVE-2024-6387 in openssh 9.3_p2-r0<br><code>ccc03f52d2d80c87197e18df372ba969</code></td>
+    <td><code>k8s/prod</code><br><span class="sub">kubernetes:iac </span></td>
+    <td>trivy<br><code>CVE-2024-6387</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;FixedVersion&#34;: &#34;9.3_p2-r1&#34;, &#34;InstalledVersion&#34;: &#34;9.3_p2-r0&#34;, &#34;PkgName&#34;: &#34;openssh&#34;, &#34;Severity&#34;: &#34;CRITICAL&#34;, &#34;Title&#34;: &#34;regreSSHion: remote code execution in sshd&#34;, &#34;VulnerabilityID&#34;: &#34;CVE-2024-6387&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure Instance Metadata Service Version 1 is not enabled<br><code>9086f4c32d74dd9fa1e0bb34493d6e76</code></td>
+    <td><code>aws_instance.web</code><br><span class="sub">aws:iac </span></td>
+    <td>checkov<br><code>CKV_AWS_79</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>weakness:IMDSV1_ENABLED</td>
+  </tr><tr><td colspan="5"><pre>{&#34;bc_check_id&#34;: &#34;BC_AWS_GENERAL_31&#34;, &#34;check_id&#34;: &#34;CKV_AWS_79&#34;, &#34;check_name&#34;: &#34;Ensure Instance Metadata Service Version 1 is not enabled&#34;, &#34;check_result&#34;: {&#34;result&#34;: &#34;FAILED&#34;}, &#34;file_line_range&#34;: [1, 30], &#34;file_path&#34;: &#34;/infra/ec2.tf&#34;, &#34;resource&#34;: &#34;aws_instance.web&#34;, &#34;severity&#34;: &#34;HIGH&#34;}</pre></td></tr><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Check if EC2 Instance Metadata Service Version 2 (IMDSv2) is enabled and required<br><code>6d35325c36b63d3b4b80ed1d7621f0ce</code></td>
+    <td><code>arn:aws:ec2:us-east-1:123456789012:instance/i-0web1</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>ec2_instance_imdsv2_enabled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>weakness:IMDSV1_ENABLED</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Check if EC2 Instance Metadata Service Version 2 (IMDSv2) is enabled and required&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;ec2_instance_imdsv2_enabled&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Require IMDSv2.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {&#34;ImageId&#34;: &#34;ami-123&#34;, &#34;InstanceType&#34;: &#34;m5.4xlarge&#34;, &#34;iam_role&#34;: &#34;arn...</pre></td></tr></tbody>
+  </table></div>
+  
+</div>
+
+<div class="ev">
+  <h3><code>CC7.2</code> Monitoring of system components for anomalies indicative of malicious acts</h3>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Finding</th><th>Resource</th><th>Source</th><th>First / last seen</th><th>Mapped by</th></tr></thead>
+  <tbody><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure CloudTrail is enabled in all regions<br><code>859b77ad6c69a78139c4ed7918a482fb</code></td>
+    <td><code>arn:aws:cloudtrail:us-east-1:123456789012:trail</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>cloudtrail_multi_region_enabled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Ensure CloudTrail is enabled in all regions&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;cloudtrail_multi_region_enabled&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Create a multi-region trail.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;trail&#34;, &#34;type&#34;: &#34;AwsCloudTrailTrail&#34;, &#34;uid&#34;: &#34;arn:aws:cloudtrail:us-east-1:12...</pre></td></tr><tr>
+    <td><span class="badge sev-LOW"><i class="dot"></i>LOW</span> Check if S3 bucket has server access logging enabled<br><code>5a37e3aac610336ab3ef16dec646315c</code></td>
+    <td><code>arn:aws:s3:::customer-pii-exports</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>s3_bucket_server_access_logging_enabled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Check if S3 bucket has server access logging enabled&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;s3_bucket_server_access_logging_enabled&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Enable logging&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;customer-pii-exports&#34;, &#34;type&#34;: &#34;AwsS3Bucket&#34;, &#34;uid&#34;: &#34;arn:aws:s3:::custome...</pre></td></tr></tbody>
+  </table></div>
+  
+</div>
+
+<div class="ev">
+  <h3><code>CC7.3</code> Evaluation of security events to determine whether they are incidents</h3>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Finding</th><th>Resource</th><th>Source</th><th>First / last seen</th><th>Mapped by</th></tr></thead>
+  <tbody><tr>
+    <td><span class="badge sev-HIGH"><i class="dot"></i>HIGH</span> Ensure CloudTrail is enabled in all regions<br><code>859b77ad6c69a78139c4ed7918a482fb</code></td>
+    <td><code>arn:aws:cloudtrail:us-east-1:123456789012:trail</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>cloudtrail_multi_region_enabled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Ensure CloudTrail is enabled in all regions&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;cloudtrail_multi_region_enabled&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Create a multi-region trail.&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;trail&#34;, &#34;type&#34;: &#34;AwsCloudTrailTrail&#34;, &#34;uid&#34;: &#34;arn:aws:cloudtrail:us-east-1:12...</pre></td></tr><tr>
+    <td><span class="badge sev-LOW"><i class="dot"></i>LOW</span> Check if S3 bucket has server access logging enabled<br><code>5a37e3aac610336ab3ef16dec646315c</code></td>
+    <td><code>arn:aws:s3:::customer-pii-exports</code><br><span class="sub">aws:123456789012 us-east-1</span></td>
+    <td>prowler<br><code>s3_bucket_server_access_logging_enabled</code></td>
+    <td>2026-10-08T22:48:00.606949Z<br>2026-10-08T22:48:00.606949Z</td><td>compliance</td>
+  </tr><tr><td colspan="5"><pre>{&#34;cloud&#34;: {&#34;account&#34;: {&#34;uid&#34;: &#34;123456789012&#34;}, &#34;provider&#34;: &#34;aws&#34;, &#34;region&#34;: &#34;us-east-1&#34;}, &#34;finding_info&#34;: {&#34;title&#34;: &#34;Check if S3 bucket has server access logging enabled&#34;}, &#34;metadata&#34;: {&#34;event_code&#34;: &#34;s3_bucket_server_access_logging_enabled&#34;}, &#34;remediation&#34;: {&#34;desc&#34;: &#34;Enable logging&#34;}, &#34;resources&#34;: [{&#34;data&#34;: {}, &#34;name&#34;: &#34;customer-pii-exports&#34;, &#34;type&#34;: &#34;AwsS3Bucket&#34;, &#34;uid&#34;: &#34;arn:aws:s3:::custome...</pre></td></tr></tbody>
+  </table></div>
+  
+</div>
+
+
+<footer>Generated by nimbus (cloud-posture intelligence layer). Report ID soc2-2026-10-08T22:51:13Z.</footer>
+</main>
+</body>
+</html>

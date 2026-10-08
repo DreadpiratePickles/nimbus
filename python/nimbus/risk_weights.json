@@ -1,0 +1,29 @@
+{
+  "_doc": {
+    "summary": "Weights for nimbus.risk. Each feature is normalised to [0,1]; z = bias + sum(weight_i * feature_i); risk_score = 100 / (1 + exp(-z)), rounded to 0.1.",
+    "severity": "Scanner severity: CRITICAL=1.0, HIGH=0.75, MEDIUM=0.5, LOW=0.25, INFO=0.",
+    "exposure": "1.0 when the finding carries PUBLIC_NETWORK_EXPOSURE/PUBLIC_DATA_STORE, the resource has an inbound graph edge from the 'internet' node, or attributes mark it internet-exposed.",
+    "identity_risk": "Share of {OVERPRIVILEGED_IDENTITY, NO_MFA, CROSS_ACCOUNT_TRUST} present on the finding or its graph node (any one = 0.6, two = 0.85, three = 1).",
+    "data_sensitivity": "1.0 if the graph node is sensitive; 0.8 for DATABASE weakness or datastore class; 0.6 when name/tags hint at pii/prod/customer/payment/secret data.",
+    "criticality": "Environment from graph node / tags: production=1.0, staging=0.6, dev=0.3, unknown=0.5.",
+    "vulnerability_count": "min(1, log1p(cve_count)/log1p(50)).",
+    "compliance_weight": "Highest regulatory weight among mapped frameworks: pci_dss/hipaa=1.0, soc2/gdpr=0.8, cis_*/nist/iso=0.6, none=0.3.",
+    "recent_change": "1.0 when the resource was modified in the last 24h (graph node modified_at), decays linearly to 0 at 7 days.",
+    "ownership": "0.7 when the resource has no owner (graph node owner / tags owner|team), else 0.",
+    "attack_path": "0.5*min(1, paths/3) + 0.5*(max path score / max score of all paths); 0 when not on any attack path.",
+    "model": "An optional linear model ({\"intercept\": b, \"coefficients\": {feature: w}}) in JSON can replace bias/weights (nimbus.risk --model FILE or NIMBUS_RISK_MODEL). Pickle is never loaded."
+  },
+  "bias": -4.2,
+  "weights": {
+    "severity": 3.0,
+    "exposure": 1.8,
+    "identity_risk": 1.2,
+    "data_sensitivity": 1.4,
+    "criticality": 0.9,
+    "vulnerability_count": 0.8,
+    "compliance_weight": 0.6,
+    "recent_change": 0.5,
+    "ownership": 0.4,
+    "attack_path": 2.2
+  }
+}

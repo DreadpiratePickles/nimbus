@@ -1,0 +1,59 @@
+{
+  "Provider": "aws",
+  "CheckID": "ec2_networkacl_allow_ingress_tcp_port_22",
+  "CheckTitle": "Ensure no Network ACLs allow ingress from 0.0.0.0/0 to SSH port 22",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "ec2",
+  "SubServiceName": "networkacl",
+  "ResourceIdTemplate": "arn:partition:ec2:region:account-id:network-acl/acl-id",
+  "Severity": "medium",
+  "ResourceType": "AwsEc2NetworkAcl",
+  "Description": "Checks whether network ACLs allow inbound traffic from the internet to TCP port 22, evaluating rules in order.",
+  "Risk": "NACLs are a stateless second layer of defence; allowing SSH from anywhere removes that layer for whole subnets.",
+  "RelatedUrl": "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws ec2 create-network-acl-entry --network-acl-id <acl> --ingress --rule-number 50 --protocol 6 --port-range From=22,To=22 --cidr-block 0.0.0.0/0 --rule-action deny",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Add a deny rule for 0.0.0.0/0 and ::/0 on port 22 ahead of any allow-all rule, or restrict the allow rules to known CIDRs.",
+      "Url": "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "5.1"
+    ],
+    "nist_800_53": [
+      "SC-7",
+      "AC-17"
+    ],
+    "pci_dss": [
+      "1.3.1",
+      "1.3.2"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

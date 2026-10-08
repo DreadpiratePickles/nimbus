@@ -1,0 +1,63 @@
+{
+  "Provider": "aws",
+  "CheckID": "iam_customer_attached_policy_no_administrative_privileges",
+  "CheckTitle": "Ensure IAM customer-managed policies that allow full '*:*' administrative privileges are not attached",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark",
+    "Software and Configuration Checks/AWS Security Best Practices/Identity and Access Management"
+  ],
+  "ServiceName": "iam",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:iam::account-id:policy/policy-name",
+  "Severity": "high",
+  "ResourceType": "AwsIamPolicy",
+  "Description": "Checks whether attached customer-managed policies grant full administrative privileges (Action * on Resource *).",
+  "Risk": "Custom *:* policies silently create additional administrators outside of any break-glass process.",
+  "RelatedUrl": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws iam create-policy-version --policy-arn <arn> --policy-document file://least-privilege.json --set-as-default",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Rewrite or detach customer-managed policies that grant *:*; scope actions and resources to what is required.",
+      "Url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    }
+  },
+  "Categories": [
+    "identity-access"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "1.16"
+    ],
+    "nist_800_53": [
+      "AC-6",
+      "AC-6(1)",
+      "AC-6(10)"
+    ],
+    "pci_dss": [
+      "7.2.1",
+      "7.2.2"
+    ],
+    "hipaa": [
+      "164.312(a)(1)",
+      "164.312(d)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ]
+  }
+}

@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>cloud-posture</title>
+<style>
+:root{color-scheme:light;--bg:#f6f6f4;--surface:#fcfcfb;--surface-2:#f0efec;--border:#e2e1dc;--text:#0b0b0b;--text-2:#52514e;--muted:#8a8984;--accent:#2a78d6;
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#4a3aa7;--s8:#e34948;--other:#9a9994;
+--good:#0ca30c;--warning:#fab219;--serious:#ec835a;--critical:#d03b3b;--low:#5598e7;--grid:#e8e7e3;--ring:#0b0b0b;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#111110;--surface:#1a1a19;--surface-2:#242422;--border:#2f2f2c;--text:#ffffff;--text-2:#c3c2b7;--muted:#8d8c86;--accent:#3987e5;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;--other:#6f6e69;--low:#3987e5;--grid:#2a2a28;--ring:#ffffff;}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#111110;--surface:#1a1a19;--surface-2:#242422;--border:#2f2f2c;--text:#ffffff;--text-2:#c3c2b7;--muted:#8d8c86;--accent:#3987e5;
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;--other:#6f6e69;--low:#3987e5;--grid:#2a2a28;--ring:#ffffff;}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{padding-inline:16px;padding-block:0 32px}
+a{color:var(--accent)}code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;padding:14px 0 10px;border-bottom:1px solid var(--border)}
+header h1{font-size:18px;margin:0;letter-spacing:.2px}header .meta{color:var(--text-2);font-size:12.5px}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)}.live .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}.live.on .dot{background:var(--good)}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap;margin:14px 0}nav.tabs button{background:transparent;border:1px solid var(--border);color:var(--text-2);padding:6px 12px;border-radius:999px;cursor:pointer;font:inherit}
+nav.tabs button[aria-selected="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+section.panel{display:none}section.panel.active{display:block}
+.grid{display:grid;gap:12px}.kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;min-width:0}
+.card h2{font-size:13px;margin:0 0 10px;color:var(--text-2);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.kpi .n{font-size:28px;font-weight:650;line-height:1.1}.kpi .l{color:var(--text-2);font-size:12.5px;margin-top:4px}.kpi .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.sev{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--border);white-space:nowrap}
+.sev i{width:8px;height:8px;border-radius:50%;display:inline-block}.sev.CRITICAL i{background:var(--critical)}.sev.HIGH i{background:var(--serious)}.sev.MEDIUM i{background:var(--warning)}.sev.LOW i{background:var(--low)}.sev.INFO i{background:var(--muted)}.sev.PASS i{background:var(--good)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}th{color:var(--text-2);font-weight:600;font-size:12px;position:sticky;top:0;background:var(--surface)}
+tbody tr{cursor:pointer}tbody tr:hover{background:var(--surface-2)}.tbl{overflow:auto;max-height:70vh}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.filters select,.filters input,button.btn,textarea{font:inherit;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+button.btn{cursor:pointer}button.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chart{width:100%;height:auto;display:block}.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--text-2);margin-top:8px}.legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.tip{position:fixed;pointer-events:none;background:var(--text);color:var(--bg);padding:6px 9px;border-radius:6px;font-size:12px;display:none;z-index:20;max-width:320px}
+#cy{height:520px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2)}
+.pathlist{max-height:520px;overflow:auto}.path{padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer}.path.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.path .t{font-weight:600;font-size:13px}.path .m{color:var(--text-2);font-size:12px}.steps li{font-size:12.5px;margin:2px 0}
+.drawer{position:fixed;inset:0 0 0 auto;width:min(560px,100%);background:var(--surface);border-left:1px solid var(--border);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;z-index:10;overflow:auto;padding:18px 20px calc(18px + env(safe-area-inset-bottom,0px))}
+.drawer.open{transform:none}.drawer h3{margin:0 0 6px;font-size:16px}.kv{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;font-size:13px}.kv div:nth-child(odd){color:var(--text-2)}
+pre.code{background:var(--surface-2);padding:10px;border-radius:6px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.score{font-weight:700}.band-Critical{color:var(--critical)}.band-High{color:var(--serious)}.band-Medium{color:var(--warning)}.band-Low{color:var(--low)}
+.chip{display:inline-block;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:1px 8px;font-size:11.5px;margin:2px 2px 0 0;color:var(--text-2)}
+.gauge{display:flex;align-items:center;gap:14px}.gauge .big{font-size:30px;font-weight:700}
+.ctl{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}.ctl div{padding:6px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;display:flex;gap:6px;align-items:center}
+.ctl i{width:8px;height:8px;border-radius:50%}.ctl .FAIL i{background:var(--critical)}.ctl .PASS i{background:var(--good)}.ctl .NOT_ASSESSED i{background:var(--muted)}
+.muted{color:var(--muted)}.small{font-size:12px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fix{padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px}.fix b{font-size:13px}.fix .cmd{font-size:12px}
+.copilot .msgs{max-height:300px;overflow:auto;margin-bottom:8px}.copilot .q{font-weight:600}.copilot .a{white-space:pre-wrap;background:var(--surface-2);padding:8px;border-radius:6px;margin:4px 0 10px}
+@media (max-width:700px){.drawer{width:100%}#cy{height:360px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>☁️ cloud-posture</h1>
+  <span class="meta" id="meta"></span>
+  <span class="live" id="live"><span class="dot"></span><span id="livetxt">static report</span></span>
+  <span style="flex:1"></span>
+  <button class="btn" id="themeBtn" title="Toggle theme">◐</button>
+</header>
+<nav class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="overview">Overview</button>
+  <button role="tab" data-tab="paths">Attack paths</button>
+  <button role="tab" data-tab="risk">Top risks</button>
+  <button role="tab" data-tab="findings">Findings</button>
+  <button role="tab" data-tab="compliance">Compliance</button>
+  <button role="tab" data-tab="cost">Cost</button>
+  <button role="tab" data-tab="query">SQL</button>
+  <button role="tab" data-tab="copilot">Copilot</button>
+  <button role="tab" data-tab="coverage">Coverage</button>
+</nav>
+
+<section class="panel active" id="tab-overview">
+  <div class="grid kpis" id="kpis"></div>
+  <div class="grid two" style="margin-top:12px">
+    <div class="card"><h2>Open findings by provider and severity</h2><div id="sevChart"></div></div>
+    <div class="card"><h2>Break the path — fixes ranked by attack paths removed</h2><div id="topFixes"></div></div>
+  </div>
+  <div class="grid two" style="margin-top:12px">
+    <div class="card"><h2>Compliance scores</h2><div id="compScores"></div></div>
+    <div class="card"><h2>Choke points</h2><div id="chokeOverview"></div></div>
+  </div>
+</section>
+
+<section class="panel" id="tab-paths">
+  <div class="grid two" style="grid-template-columns:minmax(280px,1fr) minmax(min(100%,420px),2fr)">
+    <div class="card"><h2>Attack paths <span class="muted" id="pathCount"></span></h2><div class="pathlist" id="pathList"></div></div>
+    <div class="card"><h2>Security graph</h2>
+      <div class="row small" style="margin-bottom:8px"><span class="chip">◉ entry point</span><span class="chip">◆ crown jewel</span><span class="chip">● misconfigured</span><span class="chip">◎ choke point</span><span class="muted" id="cyNote"></span></div>
+      <div id="cy"></div></div>
+  </div>
+  <div class="grid two" style="margin-top:12px">
+    <div class="card"><h2>Recommendations — these break paths</h2><div id="breakFixes"></div></div>
+    <div class="card"><h2>Additional — these lower risk only</h2><div id="reduceFixes"></div><h2 style="margin-top:14px">Cheapest fix set (min cut)</h2><div id="minFix"></div></div>
+  </div>
+</section>
+
+<section class="panel" id="tab-risk">
+  <div class="card"><h2>Top risks — published formula: severity × context (exposure, identity, data, criticality, CVEs, compliance, change, ownership, attack paths)</h2>
+  <div class="tbl"><table id="riskTbl"><thead><tr><th>Score</th><th>Finding</th><th>Resource</th><th>Why it ranks here</th><th>Owner</th><th>SLA due</th><th>Paths</th></tr></thead><tbody></tbody></table></div></div>
+</section>
+
+<section class="panel" id="tab-findings">
+  <div class="card">
+    <div class="filters">
+      <input id="fSearch" placeholder="search title / resource / id" style="min-width:220px">
+      <select id="fSev"><option value="">severity: all</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option><option>INFO</option></select>
+      <select id="fProv"><option value="">provider: all</option></select>
+      <select id="fAcct"><option value="">account: all</option></select>
+      <select id="fSrc"><option value="">source: all</option></select>
+      <select id="fStatus"><option value="FAIL">status: FAIL</option><option value="">all</option><option>PASS</option><option>SKIP</option><option>ERROR</option></select>
+      <span class="muted small" id="fCount"></span>
+    </div>
+    <div class="tbl"><table id="findTbl"><thead><tr><th>Severity</th><th>Finding</th><th>Resource</th><th>Provider / account</th><th>Source</th><th>Compliance</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<section class="panel" id="tab-compliance">
+  <div class="card"><div class="filters"><select id="fwSel"></select><span class="muted small">PASS = only passing checks map to the control · FAIL = any failing check · grey = not assessed by the tools run</span></div>
+  <div class="gauge" id="fwGauge"></div><div class="ctl" id="ctlGrid" style="margin-top:12px"></div></div>
+</section>
+
+<section class="panel" id="tab-cost"><div class="card"><h2>Cost optimization + security</h2><pre class="code" id="costTxt"></pre><div id="costTbl"></div></div></section>
+
+<section class="panel" id="tab-query">
+  <div class="card"><h2>SQL over your cloud (zero-ETL views)</h2>
+  <div class="row"><select id="savedQ"></select><button class="btn" id="runQ">Run</button><span class="muted small" id="qNote"></span></div>
+  <textarea id="sql" rows="4" style="width:100%;margin:8px 0">SELECT name, region, public_access, encrypted FROM aws_s3_buckets WHERE public_access = 1</textarea>
+  <div class="tbl" id="qOut"></div></div>
+</section>
+
+<section class="panel" id="tab-copilot">
+  <div class="card copilot"><h2>Security copilot</h2><div class="msgs" id="msgs"></div>
+  <div class="row"><input id="ask" placeholder="e.g. show me all public databases with no encryption" style="flex:1;min-width:200px"><button class="btn primary" id="askBtn">Ask</button></div>
+  <p class="muted small" id="copNote"></p></div>
+</section>
+
+<section class="panel" id="tab-coverage"><div class="card"><h2>Scan coverage — what ran, what was skipped, what was denied</h2><div class="tbl"><table id="covTbl"><thead><tr><th>Tool</th><th>Account</th><th>Status</th><th>Findings</th><th>Detail</th></tr></thead><tbody></tbody></table></div></div></section>
+
+<div class="tip" id="tip"></div>
+<aside class="drawer" id="drawer"><button class="btn" id="closeDrawer" style="float:right">✕</button><div id="drawerBody"></div></aside>
+
+<script id="data" type="application/json">{{ .JSON }}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+<script>
+(function(){
+const D = JSON.parse(document.getElementById('data').textContent);
+const $ = s => document.querySelector(s), el = (t,c,txt)=>{const e=document.createElement(t); if(c) e.className=c; if(txt!=null) e.textContent=txt; return e;};
+const fmt = n => (n==null?'–':Number(n).toLocaleString());
+const PROV_SLOT = {aws:'--s1',azure:'--s2',gcp:'--s3',kubernetes:'--s4',github:'--s5',okta:'--s6',m365:'--s7',oci:'--s8'};
+const provColor = p => `var(${PROV_SLOT[p]||'--other'})`;
+const SEV_ORDER = ['CRITICAL','HIGH','MEDIUM','LOW','INFO'];
+const sevColor = s => ({CRITICAL:'var(--critical)',HIGH:'var(--serious)',MEDIUM:'var(--warning)',LOW:'var(--low)',INFO:'var(--muted)'})[s]||'var(--muted)';
+const findings = D.findings||[], paths = D.paths||[], analysis = D.analysis||{}, risk = D.risk||[], graph = D.graph||{nodes:[],edges:[]};
+const byId = {}; findings.forEach(f=>byId[f.id]=f);
+const open = findings.filter(f=>f.status==='FAIL');
+
+// theme
+const themeBtn=$('#themeBtn'); themeBtn.onclick=()=>{const r=document.documentElement; const cur=r.getAttribute('data-theme'); const dark=cur?cur==='dark':matchMedia('(prefers-color-scheme: dark)').matches; r.setAttribute('data-theme',dark?'light':'dark'); try{localStorage.setItem('cp-theme',dark?'light':'dark')}catch(e){} drawGraph();};
+try{const t=localStorage.getItem('cp-theme'); if(t) document.documentElement.setAttribute('data-theme',t);}catch(e){}
+
+// tabs
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected','false')); b.setAttribute('aria-selected','true'); document.querySelectorAll('section.panel').forEach(p=>p.classList.remove('active')); $('#tab-'+b.dataset.tab).classList.add('active'); if(b.dataset.tab==='paths') setTimeout(drawGraph,30);});
+
+// header
+$('#meta').textContent = `${D.generated_at||''} · ${(D.accounts||[]).join(', ')||'ingested results'} · ${open.length} open / ${findings.length} results`;
+
+// KPIs
+(function(){
+  const k=$('#kpis'); const sev={}; open.forEach(f=>sev[f.severity]=(sev[f.severity]||0)+1);
+  const crit=paths.filter(p=>p.severity==='CRITICAL').length;
+  const best=(D.compliance||[]).slice().sort((a,b)=>b.score_percent-a.score_percent)[0];
+  const tiles=[['Open findings',fmt(open.length),`${fmt(sev.CRITICAL||0)} critical · ${fmt(sev.HIGH||0)} high`],
+    ['Attack paths',fmt(paths.length),`${crit} critical · ${(analysis.targets||[]).length} crown jewels`],
+    ['Top risk score',risk[0]?risk[0].risk_score.toFixed(1):'–',risk[0]?risk[0].band+' · '+risk[0].finding.canonical_id:'run prioritize'],
+    ['Min fix set',fmt((analysis.min_fix_set||[]).length),`${analysis.min_fix_coverage||0}% of path risk removed`],
+    ['Compliance',best?best.score_percent+'%':'–',best?best.framework.name:'no framework data'],
+    ['Monthly savings',D.cost&&D.cost.total_monthly_savings?'$'+fmt(Math.round(D.cost.total_monthly_savings)):'–',D.cost?'zombies + rightsizing':'run cloud-posture cost']];
+  tiles.forEach(([l,n,s])=>{const c=el('div','card kpi'); c.append(el('div','n',n),el('div','l',l),el('div','sub',s)); k.append(c);});
+})();
+
+// tooltip
+const tip=$('#tip'); const showTip=(e,txt)=>{tip.textContent=txt; tip.style.display='block'; tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY+12)+'px';}; const hideTip=()=>tip.style.display='none';
+
+// severity by provider: horizontal stacked bars (one axis, thin marks, 2px gaps, legend + tooltip)
+(function(){
+  const provs=[...new Set(open.map(f=>f.provider))].sort(); if(!provs.length){$('#sevChart').append(el('p','muted','No open findings.'));return;}
+  const counts={}; provs.forEach(p=>{counts[p]={}; SEV_ORDER.forEach(s=>counts[p][s]=0);}); open.forEach(f=>counts[f.provider][f.severity]++);
+  const max=Math.max(...provs.map(p=>SEV_ORDER.reduce((a,s)=>a+counts[p][s],0)));
+  const W=560,rowH=26,L=90,R=40,H=provs.length*rowH+10; const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.classList.add('chart');
+  [0.25,0.5,0.75,1].forEach(t=>{const x=L+(W-L-R)*t; const g=document.createElementNS('http://www.w3.org/2000/svg','line'); g.setAttribute('x1',x);g.setAttribute('x2',x);g.setAttribute('y1',0);g.setAttribute('y2',H-10);g.setAttribute('stroke','var(--grid)');svg.append(g);});
+  provs.forEach((p,i)=>{let x=L; const y=i*rowH+6; const lab=document.createElementNS('http://www.w3.org/2000/svg','text'); lab.setAttribute('x',L-8);lab.setAttribute('y',y+12);lab.setAttribute('text-anchor','end');lab.setAttribute('fill','var(--text-2)');lab.setAttribute('font-size','12');lab.textContent=p; svg.append(lab);
+    const total=SEV_ORDER.reduce((a,s)=>a+counts[p][s],0);
+    SEV_ORDER.forEach(s=>{const v=counts[p][s]; if(!v) return; const w=(W-L-R)*v/max; const r=document.createElementNS('http://www.w3.org/2000/svg','rect'); r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',Math.max(w-2,1));r.setAttribute('height',16);r.setAttribute('rx',2);r.setAttribute('fill',sevColor(s));r.addEventListener('mousemove',e=>showTip(e,`${p} · ${s}: ${v}`));r.addEventListener('mouseleave',hideTip); svg.append(r); x+=w;});
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',x+6);t.setAttribute('y',y+12);t.setAttribute('fill','var(--text)');t.setAttribute('font-size','12');t.textContent=total; svg.append(t);});
+  $('#sevChart').append(svg); const lg=el('div','legend'); SEV_ORDER.forEach(s=>{const sp=el('span'); const i=el('i'); i.style.background=sevColor(s); sp.append(i,document.createTextNode(s.toLowerCase())); lg.append(sp);}); $('#sevChart').append(lg);
+})();
+
+// fixes
+function renderFixes(container, fixes, kind){ container.textContent=''; if(!fixes||!fixes.length){container.append(el('p','muted','none')); return;}
+  fixes.slice(0,8).forEach(f=>{const d=el('div','fix'); const n=kind==='break'?f.breaks.length:f.reduces.length; d.append(el('b',null,`${f.weakness.replace(/_/g,' ').toLowerCase()} on ${f.name}`)); d.append(el('div','small muted',kind==='break'?`breaks ${n} attack path${n===1?'':'s'} · removes ${f.score_removed.toFixed(1)} risk`:`lowers risk on ${n} path${n===1?'':'s'}`)); const c=el('code','cmd',f.command); d.append(c); if(f.finding_ids&&f.finding_ids[0]){d.style.cursor='pointer'; d.onclick=()=>openFinding(f.finding_ids[0]);} container.append(d);}); }
+renderFixes($('#topFixes'), analysis.break_fixes, 'break'); renderFixes($('#breakFixes'), analysis.break_fixes, 'break'); renderFixes($('#reduceFixes'), analysis.reduce_fixes, 'reduce');
+(function(){const m=$('#minFix'); if(!(analysis.min_fix_set||[]).length){m.append(el('p','muted','no paths to cut'));return;} const ol=el('ol'); analysis.min_fix_set.forEach(f=>{const li=el('li'); li.append(el('span',null,`${f.weakness.replace(/_/g,' ').toLowerCase()} on ${f.name} — `),el('code',null,f.command)); ol.append(li);}); m.append(ol, el('p','small muted',`${analysis.min_fix_coverage}% of total attack-path risk removed by ${analysis.min_fix_set.length} change(s).`));})();
+(function(){const c=$('#chokeOverview'); const cps=analysis.choke_points||[]; if(!cps.length){c.append(el('p','muted','no choke points (no multi-hop paths yet — run a collector or ingest more tools)'));return;} const t=el('table'); const tb=el('tbody'); cps.slice(0,5).forEach(cp=>{const tr=el('tr'); tr.append(el('td',null,cp.name),el('td',null,cp.type),el('td',null,`${cp.paths} paths`),el('td',null,(cp.weaknesses||[]).map(w=>w.toLowerCase().replace(/_/g,' ')).join(', '))); tb.append(tr);}); t.append(tb); c.append(t);})();
+
+// attack paths list + graph
+let selPath=null, cy=null;
+(function(){const list=$('#pathList'); $('#pathCount').textContent=paths.length?`(${paths.length})`:''; if(!paths.length){list.append(el('p','muted','No attack paths. Paths appear when exposure, identity and data weaknesses chain together.'));return;}
+  paths.forEach((p,i)=>{const d=el('div','path'); d.append(el('div','t',`${p.name}`)); const m=el('div','m'); const s=el('span','sev '+p.severity); s.append(el('i'),document.createTextNode(`${p.severity} · ${p.score.toFixed(1)}`)); m.append(s,document.createTextNode(` ${p.impact} · ${p.provider}/${p.account}`)); d.append(m); const ul=el('ul','steps'); (p.steps||[]).forEach(st=>ul.append(el('li',null,`${st.stage}. ${st.summary||st.title}`))); d.append(ul); d.onclick=()=>{document.querySelectorAll('.path').forEach(x=>x.classList.remove('sel')); d.classList.add('sel'); selPath=p; highlight(p);}; list.append(d);});
+})();
+const chokeIds=new Set((analysis.choke_points||[]).map(c=>c.node_id)), entryIds=new Set(analysis.entry_points||[]), targetIds=new Set(analysis.targets||[]);
+function drawGraph(){ const box=$('#cy'); if(!window.cytoscape){ $('#cyNote').textContent='graph library unavailable offline — paths are listed on the left'; return;} if(!graph.nodes||graph.nodes.length<2){$('#cyNote').textContent='no graph: run a collector scan or ingest Prowler/Steampipe output'; return;}
+  const inPaths=new Set(); paths.forEach(p=>p.steps.forEach(s=>inPaths.add(s.resource))); inPaths.add('internet');
+  const nodes=graph.nodes.filter(n=>inPaths.has(n.id)||n.weaknesses&&n.weaknesses.length||n.class==='internet').slice(0,400); const ids=new Set(nodes.map(n=>n.id));
+  const edges=graph.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)&&e.kind!=='contains');
+  const css=getComputedStyle(document.documentElement); const v=n=>css.getPropertyValue(n).trim();
+  const elements=[...nodes.map(n=>({data:{id:n.id,label:(n.name||n.id).slice(0,28),cls:n.class,weak:(n.weaknesses||[]).length,entry:entryIds.has(n.id)||n.class==='internet',target:targetIds.has(n.id),choke:chokeIds.has(n.id),prov:n.provider}})),...edges.map(e=>({data:{source:e.from,target:e.to,kind:e.kind}}))];
+  if(cy) cy.destroy();
+  cy=cytoscape({container:box,elements,layout:{name:'breadthfirst',directed:true,roots:['internet'],spacingFactor:1.1,padding:20},style:[
+    {selector:'node',style:{'label':'data(label)','font-size':10,'color':v('--text'),'text-valign':'bottom','text-margin-y':4,'background-color':v('--other'),'width':18,'height':18,'border-width':0}},
+    {selector:'node[weak > 0]',style:{'background-color':v('--serious')}},
+    {selector:'node[?entry]',style:{'background-color':v('--s1'),'shape':'ellipse','width':24,'height':24}},
+    {selector:'node[?target]',style:{'shape':'diamond','background-color':v('--critical'),'width':24,'height':24}},
+    {selector:'node[?choke]',style:{'border-width':3,'border-color':v('--ring')}},
+    {selector:'edge',style:{'width':1.5,'line-color':v('--border'),'target-arrow-color':v('--border'),'target-arrow-shape':'triangle','curve-style':'bezier','arrow-scale':0.8,'label':'data(kind)','font-size':7,'color':v('--muted'),'text-rotation':'autorotate'}},
+    {selector:'.hl',style:{'line-color':v('--critical'),'target-arrow-color':v('--critical'),'width':3,'border-color':v('--critical'),'border-width':3}},
+    {selector:'.dim',style:{'opacity':0.25}}]});
+  cy.on('tap','node',e=>{const n=graph.nodes.find(x=>x.id===e.target.id()); if(n&&n.finding_ids&&n.finding_ids[0]) openFinding(n.finding_ids[0]); else if(n) openNode(n);});
+  if(selPath) highlight(selPath);
+}
+function highlight(p){ if(!cy) return; cy.elements().removeClass('hl dim'); const ids=new Set(['internet',...p.steps.map(s=>s.resource)]); cy.elements().addClass('dim'); cy.nodes().filter(n=>ids.has(n.id())).removeClass('dim').addClass('hl'); cy.edges().filter(e=>ids.has(e.source().id())&&ids.has(e.target().id())).removeClass('dim').addClass('hl'); }
+
+// risk table
+(function(){const tb=$('#riskTbl tbody'); if(!risk.length){tb.append(el('tr')).append(el('td',null,'No ranked findings yet.')); return;}
+  risk.forEach(r=>{const f=r.finding; const tr=el('tr'); const sc=el('td'); sc.append(el('span','score band-'+r.band,r.risk_score.toFixed(1)),el('div','small muted',r.band)); tr.append(sc); const fd=el('td'); fd.append(el('div',null,f.title),el('code','small',f.canonical_id)); tr.append(fd); tr.append(el('td',null,(f.resource&&f.resource.name)||f.resource.id)); const why=el('td'); (r.reasons||[]).forEach(x=>why.append(el('span','chip',x))); tr.append(why); tr.append(el('td',null,r.owner||'— orphaned')); tr.append(el('td',null,(r.due_at||'').slice(0,10)+` (${r.sla_days}d)`)); tr.append(el('td',null,r.attack_paths||0)); tr.onclick=()=>openFinding(f.id); tb.append(tr);});
+})();
+
+// findings table
+(function(){const fill=(sel,vals)=>vals.forEach(v=>{const o=el('option',null,v); sel.append(o);});
+  fill($('#fProv'),[...new Set(findings.map(f=>f.provider))].sort()); fill($('#fAcct'),[...new Set(findings.map(f=>f.tags&&f.tags.account_label||f.account))].sort()); fill($('#fSrc'),[...new Set(findings.map(f=>f.source))].sort());
+  const render=()=>{const q=$('#fSearch').value.toLowerCase(), sv=$('#fSev').value, pv=$('#fProv').value, ac=$('#fAcct').value, sr=$('#fSrc').value, st=$('#fStatus').value; const tb=$('#findTbl tbody'); tb.textContent='';
+    const rows=findings.filter(f=>(!st||f.status===st)&&(!sv||f.severity===sv)&&(!pv||f.provider===pv)&&(!ac||f.account===ac||(f.tags&&f.tags.account_label===ac))&&(!sr||f.source===sr)&&(!q||(f.title+' '+f.canonical_id+' '+f.resource.id+' '+f.resource.name+' '+f.id).toLowerCase().includes(q)));
+    $('#fCount').textContent=`${rows.length} shown`; rows.slice(0,500).forEach(f=>{const tr=el('tr'); const s=el('td'); const sp=el('span','sev '+(f.status==='PASS'?'PASS':f.severity)); sp.append(el('i'),document.createTextNode(f.status==='PASS'?'PASS':f.severity)); s.append(sp); tr.append(s); const t=el('td'); t.append(el('div',null,f.title),el('code','small',f.canonical_id)); tr.append(t); const r=el('td'); r.append(el('div',null,f.resource.name||f.resource.id)); if(f.file) r.append(el('code','small',`${f.file}:${f.line_start||0}`)); tr.append(r); const p=el('td'); const dot=el('i'); dot.style.cssText=`display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:${provColor(f.provider)}`; p.append(dot,document.createTextNode(`${f.provider} / ${f.tags&&f.tags.account_label||f.account}`)); tr.append(p); tr.append(el('td',null,f.source)); const c=el('td'); Object.keys(f.compliance||{}).slice(0,4).forEach(k=>c.append(el('span','chip',k))); tr.append(c); tr.onclick=()=>openFinding(f.id); tb.append(tr);});};
+  ['fSearch','fSev','fProv','fAcct','fSrc','fStatus'].forEach(id=>$('#'+id).addEventListener('input',render)); render();
+})();
+
+// drawer
+const drawer=$('#drawer'); $('#closeDrawer').onclick=()=>drawer.classList.remove('open');
+function openNode(n){const b=$('#drawerBody'); b.textContent=''; b.append(el('h3',null,n.name||n.id)); const kv=el('div','kv'); [['type',n.type],['class',n.class],['provider',n.provider],['account',n.account],['region',n.region],['criticality',n.criticality],['owner',n.owner||'—'],['sensitive',n.sensitive?'yes':'no'],['weaknesses',(n.weaknesses||[]).join(', ')||'none']].forEach(([k,v])=>{kv.append(el('div',null,k),el('div',null,v||'—'));}); b.append(kv); const btn=el('button','btn','Open query for this resource'); btn.onclick=()=>{$('#sql').value=`SELECT * FROM findings WHERE resource_id = '${(n.id||'').replace(/'/g,"''")}'`; document.querySelector('[data-tab="query"]').click();}; b.append(el('p'),btn); drawer.classList.add('open');}
+function openFinding(id){const f=byId[id]; if(!f) return; const b=$('#drawerBody'); b.textContent=''; b.append(el('h3',null,f.title)); const sp=el('span','sev '+f.severity); sp.append(el('i'),document.createTextNode(`${f.severity} · ${f.status}`)); b.append(sp,document.createTextNode(' '),el('code',null,f.canonical_id));
+  const kv=el('div','kv'); [['resource',f.resource.id],['type',f.resource.type],['provider / account',`${f.provider} / ${f.account}`],['region',f.region],['source',`${f.source} (${f.check_id})`],['file',f.file?`${f.file}:${f.line_start||0}`:''],['first seen',f.first_seen],['last seen',f.last_seen],['weaknesses',(f.weaknesses||[]).join(', ')]].forEach(([k,v])=>{if(v) kv.append(el('div',null,k),el('div',null,v));}); b.append(el('p'),kv);
+  if(f.description) b.append(el('h4',null,'Risk'),el('p',null,f.description)); if(f.remediation) b.append(el('h4',null,'Remediation'),el('p',null,f.remediation));
+  b.append(el('h4',null,'Fix'),el('pre','code',`cloud-posture fix --id ${f.id} --generate-terraform\n# or\ncloud-posture fix --finding ${f.canonical_id} --format terraform|cloudformation|bicep|kubernetes`));
+  const rel=paths.filter(p=>(p.finding_ids||[]).includes(f.id)); if(rel.length){b.append(el('h4',null,`Attack paths (${rel.length})`)); const ul=el('ul'); rel.slice(0,8).forEach(p=>ul.append(el('li',null,`${p.name} → ${p.impact} (score ${p.score.toFixed(1)})`))); b.append(ul);}
+  if(f.compliance&&Object.keys(f.compliance).length){b.append(el('h4',null,'Compliance')); const ul=el('ul'); Object.entries(f.compliance).forEach(([k,v])=>ul.append(el('li',null,`${k}: ${v.join(', ')}`))); b.append(ul);}
+  const rr=risk.find(r=>r.finding.id===f.id); if(rr){b.append(el('h4',null,`Risk score ${rr.risk_score.toFixed(1)} (${rr.band})`)); const ul=el('ul'); rr.reasons.forEach(x=>ul.append(el('li',null,x))); b.append(ul);}
+  const btn=el('button','btn','Open query for this resource'); btn.onclick=()=>{$('#sql').value=`SELECT canonical_id, severity, status, source FROM findings WHERE resource_id = '${f.resource.id.replace(/'/g,"''")}'`; document.querySelector('[data-tab="query"]').click(); runQuery();}; b.append(el('p'),btn);
+  drawer.classList.add('open');}
+
+// compliance
+(function(){const reps=D.compliance||[]; const sel=$('#fwSel'); if(!reps.length){$('#fwGauge').append(el('p','muted','No compliance data; findings carry no framework mappings yet.')); $('#compScores').append(el('p','muted','—')); return;}
+  reps.forEach((r,i)=>{const o=el('option',null,`${r.framework.name} ${r.framework.version||''} — ${r.score_percent}%`); o.value=i; sel.append(o);});
+  const scores=$('#compScores'); const t=el('table'); const tb=el('tbody'); reps.forEach(r=>{const tr=el('tr'); tr.append(el('td',null,r.framework.name),el('td',null,`${r.score_percent}%`),el('td',null,`${r.failing} failing · ${r.passing} passing · ${r.not_assessed} n/a`)); tr.onclick=()=>{sel.value=reps.indexOf(r); show(); document.querySelector('[data-tab="compliance"]').click();}; tb.append(tr);}); t.append(tb); scores.append(t);
+  const show=()=>{const r=reps[sel.value]; const g=$('#fwGauge'); g.textContent=''; const R=28,C=2*Math.PI*R; const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('viewBox','0 0 72 72'); svg.setAttribute('width','72'); const bg=document.createElementNS('http://www.w3.org/2000/svg','circle'); bg.setAttribute('cx',36);bg.setAttribute('cy',36);bg.setAttribute('r',R);bg.setAttribute('fill','none');bg.setAttribute('stroke','var(--grid)');bg.setAttribute('stroke-width',6); const fg=bg.cloneNode(); fg.setAttribute('stroke',r.score_percent>=80?'var(--good)':r.score_percent>=50?'var(--warning)':'var(--critical)'); fg.setAttribute('stroke-dasharray',`${C*r.score_percent/100} ${C}`); fg.setAttribute('transform','rotate(-90 36 36)'); svg.append(bg,fg); g.append(svg); const d=el('div'); d.append(el('div','big',`${r.score_percent}%`),el('div','small muted',`${r.framework.name} ${r.framework.version||''} · ${r.passing} pass / ${r.failing} fail / ${r.not_assessed} not assessed`)); g.append(d);
+    const grid=$('#ctlGrid'); grid.textContent=''; r.controls.forEach(c=>{const d=el('div',c.status); d.append(el('i'),el('span',null,`${c.id} `),el('span','muted',(c.title||'').slice(0,40))); d.title=`${c.id} ${c.title||''}\n${c.status}${c.failed?` · ${c.failed} failing: ${(c.resources||[]).slice(0,5).join(', ')}`:''}`; if(c.finding_ids&&c.finding_ids[0]){d.style.cursor='pointer'; d.onclick=()=>openFinding(c.finding_ids[0]);} grid.append(d);});};
+  sel.onchange=show; show();
+})();
+
+// cost
+(function(){const c=D.cost; if(!c){$('#costTxt').textContent='Run `cloud-posture cost` after a collector scan to see zombie resources, rightsizing and security-driven savings.'; return;} $('#costTxt').textContent=c.text||JSON.stringify(c,null,2);})();
+
+// coverage
+(function(){const tb=$('#covTbl tbody'); const runs=(D.scan&&D.scan.tools)||[]; if(!runs.length){tb.append(el('tr')).append(el('td',null,'No scan metadata (results were ingested from files).')); return;} runs.forEach(r=>{const tr=el('tr'); tr.append(el('td',null,r.tool),el('td',null,r.account||''),el('td',null,r.status),el('td',null,r.findings||0),el('td','small muted',(r.message||'')+(r.output?' '+r.output.slice(-200):''))); tb.append(tr);});})();
+
+// SQL console (live mode posts to /api/query)
+const LIVE = D.mode==='live';
+const saved=[['Public buckets','SELECT name, provider, account, region FROM aws_s3_buckets WHERE public_access = 1'],['Internet-exposed compute, all clouds',"SELECT name, provider, account FROM aws_instances WHERE internet_exposed = 1 UNION ALL SELECT name, provider, account FROM azure_virtual_machines WHERE internet_exposed = 1 UNION ALL SELECT name, provider, account FROM gcp_compute_instances WHERE internet_exposed = 1"],['Attack paths to databases',"SELECT name, entry_point, target, path_length, score FROM attack_path_summary WHERE target LIKE '%rds%' OR target LIKE '%sql%' OR target LIKE '%db%' ORDER BY score DESC"],['CIS AWS failing controls',"SELECT control_id, title, reason FROM cis_aws_benchmark WHERE status = 'FAIL'"],['SOC 2 status',"SELECT control_id, title, status FROM soc2 ORDER BY control_id"],['Findings by account',"SELECT provider, account, severity, COUNT(*) AS n FROM findings WHERE status='FAIL' GROUP BY 1,2,3 ORDER BY n DESC"]];
+saved.forEach(([n,q])=>{const o=el('option',null,n); o.value=q; $('#savedQ').append(o);}); $('#savedQ').onchange=()=>{$('#sql').value=$('#savedQ').value;};
+function renderRows(container, cols, rows){container.textContent=''; const t=el('table'); const th=el('thead'); const trh=el('tr'); cols.forEach(c=>trh.append(el('th',null,c))); th.append(trh); const tb=el('tbody'); rows.forEach(r=>{const tr=el('tr'); r.forEach(v=>tr.append(el('td',null,v==null?'NULL':String(v)))); tb.append(tr);}); t.append(th,tb); container.append(t, el('p','small muted',`${rows.length} rows`));}
+async function runQuery(){const sql=$('#sql').value; const out=$('#qOut'); if(!LIVE){out.textContent=''; out.append(el('pre','code',`cloud-posture query "${sql.replace(/"/g,'\\"')}"`), el('p','small muted','This is a static report. Run the command above, or start `cloud-posture serve` for a live console.')); return;}
+  out.textContent='running…'; try{const r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sql})}); const j=await r.json(); if(j.error) throw new Error(j.error); renderRows(out,j.columns||[],j.rows||[]);}catch(e){out.textContent='error: '+e.message;}}
+$('#runQ').onclick=runQuery; $('#qNote').textContent=LIVE?'live: queries run against the posture database':'static report: queries are shown as commands';
+
+// copilot (Python intelligence API)
+const COP = D.copilot_url || (LIVE ? '' : '');
+$('#copNote').textContent = COP ? `connected to ${COP}` : 'Copilot answers come from the Python intelligence layer: run `nimbus serve` (or `cloud-posture serve --copilot http://localhost:8081`). Offline fallback: `nimbus ask "..."` in a terminal.';
+$('#askBtn').onclick=async()=>{const q=$('#ask').value.trim(); if(!q) return; const m=$('#msgs'); m.append(el('div','q',q)); const a=el('div','a','…'); m.append(a); $('#ask').value=''; if(!COP){a.textContent=`nimbus ask "${q}"`; return;} try{const r=await fetch(COP.replace(/\/$/,'')+'/api/copilot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})}); const j=await r.json(); a.textContent=j.answer||j.explanation||JSON.stringify(j,null,2); if(j.sql){a.append(el('div'),el('code',null,j.sql));}}catch(e){a.textContent='error: '+e.message;}};
+
+// live updates
+if(LIVE){const live=$('#live'); try{const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws'); ws.onopen=()=>{live.classList.add('on'); $('#livetxt').textContent='live';}; ws.onmessage=e=>{const ev=JSON.parse(e.data); if(ev.type==='findings_updated'){$('#livetxt').textContent='updated — reloading'; setTimeout(()=>location.reload(),800);} if(ev.type==='scan_started') $('#livetxt').textContent='scan running…'; if(ev.type==='monitor_event') $('#livetxt').textContent='change detected: '+(ev.payload&&ev.payload.title||'');}; ws.onclose=()=>{live.classList.remove('on'); $('#livetxt').textContent='disconnected';};}catch(e){}}
+drawGraph();
+})();
+</script>
+</body>
+</html>

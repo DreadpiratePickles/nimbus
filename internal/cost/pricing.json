@@ -1,0 +1,36 @@
+{
+  "_comment": "On-demand Linux list prices (USD). AWS us-east-1, Azure East US, GCP us-central1. Storage per GB-month, IPs per month, egress per GB (first tier).",
+  "compute_hourly": {
+    "aws": {
+      "t3.nano": 0.0052, "t3.micro": 0.0104, "t3.small": 0.0208, "t3.medium": 0.0416, "t3.large": 0.0832, "t3.xlarge": 0.1664, "t3.2xlarge": 0.3328,
+      "t3a.nano": 0.0047, "t3a.micro": 0.0094, "t3a.small": 0.0188, "t3a.medium": 0.0376, "t3a.large": 0.0752, "t3a.xlarge": 0.1504, "t3a.2xlarge": 0.3008,
+      "m5.large": 0.096, "m5.xlarge": 0.192, "m5.2xlarge": 0.384, "m5.4xlarge": 0.768, "m5.8xlarge": 1.536, "m5.12xlarge": 2.304, "m5.16xlarge": 3.072, "m5.24xlarge": 4.608,
+      "m6i.large": 0.096, "m6i.xlarge": 0.192, "m6i.2xlarge": 0.384, "m6i.4xlarge": 0.768, "m6i.8xlarge": 1.536, "m6i.12xlarge": 2.304, "m6i.16xlarge": 3.072, "m6i.24xlarge": 4.608,
+      "c5.large": 0.085, "c5.xlarge": 0.17, "c5.2xlarge": 0.34, "c5.4xlarge": 0.68, "c5.9xlarge": 1.53, "c5.12xlarge": 2.04, "c5.18xlarge": 3.06, "c5.24xlarge": 4.08,
+      "c6i.large": 0.085, "c6i.xlarge": 0.17, "c6i.2xlarge": 0.34, "c6i.4xlarge": 0.68, "c6i.8xlarge": 1.36, "c6i.12xlarge": 2.04, "c6i.16xlarge": 2.72, "c6i.24xlarge": 4.08,
+      "r5.large": 0.126, "r5.xlarge": 0.252, "r5.2xlarge": 0.504, "r5.4xlarge": 1.008, "r5.8xlarge": 2.016, "r5.12xlarge": 3.024, "r5.16xlarge": 4.032, "r5.24xlarge": 6.048,
+      "r6i.large": 0.126, "r6i.xlarge": 0.252, "r6i.2xlarge": 0.504, "r6i.4xlarge": 1.008, "r6i.8xlarge": 2.016, "r6i.12xlarge": 3.024, "r6i.16xlarge": 4.032, "r6i.24xlarge": 6.048
+    },
+    "azure": {
+      "Standard_B1s": 0.0104, "Standard_B1ms": 0.0207, "Standard_B2s": 0.0416, "Standard_B2ms": 0.0832, "Standard_B4ms": 0.166, "Standard_B8ms": 0.333, "Standard_B12ms": 0.499, "Standard_B16ms": 0.666,
+      "Standard_D2s_v3": 0.096, "Standard_D4s_v3": 0.192, "Standard_D8s_v3": 0.384, "Standard_D16s_v3": 0.768, "Standard_D32s_v3": 1.536,
+      "Standard_D2s_v5": 0.096, "Standard_D4s_v5": 0.192, "Standard_D8s_v5": 0.384, "Standard_D16s_v5": 0.768, "Standard_D32s_v5": 1.536,
+      "Standard_D2_v5": 0.096, "Standard_D4_v5": 0.192, "Standard_D8_v5": 0.384, "Standard_D16_v5": 0.768,
+      "Standard_E2s_v3": 0.126, "Standard_E4s_v3": 0.252, "Standard_E8s_v3": 0.504, "Standard_E16s_v3": 1.008, "Standard_E32s_v3": 2.016,
+      "Standard_E2s_v5": 0.126, "Standard_E4s_v5": 0.252, "Standard_E8s_v5": 0.504, "Standard_E16s_v5": 1.008, "Standard_E32s_v5": 2.016
+    },
+    "gcp": {
+      "e2-micro": 0.0084, "e2-small": 0.0168, "e2-medium": 0.0335, "e2-standard-2": 0.067, "e2-standard-4": 0.134, "e2-standard-8": 0.268, "e2-standard-16": 0.536, "e2-standard-32": 1.072,
+      "n2-standard-2": 0.0971, "n2-standard-4": 0.1942, "n2-standard-8": 0.3885, "n2-standard-16": 0.7769, "n2-standard-32": 1.5539,
+      "n1-standard-1": 0.0475, "n1-standard-2": 0.095, "n1-standard-4": 0.19, "n1-standard-8": 0.38, "n1-standard-16": 0.76, "n1-standard-32": 1.52
+    }
+  },
+  "storage_gb_month": {
+    "aws": {"gp2": 0.10, "gp3": 0.08, "io1": 0.125, "io2": 0.125, "st1": 0.045, "sc1": 0.015, "standard": 0.05},
+    "azure": {"Premium_LRS": 0.15, "PremiumV2_LRS": 0.12, "StandardSSD_LRS": 0.075, "StandardSSD_ZRS": 0.094, "Standard_LRS": 0.045, "UltraSSD_LRS": 0.12},
+    "gcp": {"pd-standard": 0.04, "pd-balanced": 0.10, "pd-ssd": 0.17, "pd-extreme": 0.125}
+  },
+  "default_storage": {"aws": "gp2", "azure": "StandardSSD_LRS", "gcp": "pd-standard"},
+  "ip_monthly": {"aws": 3.60, "azure": 3.65, "gcp": 7.30},
+  "egress_per_gb": {"aws": 0.09, "azure": 0.087, "gcp": 0.12}
+}

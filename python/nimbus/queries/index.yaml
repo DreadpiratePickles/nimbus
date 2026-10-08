@@ -1,0 +1,42 @@
+# Named compliance & security queries: `nimbus query --named NAME`, `nimbus query --list`.
+queries:
+  - name: public_buckets_with_pii
+    description: Public buckets the security graph marks as sensitive (PII / crown-jewel data)
+    frameworks: [gdpr, pci_dss, soc2, cis_aws]
+    sql: public_buckets_with_pii.sql
+  - name: attack_paths_to_databases
+    description: Attack paths whose chain reaches RDS / Cloud SQL / Azure SQL databases
+    frameworks: [pci_dss, hipaa, soc2]
+    sql: attack_paths_to_databases.sql
+  - name: cis_control_status
+    description: Status of every CIS benchmark control per provider and account
+    frameworks: [cis_aws, cis_azure, cis_gcp, cis_k8s, cis_github]
+    sql: cis_control_status.sql
+  - name: cross_cloud_internet_exposed_compute
+    description: Internet-exposed compute across AWS, Azure and GCP (UNION across clouds)
+    frameworks: [nist_800_53, pci_dss, soc2]
+    sql: cross_cloud_internet_exposed_compute.sql
+  - name: stale_keys_with_admin
+    description: Stale access keys / credentials belonging to over-privileged identities
+    frameworks: [cis_aws, nist_800_53, soc2, iso_27001]
+    sql: stale_keys_with_admin.sql
+  - name: k8s_privileged_pods_by_namespace
+    description: Privileged / host-access pods counted per Kubernetes namespace
+    frameworks: [cis_k8s, nist_800_53]
+    sql: k8s_privileged_pods_by_namespace.sql
+  - name: unencrypted_datastores_by_provider
+    description: Unencrypted buckets, databases, disks and volumes per provider
+    frameworks: [pci_dss, hipaa, gdpr, soc2, iso_27001]
+    sql: unencrypted_datastores_by_provider.sql
+  - name: top_risky_accounts
+    description: Accounts ranked by severity-weighted open findings and attack paths
+    frameworks: []
+    sql: top_risky_accounts.sql
+  - name: findings_trend_by_scan
+    description: Total / failed findings and attack paths per scan over time
+    frameworks: []
+    sql: findings_trend_by_scan.sql
+  - name: compliance_score_per_framework
+    description: Percentage of assessed controls passing per framework
+    frameworks: [cis_aws, nist_800_53, pci_dss, hipaa, gdpr, soc2, iso_27001]
+    sql: compliance_score_per_framework.sql

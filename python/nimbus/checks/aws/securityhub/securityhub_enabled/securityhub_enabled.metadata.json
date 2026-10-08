@@ -1,0 +1,60 @@
+{
+  "Provider": "aws",
+  "CheckID": "securityhub_enabled",
+  "CheckTitle": "Ensure AWS Security Hub is enabled",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "securityhub",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:securityhub:region:account-id:hub/default",
+  "Severity": "medium",
+  "ResourceType": "AwsSecurityHubHub",
+  "Description": "Checks that AWS Security Hub is enabled in every region.",
+  "Risk": "Without Security Hub, findings from GuardDuty, Inspector, Macie and Config are not aggregated or continuously checked against standards.",
+  "RelatedUrl": "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-settingup.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws securityhub enable-security-hub --enable-default-standards",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable Security Hub in all regions with the CIS AWS Foundations and AWS Foundational Security Best Practices standards.",
+      "Url": "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-settingup.html"
+    }
+  },
+  "Categories": [
+    "threat-detection"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "4.16"
+    ],
+    "nist_800_53": [
+      "SI-4",
+      "CA-7",
+      "RA-5"
+    ],
+    "pci_dss": [
+      "10.7.2",
+      "11.5.1"
+    ],
+    "hipaa": [
+      "164.308(a)(1)(ii)(D)",
+      "164.308(a)(6)(ii)"
+    ],
+    "gdpr": [
+      "Art.32",
+      "Art.33"
+    ],
+    "soc2": [
+      "CC7.1",
+      "CC7.2"
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+name: cloud-posture
+description: Scan IaC and cloud accounts, post results as a PR comment and SARIF code scanning alerts, fail on severity.
+branding: {icon: shield, color: blue}
+inputs:
+  iac-path: {description: Directory of IaC to scan, default: "."}
+  accounts: {description: Comma-separated accounts from cloud-posture.yaml (cloud scans), default: ""}
+  fail-on: {description: Minimum severity that fails the job, default: HIGH}
+  sarif: {description: Upload SARIF to GitHub code scanning, default: "true"}
+  pr-comment: {description: Post a sticky PR comment with results, default: "true"}
+  version: {description: cloud-posture release to install, default: latest}
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: curl -fsSL https://raw.githubusercontent.com/DreadpiratePickles/nimbus/main/install.sh | bash -s -- "${{ inputs.version }}"
+    - shell: bash
+      run: |
+        set -euo pipefail
+        ARGS="--iac ${{ inputs.iac-path }} --output json --out-file cloud-posture.json --sarif cloud-posture.sarif --fail-on ${{ inputs.fail-on }} --no-store"
+        if [ -n "${{ inputs.accounts }}" ]; then ARGS="$ARGS --accounts ${{ inputs.accounts }}"; fi
+        cloud-posture scan $ARGS || echo "CP_FAILED=1" >> "$GITHUB_ENV"
+    - if: inputs.sarif == 'true' && hashFiles('cloud-posture.sarif') != ''
+      uses: github/codeql-action/upload-sarif@v3
+      with: {sarif_file: cloud-posture.sarif}
+    - if: inputs.pr-comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      run: cloud-posture pr-comment --results cloud-posture.json --repo "${{ github.repository }}" --pr "${{ github.event.pull_request.number }}"
+      env: {GITHUB_TOKEN: "${{ github.token }}"}
+    - shell: bash
+      run: if [ "${CP_FAILED:-0}" = "1" ]; then echo "::error::findings at or above ${{ inputs.fail-on }}"; exit 1; fi

@@ -1,0 +1,12 @@
+*.env
+.env
+__pycache__/
+*.pyc
+.cloud-posture/
+cloud-posture-report/
+cloud-posture-remediation/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+vscode-extension/node_modules/

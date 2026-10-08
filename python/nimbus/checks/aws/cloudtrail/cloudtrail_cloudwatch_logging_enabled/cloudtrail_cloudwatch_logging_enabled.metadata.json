@@ -1,0 +1,59 @@
+{
+  "Provider": "aws",
+  "CheckID": "cloudtrail_cloudwatch_logging_enabled",
+  "CheckTitle": "Ensure CloudTrail trails are integrated with CloudWatch Logs",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "cloudtrail",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:cloudtrail:region:account-id:trail/trail-name",
+  "Severity": "low",
+  "ResourceType": "AwsCloudTrailTrail",
+  "Description": "Checks that each trail delivers to CloudWatch Logs and has delivered within the last 24 hours.",
+  "Risk": "Without CloudWatch Logs integration, the section 4 metric-filter alarms cannot work and real-time detection is impossible.",
+  "RelatedUrl": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws cloudtrail update-trail --name <trail> --cloud-watch-logs-log-group-arn <lg-arn> --cloud-watch-logs-role-arn <role-arn>",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Configure the trail to send events to a CloudWatch Logs log group with an appropriate IAM role.",
+      "Url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html"
+    }
+  },
+  "Categories": [
+    "logging"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "CIS AWS 1.x/2.0 control 3.4, removed from the 3.0 numbering (prerequisite for section 4); mapped to 3.1.",
+  "Compliance": {
+    "cis_aws": [
+      "3.1"
+    ],
+    "nist_800_53": [
+      "AU-6",
+      "AU-6(1)",
+      "SI-4"
+    ],
+    "pci_dss": [
+      "10.4.1"
+    ],
+    "hipaa": [
+      "164.312(b)",
+      "164.308(a)(1)(ii)(D)"
+    ],
+    "gdpr": [
+      "Art.30",
+      "Art.33"
+    ],
+    "soc2": [
+      "CC7.2",
+      "CC7.3"
+    ]
+  }
+}

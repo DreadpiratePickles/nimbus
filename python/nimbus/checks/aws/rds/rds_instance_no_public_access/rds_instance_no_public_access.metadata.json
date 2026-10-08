@@ -1,0 +1,60 @@
+{
+  "Provider": "aws",
+  "CheckID": "rds_instance_no_public_access",
+  "CheckTitle": "Ensure there are no Public Accessible RDS instances",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "rds",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:rds:region:account-id:db:db-instance-id",
+  "Severity": "critical",
+  "ResourceType": "AwsRdsDbInstance",
+  "Description": "Checks whether RDS DB instances are configured as publicly accessible.",
+  "Risk": "Publicly accessible databases are reachable from the internet and exposed to brute-force and exploit attempts against the engine.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.Security.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws rds modify-db-instance --db-instance-identifier <db> --no-publicly-accessible --apply-immediately",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Set PubliclyAccessible to false and place databases in private subnets.",
+      "Url": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.Security.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "2.3.3"
+    ],
+    "nist_800_53": [
+      "SC-7",
+      "AC-3",
+      "AC-4"
+    ],
+    "pci_dss": [
+      "1.3.1",
+      "1.4.4"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

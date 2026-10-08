@@ -1,0 +1,58 @@
+{
+  "Provider": "aws",
+  "CheckID": "s3_bucket_secure_transport_policy",
+  "CheckTitle": "Ensure S3 Bucket Policy is set to deny HTTP requests",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "s3",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:s3:::bucket-name",
+  "Severity": "medium",
+  "ResourceType": "AwsS3Bucket",
+  "Description": "Checks that each bucket policy denies requests that are not sent over TLS (aws:SecureTransport = false).",
+  "Risk": "Without an explicit deny, clients may read or write objects over unencrypted HTTP, exposing data and credentials in transit.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "",
+      "NativeIaC": "",
+      "Other": "{\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"s3:*\",\"Resource\":[\"arn:aws:s3:::<bucket>\",\"arn:aws:s3:::<bucket>/*\"],\"Condition\":{\"Bool\":{\"aws:SecureTransport\":\"false\"}}}",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Add a bucket policy statement that denies s3:* when aws:SecureTransport is false.",
+      "Url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html"
+    }
+  },
+  "Categories": [
+    "encryption"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "2.1.1"
+    ],
+    "nist_800_53": [
+      "SC-8",
+      "SC-8(1)",
+      "SC-23"
+    ],
+    "pci_dss": [
+      "4.2.1"
+    ],
+    "hipaa": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(2)(ii)"
+    ],
+    "gdpr": [
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.7"
+    ]
+  }
+}

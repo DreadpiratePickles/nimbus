@@ -1,0 +1,57 @@
+{
+  "Provider": "aws",
+  "CheckID": "rds_instance_minor_version_upgrade_enabled",
+  "CheckTitle": "Ensure RDS instances have minor version upgrade enabled",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "rds",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:rds:region:account-id:db:db-instance-id",
+  "Severity": "low",
+  "ResourceType": "AwsRdsDbInstance",
+  "Description": "Checks that automatic minor version upgrades are enabled on RDS DB instances.",
+  "Risk": "Without automatic minor upgrades, databases miss security patches for known engine vulnerabilities.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.Security.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws rds modify-db-instance --db-instance-identifier <db> --auto-minor-version-upgrade --apply-immediately",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable Auto Minor Version Upgrade on every RDS instance.",
+      "Url": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.Security.html"
+    }
+  },
+  "Categories": [
+    "resilience"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "2.3.2"
+    ],
+    "nist_800_53": [
+      "SI-2",
+      "SI-2(2)"
+    ],
+    "pci_dss": [
+      "6.3.3"
+    ],
+    "hipaa": [
+      "164.308(a)(7)(i)",
+      "164.308(a)(7)(ii)(A)"
+    ],
+    "gdpr": [
+      "Art.32"
+    ],
+    "soc2": [
+      "A1.2",
+      "CC9.1"
+    ]
+  }
+}

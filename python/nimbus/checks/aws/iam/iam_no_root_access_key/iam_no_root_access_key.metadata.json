@@ -1,0 +1,63 @@
+{
+  "Provider": "aws",
+  "CheckID": "iam_no_root_access_key",
+  "CheckTitle": "Ensure no root account access key exists",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark",
+    "Software and Configuration Checks/AWS Security Best Practices/Identity and Access Management"
+  ],
+  "ServiceName": "iam",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:iam::account-id:root",
+  "Severity": "critical",
+  "ResourceType": "AwsAccount",
+  "Description": "Checks that the root user has no active access keys.",
+  "Risk": "Root access keys grant programmatic, MFA-less, unrestricted access to the whole account; a single leak is a full account compromise.",
+  "RelatedUrl": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "",
+      "NativeIaC": "",
+      "Other": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user_manage_delete-key.html",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Delete all root user access keys and use IAM roles or least-privileged IAM users for programmatic access.",
+      "Url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    }
+  },
+  "Categories": [
+    "identity-access"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "1.4"
+    ],
+    "nist_800_53": [
+      "AC-6(9)",
+      "IA-2",
+      "AC-2"
+    ],
+    "pci_dss": [
+      "8.2.2",
+      "8.6.1"
+    ],
+    "hipaa": [
+      "164.312(a)(1)",
+      "164.312(d)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ]
+  }
+}

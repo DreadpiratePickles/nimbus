@@ -1,0 +1,58 @@
+{
+  "Provider": "aws",
+  "CheckID": "rds_instance_multi_az",
+  "CheckTitle": "Check if RDS instances have multi-AZ enabled",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "rds",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:rds:region:account-id:db:db-instance-id",
+  "Severity": "medium",
+  "ResourceType": "AwsRdsDbInstance",
+  "Description": "Checks that RDS DB instances are deployed across multiple Availability Zones.",
+  "Risk": "Single-AZ databases suffer extended downtime and potential data loss during an AZ outage.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.Security.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws rds modify-db-instance --db-instance-identifier <db> --multi-az --apply-immediately",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable Multi-AZ for production RDS instances.",
+      "Url": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.Security.html"
+    }
+  },
+  "Categories": [
+    "resilience"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "Not a numbered CIS AWS 3.0 control; mapped to the RDS section (2.3.2) as the nearest control.",
+  "Compliance": {
+    "cis_aws": [
+      "2.3.2"
+    ],
+    "nist_800_53": [
+      "CP-10",
+      "SC-36",
+      "CP-6"
+    ],
+    "pci_dss": [
+      "12.10.1"
+    ],
+    "hipaa": [
+      "164.308(a)(7)(i)",
+      "164.308(a)(7)(ii)(A)"
+    ],
+    "gdpr": [
+      "Art.32"
+    ],
+    "soc2": [
+      "A1.2",
+      "CC9.1"
+    ]
+  }
+}

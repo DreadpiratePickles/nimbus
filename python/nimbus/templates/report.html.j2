@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ r.framework.name }} compliance report</title>
+<style>
+:root{--ink:#0b0b0b;--ink-2:#52514e;--muted:#8a8984;--line:#e4e3de;--surface:#fcfcfb;--panel:#ffffff;
+--good:#0ca30c;--warning:#fab219;--serious:#ec835a;--critical:#d03b3b;--na:#b7b6af;--accent:#2a78d6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:1080px;margin:0 auto;padding:32px 20px}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;margin:36px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+h3{font-size:15px;margin:18px 0 6px}
+.sub{color:var(--ink-2)}.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.tile .v{font-size:24px;font-weight:650}.tile .k{color:var(--ink-2);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.summary{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;background:var(--panel)}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px}
+th{font-size:12px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.03em;background:#f6f5f2}
+.badge{display:inline-flex;align-items:center;gap:5px;font-weight:600;font-size:12px;white-space:nowrap}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.FAIL .dot{background:var(--critical)}.PASS .dot{background:var(--good)}.NOT_ASSESSED .dot{background:var(--na)}
+.sev-CRITICAL .dot{background:var(--critical)}.sev-HIGH .dot{background:var(--serious)}.sev-MEDIUM .dot{background:var(--warning)}
+.sev-LOW .dot{background:var(--accent)}.sev-INFO .dot{background:var(--na)}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+pre{white-space:pre-wrap;word-break:break-all;background:#f6f5f2;border:1px solid var(--line);border-radius:6px;padding:8px;margin:6px 0}
+.ev{border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0;background:var(--panel);break-inside:avoid}
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px;background:var(--surface);margin:8px 0}
+.bar span{display:block;height:100%}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+footer{margin-top:48px;color:var(--muted);font-size:12px}
+.page{break-before:page}
+@media print{body{background:#fff}main{padding:0}.tile,.ev,table{break-inside:avoid}h2{break-after:avoid}a{color:inherit;text-decoration:none}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>{{ r.framework.name }} <span class="muted">v{{ r.framework.version }}</span></h1>
+  <div class="sub">Compliance report · generated {{ r.generated_at }} · scope: {{ r.scope }}{% if r.monitoring.scan_id %} · scan <code>{{ r.monitoring.scan_id }}</code>{% endif %}</div>
+</header>
+
+<h2>Executive summary</h2>
+<div class="summary">
+  {{ gauge | safe }}
+  <div style="flex:1;min-width:260px">
+    <p>{{ summary_text }}</p>
+    <div class="grid">
+      <div class="tile"><div class="k">Controls</div><div class="v">{{ r.total_controls }}</div></div>
+      <div class="tile"><div class="k">Passing</div><div class="v">{{ r.passing }}</div></div>
+      <div class="tile"><div class="k">Failing</div><div class="v">{{ r.failing }}</div></div>
+      <div class="tile"><div class="k">Not assessed</div><div class="v">{{ r.not_assessed }}</div></div>
+      <div class="tile"><div class="k">Attack paths</div><div class="v">{{ r.attack_paths | length }}</div></div>
+    </div>
+    {% set tot = r.total_controls or 1 %}
+    <div class="bar" role="img" aria-label="{{ r.passing }} passing, {{ r.failing }} failing, {{ r.not_assessed }} not assessed">
+      {% if r.passing %}<span style="width:{{ 100*r.passing/tot }}%;background:var(--good)"></span>{% endif %}
+      {% if r.failing %}<span style="width:{{ 100*r.failing/tot }}%;background:var(--critical)"></span>{% endif %}
+      {% if r.not_assessed %}<span style="width:{{ 100*r.not_assessed/tot }}%;background:var(--na)"></span>{% endif %}
+    </div>
+    <div class="legend"><span class="badge PASS"><i class="dot"></i>Passing {{ r.passing }}</span><span class="badge FAIL"><i class="dot"></i>Failing {{ r.failing }}</span><span class="badge NOT_ASSESSED"><i class="dot"></i>Not assessed {{ r.not_assessed }}</span></div>
+    {% if r.severity_counts %}<p class="sub">Open findings in scope:
+      {% for s in ["CRITICAL","HIGH","MEDIUM","LOW","INFO"] if r.severity_counts.get(s) %}<span class="badge sev-{{ s }}"><i class="dot"></i>{{ s }} {{ r.severity_counts[s] }}</span>&nbsp; {% endfor %}</p>{% endif %}
+  </div>
+</div>
+
+<h2>Control status</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Control</th><th>Title</th><th>Status</th><th>Failed</th><th>Passed</th><th>Max severity</th><th>Failing resources</th></tr></thead>
+<tbody>
+{% for c in r.controls %}<tr>
+  <td><code>{{ c.id }}</code></td><td>{{ c.title }}</td>
+  <td><span class="badge {{ c.status }}"><i class="dot"></i>{{ c.status | replace("_"," ") }}</span></td>
+  <td>{{ c.failed }}</td><td>{{ c.passed }}</td>
+  <td>{% if c.max_severity %}<span class="badge sev-{{ c.max_severity }}"><i class="dot"></i>{{ c.max_severity }}</span>{% endif %}</td>
+  <td>{{ c.resources[:5] | join(", ") }}{% if c.resources|length > 5 %} +{{ c.resources|length - 5 }} more{% endif %}</td>
+</tr>{% endfor %}
+</tbody></table></div>
+
+<h2>Remediation roadmap</h2>
+{% if r.roadmap %}
+<div class="table-wrap"><table>
+<thead><tr><th>#</th><th>Check</th><th>Severity</th><th>Resources</th><th>Controls</th><th>Fix</th></tr></thead>
+<tbody>
+{% for i in r.roadmap %}<tr>
+  <td>{{ loop.index }}</td>
+  <td><strong>{{ i.title }}</strong><br><code>{{ i.canonical_id }}</code>{% if i.remediation %}<br><span class="sub">{{ i.remediation }}</span>{% endif %}</td>
+  <td><span class="badge sev-{{ i.severity }}"><i class="dot"></i>{{ i.severity }}</span></td>
+  <td>{{ i.count }}</td><td>{{ i.controls | join(", ") }}</td>
+  <td><code>{{ i.command }}</code></td>
+</tr>{% endfor %}
+</tbody></table></div>
+{% else %}<p class="sub">No failing checks in scope.</p>{% endif %}
+
+<h2>Attack-path summary</h2>
+{% if r.attack_paths %}
+<div class="table-wrap"><table>
+<thead><tr><th>Path</th><th>Impact</th><th>Severity</th><th>Score</th><th>Account</th><th>MITRE</th></tr></thead>
+<tbody>
+{% for p in r.attack_paths %}<tr>
+  <td><strong>{{ p.name }}</strong>{% if p.narrative %}<br><span class="sub">{{ p.narrative }}</span>{% endif %}</td>
+  <td>{{ p.impact }}</td><td><span class="badge sev-{{ p.severity }}"><i class="dot"></i>{{ p.severity }}</span></td>
+  <td>{{ "%.1f"|format(p.score) }}</td><td>{{ p.provider }}:{{ p.account }}</td><td>{{ p.mitre | join(", ") }}</td>
+</tr>{% endfor %}
+</tbody></table></div>
+{% else %}<p class="sub">No attack paths detected.</p>{% endif %}
+
+<h2 class="page">Methodology &amp; scope</h2>
+<p>Findings were collected agentlessly by <code>cloud-posture</code> (native collectors plus Prowler, ScoutSuite, Checkov, Trivy and Steampipe adapters), normalised to canonical check IDs and stored in SQLite. Each finding maps to {{ r.framework.name }} controls through (1) the canonical catalog's explicit control mappings{% if weakness_derived %}, (2) weakness-derived mappings (each finding's weakness vocabulary, e.g. <code>NO_MFA</code>, maps to controls){% endif %}{% if r.framework.custom %}, and the custom framework's canonical-ID / weakness selectors{% endif %}.</p>
+<ul>
+  <li><strong>FAIL</strong>: at least one failing finding maps to the control.</li>
+  <li><strong>PASS</strong>: only passing checks map to the control.</li>
+  <li><strong>NOT ASSESSED</strong>: no automated check covers the control; collect manual evidence.</li>
+  <li><strong>Score</strong> = passing ÷ (passing + failing) controls = {{ r.score_percent }}%.</li>
+</ul>
+<div class="grid">
+  <div class="tile"><div class="k">Findings evaluated</div><div class="v">{{ r.findings_evaluated }}</div></div>
+  <div class="tile"><div class="k">Latest evidence</div><div class="v" style="font-size:14px">{{ r.monitoring.latest_evidence_at or "n/a" }}</div></div>
+  <div class="tile"><div class="k">Scan finished</div><div class="v" style="font-size:14px">{{ r.monitoring.scan_finished_at or "n/a" }}</div></div>
+</div>
+<p class="sub">Continuous monitoring: {{ r.monitoring.note }}</p>
+
+<h2 class="page">Evidence appendix</h2>
+{% for c in r.controls if c.status == "FAIL" %}
+<div class="ev">
+  <h3><code>{{ c.id }}</code> {{ c.title }}</h3>
+  <div class="table-wrap"><table>
+  <thead><tr><th>Finding</th><th>Resource</th><th>Source</th><th>First / last seen</th><th>Mapped by</th></tr></thead>
+  <tbody>{% for e in c.evidence %}<tr>
+    <td><span class="badge sev-{{ e.severity }}"><i class="dot"></i>{{ e.severity }}</span> {{ e.title }}<br><code>{{ e.finding_id }}</code></td>
+    <td><code>{{ e.resource_id }}</code><br><span class="sub">{{ e.provider }}:{{ e.account }} {{ e.region }}</span></td>
+    <td>{{ e.source }}<br><code>{{ e.check_id }}</code></td>
+    <td>{{ e.first_seen }}<br>{{ e.last_seen }}</td><td>{{ e.mapped_by }}</td>
+  </tr>{% if e.raw_excerpt %}<tr><td colspan="5"><pre>{{ e.raw_excerpt }}</pre></td></tr>{% endif %}{% endfor %}</tbody>
+  </table></div>
+  {% if c.failed > c.evidence|length %}<p class="sub">+{{ c.failed - c.evidence|length }} more failing findings (see JSON export).</p>{% endif %}
+</div>
+{% else %}<p class="sub">No failing controls - no evidence required.</p>{% endfor %}
+
+<footer>Generated by nimbus (cloud-posture intelligence layer). Report ID {{ r.framework.key }}-{{ r.generated_at }}.</footer>
+</main>
+</body>
+</html>

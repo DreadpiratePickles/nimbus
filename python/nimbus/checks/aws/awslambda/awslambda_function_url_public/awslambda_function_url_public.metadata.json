@@ -1,0 +1,60 @@
+{
+  "Provider": "aws",
+  "CheckID": "awslambda_function_url_public",
+  "CheckTitle": "Check Lambda Function URL is not publicly accessible (AuthType NONE)",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "lambda",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:lambda:region:account-id:function/function-name",
+  "Severity": "high",
+  "ResourceType": "AwsLambdaFunction",
+  "Description": "Checks whether Lambda function URLs use AuthType NONE, making the function invocable by anyone on the internet.",
+  "Risk": "Unauthenticated function URLs allow anyone to invoke the function, abusing its role permissions and running up cost.",
+  "RelatedUrl": "https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws lambda update-function-url-config --function-name <fn> --auth-type AWS_IAM",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Use AuthType AWS_IAM for function URLs or front the function with an authenticated API Gateway.",
+      "Url": "https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "Not a numbered CIS AWS 3.0 control; mapped to 1.16 (least privilege / unauthenticated access).",
+  "Compliance": {
+    "cis_aws": [
+      "1.16"
+    ],
+    "nist_800_53": [
+      "AC-3",
+      "SC-7",
+      "IA-2"
+    ],
+    "pci_dss": [
+      "7.2.1",
+      "1.4.1"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

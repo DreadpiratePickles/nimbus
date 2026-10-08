@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nimbus-cspm"
+version = "0.1.0"
+description = "Intelligence layer for cloud-posture: compliance engine, AI copilot, risk scoring, audit reports, dashboard API and plugin SDK."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+dependencies = [
+  "pydantic>=2",
+  "jinja2>=3",
+  "pyyaml>=6",
+  "httpx>=0.27",
+  "typer>=0.12",
+  "rich>=13",
+]
+
+[project.optional-dependencies]
+server = ["fastapi>=0.110", "uvicorn>=0.29"]
+ai = ["anthropic>=0.40"]
+pdf = ["reportlab>=4"]
+checks = ["boto3>=1.34"]
+ml = ["scikit-learn>=1.4", "numpy>=1.26"]
+dev = ["pytest>=8", "moto[ec2,s3,iam,rds,cloudtrail,kms,ec2]>=5", "boto3>=1.34", "fastapi>=0.110", "httpx>=0.27"]
+all = ["nimbus-cspm[server,ai,pdf,checks,ml]"]
+
+[project.scripts]
+nimbus = "nimbus.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nimbus*"]
+
+[tool.setuptools.package-data]
+nimbus = ["queries/*.sql", "queries/*.yaml", "templates/*", "checks/**/*.json", "frameworks/*.yaml", "policies/*.rego"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

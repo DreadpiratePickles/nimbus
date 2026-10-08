@@ -1,0 +1,59 @@
+{
+  "Provider": "aws",
+  "CheckID": "s3_bucket_object_versioning",
+  "CheckTitle": "Check if S3 buckets have object versioning enabled",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "s3",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:s3:::bucket-name",
+  "Severity": "medium",
+  "ResourceType": "AwsS3Bucket",
+  "Description": "Checks that object versioning is enabled on S3 buckets.",
+  "Risk": "Without versioning, accidental or malicious overwrites and deletions (including ransomware) are unrecoverable.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws s3api put-bucket-versioning --bucket <bucket> --versioning-configuration Status=Enabled",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable versioning (and optionally MFA Delete and lifecycle rules for non-current versions).",
+      "Url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html"
+    }
+  },
+  "Categories": [
+    "resilience"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "CIS AWS 3.0 2.1.2 (MFA Delete) requires versioning; mapped there as the nearest control.",
+  "Compliance": {
+    "cis_aws": [
+      "2.1.2"
+    ],
+    "nist_800_53": [
+      "CP-9",
+      "CP-10",
+      "SI-12"
+    ],
+    "pci_dss": [
+      "10.5.1",
+      "12.10.1"
+    ],
+    "hipaa": [
+      "164.308(a)(7)(i)",
+      "164.308(a)(7)(ii)(A)"
+    ],
+    "gdpr": [
+      "Art.32"
+    ],
+    "soc2": [
+      "A1.2",
+      "CC9.1"
+    ]
+  }
+}

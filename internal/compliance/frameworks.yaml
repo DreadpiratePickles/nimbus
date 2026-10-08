@@ -1,0 +1,195 @@
+# Framework control inventories used by `cloud-posture report`. Controls not listed here but
+# referenced by findings are still reported (they simply lack a title).
+frameworks:
+  cis_aws:
+    name: CIS Amazon Web Services Foundations Benchmark
+    version: "3.0"
+    controls:
+      "1.5": Ensure MFA is enabled for the root user account
+      "1.6": Ensure hardware MFA is enabled for the root user account
+      "1.10": Ensure MFA is enabled for all IAM users with a console password
+      "1.12": Ensure credentials unused for 45 days or more are disabled
+      "1.14": Ensure access keys are rotated every 90 days or less
+      "1.16": Ensure IAM policies that allow full "*:*" administrative privileges are not attached
+      "1.4": Ensure no 'root' user account access key exists
+      "1.7": Eliminate use of the 'root' user for administrative and daily tasks
+      "1.8": Ensure IAM password policy requires minimum length of 14 or greater
+      "1.9": Ensure IAM password policy prevents password reuse
+      "1.17": Ensure a support role has been created to manage incidents with AWS Support
+      "1.20": Ensure that IAM Access Analyzer is enabled for all regions
+      "2.1.2": Ensure MFA Delete is enabled on S3 buckets
+      "2.3.2": Ensure Auto Minor Version Upgrade feature is enabled for RDS instances
+      "2.4.1": Ensure that encryption is enabled for EFS file systems
+      "3.3": Ensure AWS Config is enabled in all regions
+      "3.4": Ensure S3 bucket access logging is enabled on the CloudTrail S3 bucket
+      "3.5": Ensure CloudTrail logs are encrypted at rest using KMS CMKs
+      "3.6": Ensure rotation for customer-created symmetric CMKs is enabled
+      "3.7": Ensure VPC flow logging is enabled in all VPCs
+      "3.8": Ensure that object-level logging for write events is enabled for S3 buckets
+      "3.9": Ensure that object-level logging for read events is enabled for S3 buckets
+      "4.1": Ensure unauthorized API calls are monitored
+      "4.3": Ensure usage of the 'root' account is monitored
+      "4.4": Ensure IAM policy changes are monitored
+      "4.5": Ensure CloudTrail configuration changes are monitored
+      "4.6": Ensure AWS Management Console authentication failures are monitored
+      "4.10": Ensure security group changes are monitored
+      "4.15": Ensure AWS Organizations changes are monitored
+      "4.16": Ensure AWS Security Hub is enabled
+      "5.1": Ensure no Network ACLs allow ingress from 0.0.0.0/0 to remote server administration ports
+      "2.1.1": Ensure S3 Bucket Policy is set to deny HTTP requests / encryption enforced
+      "2.1.4": Ensure that S3 Buckets are configured with 'Block public access'
+      "2.2.1": Ensure EBS volume encryption is enabled
+      "2.3.1": Ensure that encryption is enabled for RDS instances
+      "2.3.3": Ensure that public access is not given to RDS Instance
+      "3.1": Ensure CloudTrail is enabled in all regions
+      "3.2": Ensure CloudTrail log file validation is enabled
+      "5.2": Ensure no security groups allow ingress from 0.0.0.0/0 to remote server administration ports
+      "5.3": Ensure no security groups allow ingress from ::/0 to remote server administration ports
+      "5.4": Ensure the default security group of every VPC restricts all traffic
+      "5.6": Ensure that EC2 Metadata Service only allows IMDSv2
+  cis_azure:
+    name: CIS Microsoft Azure Foundations Benchmark
+    version: "2.1"
+    controls:
+      "1.1.1": Ensure Security Defaults is enabled on Microsoft Entra ID
+      "1.1.2": Ensure that MFA is enabled for all privileged users
+      "3.1": Ensure that 'Secure transfer required' is set to 'Enabled'
+      "3.7": Ensure that 'Public Network Access' is 'Disabled' for storage accounts
+      "4.1.2": Ensure no Azure SQL Databases allow ingress from 0.0.0.0/0
+      "4.1.5": Ensure that 'Data encryption' is set to 'On' on a SQL Database
+      "6.1": Ensure that RDP access from the Internet is evaluated and restricted
+      "6.2": Ensure that SSH access from the Internet is evaluated and restricted
+      "7.3": Ensure that 'OS and Data' disks are encrypted with Customer Managed Key
+      "8.1": Ensure RBAC is enabled on AKS clusters
+      "8.5": Ensure the Key Vault is Recoverable
+  cis_gcp:
+    name: CIS Google Cloud Platform Foundation Benchmark
+    version: "2.0"
+    controls:
+      "1.5": Ensure that Service Account has no Admin privileges
+      "1.6": Ensure that IAM users are not assigned the Service Account User or Token Creator roles at project level
+      "3.6": Ensure that SSH access is restricted from the internet
+      "3.7": Ensure that RDP access is restricted from the Internet
+      "4.1": Ensure that instances are not configured to use the default service account
+      "4.2": Ensure that instances are not configured to use the default service account with full access
+      "4.5": Ensure 'Enable connecting to serial ports' is not enabled for VM Instance
+      "5.1": Ensure that Cloud Storage bucket is not anonymously or publicly accessible
+      "5.2": Ensure that Cloud Storage buckets have uniform bucket-level access enabled
+      "6.4": Ensure that the Cloud SQL database instance requires all incoming connections to use SSL
+      "6.5": Ensure that Cloud SQL database instances do not have public IPs
+      "6.6": Ensure that Cloud SQL database instances are not open to the world
+      "7.3": Ensure Legacy Authorization (ABAC) is disabled on GKE clusters
+  cis_k8s:
+    name: CIS Kubernetes Benchmark
+    version: "1.8"
+    controls:
+      "5.1.1": Ensure that the cluster-admin role is only used where required
+      "5.1.3": Minimize wildcard use in Roles and ClusterRoles
+      "5.1.5": Ensure that default service accounts are not actively used
+      "5.1.6": Ensure that Service Account Tokens are only mounted where necessary
+      "5.2.1": Ensure that the cluster has at least one active policy control mechanism
+      "5.2.2": Minimize the admission of privileged containers
+      "5.2.3": Minimize the admission of containers wishing to share the host process ID namespace
+      "5.2.4": Minimize the admission of containers wishing to share the host IPC namespace
+      "5.2.5": Minimize the admission of containers wishing to share the host network namespace
+      "5.2.6": Minimize the admission of containers with allowPrivilegeEscalation
+      "5.3.2": Ensure that all Namespaces have NetworkPolicies defined
+      "5.4.1": Prefer using Secrets as files over Secrets as environment variables
+  cis_github:
+    name: CIS GitHub Benchmark
+    version: "1.0"
+    controls:
+      "1.1.3": Ensure any change to code receives approval of two strongly authenticated users
+      "1.1.4": Ensure inactive branches are periodically reviewed and removed
+      "1.1.9": Ensure branch protection rules are enforced for administrators
+      "1.1.14": Ensure the default branch is protected
+      "1.3.5": Ensure MFA is required for all organization members
+      "1.5.2": Ensure scanners are in place to identify and prevent sensitive data in code
+  nist_800_53:
+    name: NIST SP 800-53 Rev. 5
+    version: "5"
+    controls:
+      AC-2(3): Disable accounts after period of inactivity
+      AC-3: Access Enforcement
+      AC-4: Information Flow Enforcement
+      AC-6: Least Privilege
+      AC-6(1): Authorize access to security functions
+      AC-11: Device Lock
+      AC-12: Session Termination
+      AC-17: Remote Access
+      AC-21: Information Sharing
+      AU-2: Event Logging
+      AU-9: Protection of Audit Information
+      AU-12: Audit Record Generation
+      CM-3: Configuration Change Control
+      CM-5: Access Restrictions for Change
+      CM-7: Least Functionality
+      CP-9: System Backup
+      CP-10: System Recovery and Reconstitution
+      IA-2: Identification and Authentication (Organizational Users)
+      IA-2(1): Multi-factor authentication to privileged accounts
+      IA-5: Authenticator Management
+      IA-5(7): No embedded unencrypted static authenticators
+      RA-5: Vulnerability Monitoring and Scanning
+      SA-11: Developer Testing and Evaluation
+      SC-5: Denial-of-service Protection
+      SC-6: Resource Availability
+      SC-7: Boundary Protection
+      SC-8: Transmission Confidentiality and Integrity
+      SC-12: Cryptographic Key Establishment and Management
+      SC-28: Protection of Information at Rest
+      SI-2: Flaw Remediation
+  pci_dss:
+    name: PCI DSS
+    version: "4.0"
+    controls:
+      "1.2.1": Restrict inbound and outbound traffic to that which is necessary
+      "1.3.1": Inbound traffic to the CDE is restricted
+      "1.3.2": Outbound traffic from the CDE is restricted
+      "1.3.4": Anti-spoofing / public access prohibited
+      "1.3.6": System components that store cardholder data are not directly accessible from untrusted networks
+      "2.2": System components are configured and managed securely
+      "3.4": Access to displays of full PAN and ability to copy PAN are restricted / encryption at rest
+      "3.6.4": Cryptographic key changes at the end of the cryptoperiod
+      "4.1": Strong cryptography protects cardholder data during transmission
+      "6.2": Bespoke and custom software are developed securely
+      "6.3.1": Security vulnerabilities are identified and managed
+      "6.3.2": Inventory of bespoke software and changes reviewed
+      "7.1": Access to system components is defined and assigned
+      "7.1.2": Access is assigned based on least privilege
+      "7.2": Access to system components and data is appropriately defined and assigned
+      "8.1.4": Inactive accounts are removed or disabled within 90 days
+      "8.1.8": Idle session timeout of 15 minutes or less
+      "8.2.1": Unique user IDs; no shared or embedded credentials
+      "8.3": Strong authentication for users and administrators
+      "8.3.1": Multi-factor authentication for all access into the CDE
+      "10.1": Audit logs capture all access to system components
+      "10.2": Audit logs record all required events
+      "10.5.5": Audit log integrity is protected
+      "11.3": External and internal vulnerabilities are regularly identified and addressed
+  hipaa:
+    name: HIPAA Security Rule
+    version: "45 CFR 164"
+    controls:
+      "164.308(a)(1)(ii)(B)": Risk management
+      "164.308(a)(4)": Information access management
+      "164.308(a)(7)(ii)(A)": Data backup plan
+      "164.312(a)(1)": Access control
+      "164.312(a)(2)(iv)": Encryption and decryption
+      "164.312(b)": Audit controls
+      "164.312(d)": Person or entity authentication
+      "164.312(e)(1)": Transmission security
+  gdpr:
+    name: EU General Data Protection Regulation
+    version: "2016/679"
+    controls:
+      "Art.25": Data protection by design and by default
+      "Art.30": Records of processing activities
+      "Art.32": Security of processing
+      "Art.33": Notification of a personal data breach
+  iso_27001:
+    name: ISO/IEC 27001
+    version: "2013"
+    controls:
+      A.8.3: Media handling
+      A.13.1.3: Segregation in networks

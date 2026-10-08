@@ -1,0 +1,59 @@
+{
+  "Provider": "aws",
+  "CheckID": "eks_control_plane_endpoint_access_publicly_accessible",
+  "CheckTitle": "Ensure EKS cluster control plane endpoint is not publicly accessible",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "eks",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:eks:region:account-id:cluster/cluster-name",
+  "Severity": "high",
+  "ResourceType": "AwsEksCluster",
+  "Description": "Checks whether EKS cluster API endpoints are publicly accessible from 0.0.0.0/0.",
+  "Risk": "A public Kubernetes API is exposed to credential attacks and API server vulnerabilities from anywhere on the internet.",
+  "RelatedUrl": "https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws eks update-cluster-config --name <cluster> --resources-vpc-config endpointPublicAccess=false,endpointPrivateAccess=true",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Disable the public endpoint (use the private endpoint) or restrict publicAccessCidrs to trusted networks.",
+      "Url": "https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "CIS EKS Benchmark 5.4.2; mapped to CIS AWS 3.0 5.2 (internet access to remote administration).",
+  "Compliance": {
+    "cis_aws": [
+      "5.2"
+    ],
+    "nist_800_53": [
+      "SC-7",
+      "AC-17"
+    ],
+    "pci_dss": [
+      "1.3.1",
+      "1.4.1"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "Provider": "aws",
+  "CheckID": "s3_account_level_public_access_blocks",
+  "CheckTitle": "Check S3 Account Level Public Access Block",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "s3",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:s3:region:account-id:account",
+  "Severity": "high",
+  "ResourceType": "AwsS3AccountPublicAccessBlock",
+  "Description": "Checks that all four S3 Block Public Access settings are enabled at the account level.",
+  "Risk": "Without account-level Block Public Access, any new or misconfigured bucket can be made public by a single ACL or policy change.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws s3control put-public-access-block --account-id <account> --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable all four account-level S3 Block Public Access settings.",
+      "Url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "2.1.4"
+    ],
+    "nist_800_53": [
+      "AC-3",
+      "AC-21(b)",
+      "SC-7"
+    ],
+    "pci_dss": [
+      "1.3.1",
+      "1.4.4"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

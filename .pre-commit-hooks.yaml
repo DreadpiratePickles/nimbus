@@ -1,0 +1,7 @@
+- id: cloud-posture-iac
+  name: cloud-posture IaC scan
+  description: Block commits that introduce cloud misconfigurations (Terraform, CloudFormation, Bicep, Kubernetes, Helm).
+  entry: cloud-posture scan --iac . --output table --fail-on HIGH --changed-only --no-store
+  language: system
+  pass_filenames: false
+  files: '\.(tf|tfvars|ya?ml|json|bicep)$'

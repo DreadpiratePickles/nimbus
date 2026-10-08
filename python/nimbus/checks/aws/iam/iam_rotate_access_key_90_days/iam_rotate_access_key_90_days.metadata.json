@@ -1,0 +1,62 @@
+{
+  "Provider": "aws",
+  "CheckID": "iam_rotate_access_key_90_days",
+  "CheckTitle": "Ensure access keys are rotated every 90 days or less",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark",
+    "Software and Configuration Checks/AWS Security Best Practices/Identity and Access Management"
+  ],
+  "ServiceName": "iam",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:iam::account-id:user/user-name",
+  "Severity": "medium",
+  "ResourceType": "AwsIamUser",
+  "Description": "Checks that active IAM user access keys are no older than 90 days.",
+  "Risk": "Long-lived keys accumulate exposure in code, logs, laptops and CI systems; rotation limits the useful lifetime of a leaked key.",
+  "RelatedUrl": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws iam create-access-key --user-name <user> && aws iam update-access-key --user-name <user> --access-key-id <old> --status Inactive",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Rotate access keys at least every 90 days, or better, replace long-term keys with IAM roles and short-lived credentials.",
+      "Url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    }
+  },
+  "Categories": [
+    "identity-access"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "1.14"
+    ],
+    "nist_800_53": [
+      "IA-5(1)",
+      "AC-2(3)"
+    ],
+    "pci_dss": [
+      "8.3.9",
+      "8.6.3"
+    ],
+    "hipaa": [
+      "164.312(a)(1)",
+      "164.312(d)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ]
+  }
+}

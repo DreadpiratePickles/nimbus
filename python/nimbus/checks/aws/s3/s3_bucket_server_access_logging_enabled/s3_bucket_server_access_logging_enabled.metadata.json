@@ -1,0 +1,59 @@
+{
+  "Provider": "aws",
+  "CheckID": "s3_bucket_server_access_logging_enabled",
+  "CheckTitle": "Check if S3 buckets have server access logging enabled",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "s3",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:s3:::bucket-name",
+  "Severity": "medium",
+  "ResourceType": "AwsS3Bucket",
+  "Description": "Checks that S3 server access logging is enabled on buckets.",
+  "Risk": "Without access logs, unauthorized data access or exfiltration from a bucket cannot be investigated.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws s3api put-bucket-logging --bucket <bucket> --bucket-logging-status '{\"LoggingEnabled\":{\"TargetBucket\":\"<log-bucket>\",\"TargetPrefix\":\"<bucket>/\"}}'",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable server access logging to a dedicated, access-restricted logging bucket.",
+      "Url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html"
+    }
+  },
+  "Categories": [
+    "logging"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "CIS AWS 3.0 3.4 requires access logging on the CloudTrail bucket; this check evaluates every bucket.",
+  "Compliance": {
+    "cis_aws": [
+      "3.4"
+    ],
+    "nist_800_53": [
+      "AU-2",
+      "AU-3",
+      "AU-12"
+    ],
+    "pci_dss": [
+      "10.2.1"
+    ],
+    "hipaa": [
+      "164.312(b)",
+      "164.308(a)(1)(ii)(D)"
+    ],
+    "gdpr": [
+      "Art.30",
+      "Art.33"
+    ],
+    "soc2": [
+      "CC7.2",
+      "CC7.3"
+    ]
+  }
+}

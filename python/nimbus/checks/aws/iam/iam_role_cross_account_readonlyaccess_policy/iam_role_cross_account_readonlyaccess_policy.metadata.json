@@ -1,0 +1,62 @@
+{
+  "Provider": "aws",
+  "CheckID": "iam_role_cross_account_readonlyaccess_policy",
+  "CheckTitle": "Ensure IAM roles do not have ReadOnlyAccess policy with cross-account trust",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark",
+    "Software and Configuration Checks/AWS Security Best Practices/Identity and Access Management"
+  ],
+  "ServiceName": "iam",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:iam::account-id:role/role-name",
+  "Severity": "high",
+  "ResourceType": "AwsIamRole",
+  "Description": "Checks for roles with the ReadOnlyAccess managed policy that can be assumed from other AWS accounts.",
+  "Risk": "ReadOnlyAccess exposes every readable resource (including S3 objects, secrets metadata and configuration) to external accounts.",
+  "RelatedUrl": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Replace ReadOnlyAccess on cross-account roles with narrowly scoped policies such as SecurityAudit or ViewOnlyAccess.",
+      "Url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    }
+  },
+  "Categories": [
+    "identity-access"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "Not a numbered CIS AWS 3.0 control; mapped to 1.16 (least privilege).",
+  "Compliance": {
+    "cis_aws": [
+      "1.16"
+    ],
+    "nist_800_53": [
+      "AC-6",
+      "AC-3(7)",
+      "AC-21"
+    ],
+    "pci_dss": [
+      "7.2.1"
+    ],
+    "hipaa": [
+      "164.312(a)(1)",
+      "164.312(d)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ]
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "Provider": "aws",
+  "CheckID": "s3_bucket_public_access",
+  "CheckTitle": "Ensure there are no S3 buckets open to Everyone or Any AWS user",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "s3",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:s3:::bucket-name",
+  "Severity": "critical",
+  "ResourceType": "AwsS3Bucket",
+  "Description": "Checks whether S3 buckets are publicly accessible through ACL grants or bucket policies, taking account and bucket Block Public Access into account.",
+  "Risk": "Public buckets expose data to the entire internet and are a leading cause of large-scale data breaches.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws s3api put-public-access-block --bucket <bucket> --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable S3 Block Public Access at the account and bucket level and remove public ACL grants and public policy statements.",
+      "Url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "2.1.4"
+    ],
+    "nist_800_53": [
+      "AC-3",
+      "AC-21(b)",
+      "SC-7"
+    ],
+    "pci_dss": [
+      "1.3.1",
+      "1.4.4"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

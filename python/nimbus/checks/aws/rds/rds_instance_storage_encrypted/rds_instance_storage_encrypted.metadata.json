@@ -1,0 +1,58 @@
+{
+  "Provider": "aws",
+  "CheckID": "rds_instance_storage_encrypted",
+  "CheckTitle": "Check if RDS instances storage is encrypted",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "rds",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:rds:region:account-id:db:db-instance-id",
+  "Severity": "medium",
+  "ResourceType": "AwsRdsDbInstance",
+  "Description": "Checks that RDS DB instance storage is encrypted at rest.",
+  "Risk": "Unencrypted database storage, snapshots and replicas expose sensitive data if storage or backups are accessed.",
+  "RelatedUrl": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.Security.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Create an encrypted snapshot copy and restore it into a new encrypted instance; enable encryption for all new instances.",
+      "Url": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.Security.html"
+    }
+  },
+  "Categories": [
+    "encryption"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "2.3.1"
+    ],
+    "nist_800_53": [
+      "SC-28",
+      "SC-28(1)",
+      "SC-13"
+    ],
+    "pci_dss": [
+      "3.5.1"
+    ],
+    "hipaa": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(2)(ii)"
+    ],
+    "gdpr": [
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.7"
+    ]
+  }
+}

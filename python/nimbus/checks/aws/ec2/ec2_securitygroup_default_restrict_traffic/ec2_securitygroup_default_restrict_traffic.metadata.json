@@ -1,0 +1,60 @@
+{
+  "Provider": "aws",
+  "CheckID": "ec2_securitygroup_default_restrict_traffic",
+  "CheckTitle": "Ensure the default security group of every VPC restricts all traffic",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "ec2",
+  "SubServiceName": "securitygroup",
+  "ResourceIdTemplate": "arn:partition:ec2:region:account-id:security-group/sg-id",
+  "Severity": "high",
+  "ResourceType": "AwsEc2SecurityGroup",
+  "Description": "Checks that default security groups have no inbound or outbound rules.",
+  "Risk": "Resources launched without an explicit security group fall into the default group; permissive defaults silently expose them.",
+  "RelatedUrl": "https://docs.aws.amazon.com/vpc/latest/userguide/default-security-group.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws ec2 revoke-security-group-ingress --group-id <default-sg> --ip-permissions <perm> && aws ec2 revoke-security-group-egress --group-id <default-sg> --ip-permissions <perm>",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Remove all inbound and outbound rules from every VPC's default security group and use purpose-built groups.",
+      "Url": "https://docs.aws.amazon.com/vpc/latest/userguide/default-security-group.html"
+    }
+  },
+  "Categories": [
+    "internet-exposed"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "5.4"
+    ],
+    "nist_800_53": [
+      "SC-7",
+      "AC-4",
+      "CM-7"
+    ],
+    "pci_dss": [
+      "1.2.1",
+      "1.3.1"
+    ],
+    "hipaa": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.6"
+    ]
+  }
+}

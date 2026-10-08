@@ -1,0 +1,61 @@
+{
+  "Provider": "aws",
+  "CheckID": "iam_user_accesskey_unused",
+  "CheckTitle": "Ensure access keys unused for 45 days or more are disabled",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark",
+    "Software and Configuration Checks/AWS Security Best Practices/Identity and Access Management"
+  ],
+  "ServiceName": "iam",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:iam::account-id:user/user-name",
+  "Severity": "medium",
+  "ResourceType": "AwsIamUser",
+  "Description": "Checks for active IAM access keys that have not been used in 45 days or more.",
+  "Risk": "Dormant but active keys are attractive, unmonitored attack paths that nobody will notice being abused.",
+  "RelatedUrl": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws iam update-access-key --user-name <user> --access-key-id <key> --status Inactive",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Deactivate or delete access keys that have not been used for 45 days.",
+      "Url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    }
+  },
+  "Categories": [
+    "identity-access"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "1.12"
+    ],
+    "nist_800_53": [
+      "AC-2(3)",
+      "IA-4(e)"
+    ],
+    "pci_dss": [
+      "8.2.6"
+    ],
+    "hipaa": [
+      "164.312(a)(1)",
+      "164.312(d)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ]
+  }
+}

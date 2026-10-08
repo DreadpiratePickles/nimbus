@@ -1,0 +1,63 @@
+{
+  "Provider": "aws",
+  "CheckID": "iam_aws_attached_policy_no_administrative_privileges",
+  "CheckTitle": "Ensure IAM AWS-Managed policies that allow full '*:*' administrative privileges are not attached",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark",
+    "Software and Configuration Checks/AWS Security Best Practices/Identity and Access Management"
+  ],
+  "ServiceName": "iam",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:iam::aws:policy/policy-name",
+  "Severity": "high",
+  "ResourceType": "AwsIamPolicy",
+  "Description": "Checks whether AWS-managed policies granting full administrative privileges (Action * on Resource *) are attached to any principal.",
+  "Risk": "Full administrator policies violate least privilege; any compromise of an attached identity becomes a full account compromise.",
+  "RelatedUrl": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws iam detach-role-policy --role-name <role> --policy-arn arn:aws:iam::aws:policy/AdministratorAccess",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Detach AdministratorAccess-style AWS managed policies and grant only the permissions each principal needs.",
+      "Url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    }
+  },
+  "Categories": [
+    "identity-access"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "1.16"
+    ],
+    "nist_800_53": [
+      "AC-6",
+      "AC-6(1)",
+      "AC-6(10)"
+    ],
+    "pci_dss": [
+      "7.2.1",
+      "7.2.2"
+    ],
+    "hipaa": [
+      "164.312(a)(1)",
+      "164.312(d)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ]
+  }
+}

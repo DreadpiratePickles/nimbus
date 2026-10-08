@@ -1,0 +1,63 @@
+{
+  "Provider": "aws",
+  "CheckID": "iam_inline_policy_no_administrative_privileges",
+  "CheckTitle": "Ensure IAM inline policies that allow full '*:*' administrative privileges are not associated to IAM identities",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark",
+    "Software and Configuration Checks/AWS Security Best Practices/Identity and Access Management"
+  ],
+  "ServiceName": "iam",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:iam::account-id:entity/name",
+  "Severity": "high",
+  "ResourceType": "AwsIamPolicy",
+  "Description": "Checks whether inline policies on users, groups or roles grant full administrative privileges.",
+  "Risk": "Inline *:* policies are hard to audit and grant unrestricted control of the account to the embedding identity.",
+  "RelatedUrl": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws iam delete-user-policy --user-name <user> --policy-name <policy>",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Remove inline administrative policies and use reviewed, least-privileged managed policies instead.",
+      "Url": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"
+    }
+  },
+  "Categories": [
+    "identity-access"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "1.16"
+    ],
+    "nist_800_53": [
+      "AC-6",
+      "AC-6(1)",
+      "AC-6(10)"
+    ],
+    "pci_dss": [
+      "7.2.1",
+      "7.2.2"
+    ],
+    "hipaa": [
+      "164.312(a)(1)",
+      "164.312(d)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "gdpr": [
+      "Art.25",
+      "Art.32"
+    ],
+    "soc2": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ]
+  }
+}

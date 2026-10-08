@@ -1,0 +1,60 @@
+{
+  "Provider": "aws",
+  "CheckID": "cloudtrail_log_file_validation_enabled",
+  "CheckTitle": "Ensure CloudTrail log file validation is enabled",
+  "CheckType": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS AWS Foundations Benchmark"
+  ],
+  "ServiceName": "cloudtrail",
+  "SubServiceName": "",
+  "ResourceIdTemplate": "arn:partition:cloudtrail:region:account-id:trail/trail-name",
+  "Severity": "medium",
+  "ResourceType": "AwsCloudTrailTrail",
+  "Description": "Checks that CloudTrail log file integrity validation is enabled on every trail.",
+  "Risk": "Without digest validation, an attacker who reaches the log bucket can alter or delete log files without detection.",
+  "RelatedUrl": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html",
+  "Remediation": {
+    "Code": {
+      "CLI": "aws cloudtrail update-trail --name <trail> --enable-log-file-validation",
+      "NativeIaC": "",
+      "Other": "",
+      "Terraform": ""
+    },
+    "Recommendation": {
+      "Text": "Enable log file validation on every trail.",
+      "Url": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html"
+    }
+  },
+  "Categories": [
+    "logging"
+  ],
+  "DependsOn": [],
+  "RelatedTo": [],
+  "Notes": "",
+  "Compliance": {
+    "cis_aws": [
+      "3.2"
+    ],
+    "nist_800_53": [
+      "AU-9",
+      "SI-7",
+      "SI-7(1)"
+    ],
+    "pci_dss": [
+      "10.3.2",
+      "10.3.4"
+    ],
+    "hipaa": [
+      "164.312(b)",
+      "164.308(a)(1)(ii)(D)"
+    ],
+    "gdpr": [
+      "Art.30",
+      "Art.33"
+    ],
+    "soc2": [
+      "CC7.2",
+      "CC7.3"
+    ]
+  }
+}

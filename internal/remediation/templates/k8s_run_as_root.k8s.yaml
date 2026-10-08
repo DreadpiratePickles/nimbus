@@ -1,0 +1,15 @@
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ default "app" .Attr.container }}
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true

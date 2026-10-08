@@ -1,0 +1,11 @@
+# Strategic merge patch for {{ .Kind }}/{{ .Name }} in namespace {{ .Namespace }}
+spec:
+  template:
+    spec:
+      containers:
+        - name: {{ default "app" .Attr.container }}
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
