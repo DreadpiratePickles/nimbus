@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 )
 
 const (
@@ -37,6 +38,22 @@ func NewRunKeyer(key []byte) *RunKeyer {
 		_, _ = rand.Read(key)
 	}
 	return &RunKeyer{key: append([]byte(nil), key...)}
+}
+
+// MinIDKeyBytes is the shortest configured id key accepted (NIMBUS_ID_KEY).
+const MinIDKeyBytes = 16
+
+// RunKeyerFromKey is the keyer for a configured key (NIMBUS_ID_KEY): empty means 32 random bytes
+// (ids differ per run); a key shorter than MinIDKeyBytes is an error, never a silent random
+// fallback (Verification 7 defect 10).
+func RunKeyerFromKey(key string) (*RunKeyer, error) {
+	if key == "" {
+		return NewRunKeyer(nil), nil
+	}
+	if len(key) < MinIDKeyBytes {
+		return nil, fmt.Errorf("NIMBUS_ID_KEY is %d bytes; it must be at least %d (or unset for per-run random ids)", len(key), MinIDKeyBytes)
+	}
+	return NewRunKeyer([]byte(key)), nil
 }
 
 // ID is "run-" + hex(HMAC-SHA256(key, "nimbus/run-id/v1\0" || id))[:32].

@@ -97,14 +97,11 @@ func Serve(ctx context.Context, st *store.Store, opts Options) error {
 	return ServeReader(ctx, NewReader(st), opts)
 }
 
-// ServeReader is Serve over any Reader (tests, future HTTP transport).
+// ServeReader is Serve over any Reader (tests).
 func ServeReader(ctx context.Context, rd Reader, opts Options) error {
-	scope, err := ParseScopes(opts.Scopes)
+	opts, scope, err := prepareOptions(opts)
 	if err != nil {
 		return err
-	}
-	if opts.AuditPath == "" {
-		return errors.New("mcp: AuditPath is required")
 	}
 	audit, err := openAudit(opts.AuditPath)
 	if err != nil {
@@ -116,6 +113,23 @@ func ServeReader(ctx context.Context, rd Reader, opts Options) error {
 	}
 	if opts.Out == nil {
 		opts.Out = os.Stdout
+	}
+	s, cleanup, err := newSession(rd, opts, scope, audit)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	return s.loop(ctx)
+}
+
+// prepareOptions fills defaults and parses the scopes.
+func prepareOptions(opts Options) (Options, Scope, error) {
+	scope, err := ParseScopes(opts.Scopes)
+	if err != nil {
+		return opts, Scope{}, err
+	}
+	if opts.AuditPath == "" {
+		return opts, Scope{}, errors.New("mcp: AuditPath is required")
 	}
 	if opts.SQLTimeout <= 0 {
 		opts.SQLTimeout = defaultSQLTimeout
@@ -144,23 +158,30 @@ func ServeReader(ctx context.Context, rd Reader, opts Options) error {
 	if opts.Now == nil {
 		opts.Now = time.Now
 	}
-	sid := make([]byte, 8)
-	_, _ = rand.Read(sid)
 	if opts.VerifyFile == nil {
 		opts.VerifyFile = DefaultFileVerifier
 	}
+	return opts, scope, nil
+}
+
+// newSession builds one session (id mapper, redactor, SQL redaction handle); cleanup releases
+// the redaction handle.
+func newSession(rd Reader, opts Options, scope Scope, audit *auditLog) (*session, func(), error) {
+	sid := make([]byte, 8)
+	_, _ = rand.Read(sid)
 	s := &session{rd: rd, raw: rd, opts: opts, scope: scope, audit: audit, id: hex.EncodeToString(sid), out: opts.Out}
 	// Finding and attack-path ids leave the session keyed per database (Verification 6: a raw
 	// fingerprint next to a redacted account recovered the account in 0.7 s).
-	if m, err := rd.IDMapper(); err == nil {
-		s.ids = m
-	} else {
-		return fmt.Errorf("mcp: id mapping: %w", err)
+	m, err := rd.IDMapper()
+	if err != nil {
+		return nil, nil, fmt.Errorf("mcp: id mapping: %w", err)
 	}
+	s.ids = m
 	s.rd = idReader{Reader: rd, ids: s.ids, allowRaw: opts.NoRedact}
+	cleanup := func() {}
 	if !opts.NoRedact {
 		if err := registerRedactFunc(); err != nil {
-			return fmt.Errorf("mcp: redaction: %w", err)
+			return nil, nil, fmt.Errorf("mcp: redaction: %w", err)
 		}
 		s.red = newRedactor()
 		s.red.ids = s.ids
@@ -170,10 +191,10 @@ func ServeReader(ctx context.Context, rd Reader, opts Options) error {
 		_, _ = rand.Read(h)
 		hid := hex.EncodeToString(h)
 		redactSessions.Store(hid, s.red)
-		defer redactSessions.Delete(hid)
+		cleanup = func() { redactSessions.Delete(hid) }
 		s.sqlRed = newSQLRedaction(hid, rd)
 	}
-	return s.loop(ctx)
+	return s, cleanup, nil
 }
 
 type session struct {
@@ -189,6 +210,7 @@ type session struct {
 	seq         int
 	initialized bool
 	client      string
+	principal   string // HTTP transport: the token's name (audit)
 	outMu       sync.Mutex
 	out         io.Writer
 }
@@ -353,7 +375,10 @@ func errf(format string, a ...any) error { return &toolError{fmt.Sprintf(format,
 func (s *session) record(rec auditRecord) error {
 	s.seq++
 	rec.Time = s.opts.Now().UTC().Format(time.RFC3339Nano)
-	rec.Session, rec.Seq, rec.Scope, rec.Client = s.id, s.seq, s.scope.Names(), s.client
+	rec.Session, rec.Seq, rec.Scope, rec.Client, rec.Principal = s.id, s.seq, s.scope.Names(), s.client, s.principal
+	if s.principal != "" {
+		rec.Transport = "http"
+	}
 	return s.audit.write(rec)
 }
 

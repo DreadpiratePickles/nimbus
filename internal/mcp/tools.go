@@ -392,9 +392,11 @@ func toolPaths(ctx context.Context, s *session, args json.RawMessage) (any, *cal
 	}
 	issueOf := pathIssueIndex(s.rd)
 	meta := map[string]model.Issue{}
+	storePos := map[string]int{} // the store's Issue order: the tie order of every surface
 	if all, err := s.rd.Issues(store.IssueFilter{Kind: model.IssuePath}); err == nil {
-		for _, is := range all {
+		for i, is := range all {
 			meta[is.ID] = is
+			storePos[is.ID] = i
 		}
 	}
 	byKey := map[string]*issueRow{}
@@ -448,6 +450,15 @@ func toolPaths(ctx context.Context, s *session, args json.RawMessage) (any, *cal
 	sort.SliceStable(rows, func(i, j int) bool {
 		if rows[i].Score != rows[j].Score {
 			return rows[i].Score > rows[j].Score
+		}
+		// Ties: the store's order (Verification 7 defect 12), then rows the store does not group.
+		pi, iok := storePos[rows[i].IssueID]
+		pj, jok := storePos[rows[j].IssueID]
+		if iok != jok {
+			return iok
+		}
+		if iok && pi != pj {
+			return pi < pj
 		}
 		return rows[i].IssueID+rows[i].Variants[0].ID < rows[j].IssueID+rows[j].Variants[0].ID
 	})

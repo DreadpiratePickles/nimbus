@@ -19,10 +19,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/DreadpiratePickles/nimbus/internal/attackpath"
 	"github.com/DreadpiratePickles/nimbus/internal/compliance"
 	"github.com/DreadpiratePickles/nimbus/internal/graph"
+	"github.com/DreadpiratePickles/nimbus/internal/mcp"
 	"github.com/DreadpiratePickles/nimbus/internal/model"
 	"github.com/DreadpiratePickles/nimbus/internal/query"
 	"github.com/DreadpiratePickles/nimbus/internal/risk"
@@ -62,6 +65,20 @@ type Server struct {
 	// CIDRs) for /api/attack-paths/analysis, /api/risk/top and the Issue page; nil uses
 	// attackpath.DefaultTraversalOptions.
 	Traversal func(g *graph.Graph) attackpath.TraversalOptions
+
+	// MCP is the streamable HTTP MCP transport mounted at /mcp (nil: /mcp is 404). It answers only
+	// bearer tokens: MCPTokens (each with its own scopes) or Token (scopes MCPScopes, default
+	// "read"); never the dashboard cookie or ?token=. Host check and cross-site rejection apply.
+	MCP       *mcp.HTTPHandler
+	MCPTokens []MCPToken
+	MCPScopes []string
+}
+
+// MCPToken is one bearer token of the MCP transport. Name is what the audit log records.
+type MCPToken struct {
+	Name   string
+	Token  string
+	Scopes []string
 }
 
 // traversalOptions are s.Traversal(g) or the defaults.
@@ -154,6 +171,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/schema", s.handleSchema)
 	mux.HandleFunc("POST /api/query", s.handleQuery)
 	mux.HandleFunc("POST /api/scan", s.handleScan)
+	for _, m := range []string{"GET", "POST", "DELETE", "PUT", "PATCH"} {
+		mux.HandleFunc(m+" /mcp", s.handleMCP)
+	}
 	return s.withHostCheck(s.withCORS(s.withRequestGuards(s.withKeyedIDs(mux))))
 }
 
@@ -209,7 +229,7 @@ func (s *Server) withRequestGuards(h http.Handler) http.Handler {
 			writeErr(w, http.StatusForbidden, fmt.Errorf("cross-site request rejected"))
 			return
 		}
-		if s.Token != "" && r.URL.Path != "/healthz" {
+		if s.Token != "" && r.URL.Path != "/healthz" && r.URL.Path != "/mcp" {
 			if r.URL.Path == "/" && r.Method == http.MethodGet && tokenEqual(r.URL.Query().Get("token"), s.Token) {
 				// Browser bootstrap: exchange ?token= for a same-site-only cookie and drop it from the URL.
 				http.SetCookie(w, &http.Cookie{Name: tokenCookie, Value: s.Token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
@@ -764,16 +784,21 @@ const maxActorLen = 128
 // name the person acting with X-Nimbus-Actor (printable, at most maxActorLen bytes), recorded
 // as "<actor> (api token)" so the record never claims more than the token proves.
 func suppressApprover(r *http.Request) (string, error) {
-	a := strings.TrimSpace(r.Header.Get("X-Nimbus-Actor"))
+	a := strings.Trim(r.Header.Get("X-Nimbus-Actor"), " \t") // ASCII blanks only: a trailing NEL / U+2028 is refused, not trimmed
 	if a == "" {
 		return "api token", nil
 	}
 	if len(a) > maxActorLen {
 		return "", fmt.Errorf("X-Nimbus-Actor longer than %d bytes", maxActorLen)
 	}
+	if !utf8.ValidString(a) {
+		return "", fmt.Errorf("X-Nimbus-Actor is not valid UTF-8")
+	}
 	for _, c := range a {
-		if c < 0x20 || c == 0x7f {
-			return "", fmt.Errorf("X-Nimbus-Actor contains control characters")
+		// Printable only (V7): no C0/C1 controls, no format characters (bidi overrides,
+		// zero-width, soft hyphen), no line / paragraph separators.
+		if !unicode.IsPrint(c) || unicode.Is(unicode.Cf, c) {
+			return "", fmt.Errorf("X-Nimbus-Actor contains a non-printable character (U+%04X)", c)
 		}
 	}
 	return a + " (api token)", nil
@@ -1245,4 +1270,37 @@ func (s *Server) handleIssuePending(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Broadcast(Event{Type: "findings_updated"})
 	writeJSON(w, map[string]any{"id": id, "state": model.StatePendingVerification, "by": by})
+}
+
+// handleMCP authenticates a bearer token (constant-time against every MCP token and the API
+// token) and hands the request to the MCP transport with that token's name and scopes. No token
+// configured at all: 403 (the transport never runs unauthenticated, even on loopback).
+func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
+	if s.MCP == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if s.Token == "" && len(s.MCPTokens) == 0 {
+		writeErr(w, http.StatusForbidden, fmt.Errorf("MCP over HTTP needs a token (serve --token or --mcp-token)"))
+		return
+	}
+	got := ""
+	if a := r.Header.Get("Authorization"); strings.HasPrefix(a, "Bearer ") {
+		got = strings.TrimPrefix(a, "Bearer ")
+	}
+	name, scopes, ok := "", []string(nil), false
+	for _, t := range s.MCPTokens {
+		if tokenEqual(got, t.Token) && !ok {
+			name, scopes, ok = t.Name, t.Scopes, true
+		}
+	}
+	if !ok && tokenEqual(got, s.Token) {
+		name, scopes, ok = "api-token", s.MCPScopes, true
+	}
+	if !ok {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="nimbus-mcp"`)
+		writeErr(w, http.StatusUnauthorized, fmt.Errorf("unauthorized"))
+		return
+	}
+	s.MCP.ServeMCP(w, r, name, scopes)
 }

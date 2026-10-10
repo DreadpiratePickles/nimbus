@@ -9,6 +9,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -18,6 +19,7 @@ import (
 	"github.com/DreadpiratePickles/nimbus/internal/attackpath"
 	"github.com/DreadpiratePickles/nimbus/internal/collector"
 	"github.com/DreadpiratePickles/nimbus/internal/collector/core"
+	"github.com/DreadpiratePickles/nimbus/internal/compliance"
 	"github.com/DreadpiratePickles/nimbus/internal/config"
 	"github.com/DreadpiratePickles/nimbus/internal/graph"
 	"github.com/DreadpiratePickles/nimbus/internal/integrations"
@@ -64,6 +66,9 @@ var verifyFlags struct {
 	account  string
 	json     bool
 	noTicket bool
+	evidence string
+	key      string
+	cosign   string
 }
 
 var verifyCmd = &cobra.Command{
@@ -98,13 +103,25 @@ observed again for --attempts consecutive reads is reopened.
 Exit codes: 0 verified-fixed, 2 still open (or reopened), 1 error.`,
 	Example: `  cloud-posture verify 441264381acdb155ffe8ab1b9df69485
   cloud-posture verify 4412643 --attempts 3 --interval 10s --wait 2m
-  cloud-posture verify 4412643 --from-file estate.findings.json --attempts 1   # offline / lab`,
-	Args: cobra.ExactArgs(1),
-	RunE: runVerify,
+  cloud-posture verify 4412643 --from-file estate.findings.json --attempts 1   # offline / lab
+  cloud-posture verify --evidence soc2-evidence.zip --key cosign.pub          # evidence package`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if verifyFlags.evidence != "" {
+			return cobra.NoArgs(cmd, args)
+		}
+		return cobra.ExactArgs(1)(cmd, args)
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if verifyFlags.evidence != "" {
+			return runVerifyEvidence(cmd)
+		}
+		return runVerify(cmd, args)
+	},
 }
 
 func init() {
 	mcp.DefaultFileVerifier = mcpVerifyFile
+	compliance.OpenHistory = openEvidenceHistory
 	f := verifyCmd.Flags()
 	f.StringVar(&verifyFlags.fromFile, "from-file", "", "read the fresh state from a full or partial findings export (any format `ingest` reads) instead of the cloud")
 	f.IntVar(&verifyFlags.attempts, "attempts", 3, "consecutive confirmations required before the Issue is verified-fixed")
@@ -113,6 +130,9 @@ func init() {
 	f.StringVar(&verifyFlags.account, "account", "", "configured account to re-collect with (default: the only account of the Issue's provider, or the one named like the Issue's account)")
 	f.BoolVar(&verifyFlags.json, "json", false, "print the outcome as JSON")
 	f.BoolVar(&verifyFlags.noTicket, "no-ticket", false, "do not close the Issue's ticket on verified-fixed")
+	f.StringVar(&verifyFlags.evidence, "evidence", "", "verify a compliance evidence package (report --evidence-zip) instead of an Issue: every SHA-256 in manifest.json and the cosign signature")
+	f.StringVar(&verifyFlags.key, "key", "", "with --evidence: the signer's cosign public key (file or KMS URI)")
+	f.StringVar(&verifyFlags.cosign, "cosign", "", "with --evidence: the cosign binary (default: cosign on PATH)")
 	root.AddCommand(verifyCmd)
 }
 
@@ -261,7 +281,13 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		case store.VerifyFixed:
 			fmt.Printf("✓ verified-fixed: Issue %s — %s (%d/%d consecutive confirmations, verified_by=%s)\n", is.ID, reason, out.Verification.Confirmations, out.Verification.Required, verifiedBy)
 		case store.VerifyReopened:
-			fmt.Printf("✗ reopened: Issue %s — %s\n", is.ID, reason)
+			if is.State == model.StateSuppressed {
+				// A suppression is an accepted-risk decision with its own expiry: verify never
+				// lifts it (store.RecordVerification), so the Issue is not reopened.
+				fmt.Printf("✗ observed again: Issue %s stays suppressed (accepted risk) — %s\n", is.ID, reason)
+			} else {
+				fmt.Printf("✗ reopened: Issue %s — %s\n", is.ID, reason)
+			}
 		case store.VerifyUnverified:
 			fmt.Printf("? unverified: Issue %s — %s (no change; the read holds no evidence about this Issue)\n", is.ID, reason)
 		default:
@@ -742,7 +768,7 @@ func (p *verifyPlan) evaluate(fr *freshRead) (verdict, error) {
 			still = append(still, line)
 		}
 		if len(still) == 0 {
-			return verdict{fixed: true, reason: fmt.Sprintf("%s on %s is now PASS or absent", is.CanonicalID, nodeName(g, p.base, is.ResourceID))}, nil
+			return verdict{fixed: true, reason: fixedReason(is.CanonicalID, nodeName(g, p.base, is.ResourceID), fr.missing[is.ResourceID])}, nil
 		}
 		if fr.exact && fr.checks[checkKey(is.CanonicalID, is.ResourceID)] != model.Fail {
 			return verdict{unobserved: true, reason: "still FAIL only in stored findings this file does not re-observe: " + strings.Join(still, "; ")}, nil
@@ -1156,4 +1182,98 @@ func mcpVerifyFile(ctx context.Context, rd mcp.Reader, is model.Issue, path stri
 	return map[string]any{"result": v.Result, "reason": v.Reason, "evidence": v.Evidence, "reads": v.Reads,
 		"confirmations": v.Confirmations, "required": v.Required, "verified_by": "file:" + filepath.Base(path),
 		"equivalent_command": "cloud-posture verify " + is.ID + " --from-file " + filepath.Base(path) + " --attempts 1"}, nil
+}
+
+// fixedReason is a finding Issue's fixed outcome: what the read observed, never "PASS or absent".
+func fixedReason(check, resource string, deleted bool) string {
+	if deleted {
+		return fmt.Sprintf("%s: %s confirmed deleted by the re-read", check, resource)
+	}
+	return fmt.Sprintf("%s on %s is now PASS (re-read)", check, resource)
+}
+
+// evidenceHistory adapts the store to compliance.PeriodHistory (the evidence period, r5 #9).
+type evidenceHistory struct{ st *store.Store }
+
+func (h evidenceHistory) ScanTimes(from, to time.Time) ([]time.Time, error) {
+	return h.st.ScanTimes(from, to)
+}
+func (h evidenceHistory) FailIntervals(ids []string) (map[string][]compliance.Interval, error) {
+	m, err := h.st.FindingFailIntervals(ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string][]compliance.Interval, len(m))
+	for k, v := range m {
+		for _, iv := range v {
+			out[k] = append(out[k], compliance.Interval{From: iv.From, To: iv.To})
+		}
+	}
+	return out, nil
+}
+
+func openEvidenceHistory(db string) (compliance.PeriodHistory, func(), error) {
+	st, err := store.Open(db)
+	if err != nil {
+		return nil, nil, err
+	}
+	return evidenceHistory{st}, func() { st.Close() }, nil
+}
+
+// runVerifyEvidence checks a compliance evidence package (r5 #9): exit 0 only when every digest
+// matches, nothing is missing, unlisted or duplicated, and the signature verifies with --key.
+func runVerifyEvidence(cmd *cobra.Command) error {
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	chk, err := compliance.VerifyEvidence(ctx, verifyFlags.evidence, compliance.VerifyOptions{PublicKey: verifyFlags.key, CosignBin: verifyFlags.cosign})
+	if err != nil {
+		return err
+	}
+	if verifyFlags.json {
+		if err := output.JSON(os.Stdout, chk); err != nil {
+			return err
+		}
+	} else {
+		printEvidenceCheck(os.Stdout, filepath.Base(verifyFlags.evidence), chk)
+	}
+	if !chk.OK() {
+		verifyExit(2)
+	}
+	return nil
+}
+
+func printEvidenceCheck(w io.Writer, name string, chk *compliance.EvidenceCheck) {
+	m := chk.Manifest
+	if chk.OK() {
+		fmt.Fprintf(w, "✓ evidence verified: %s — %d file(s) match manifest.json; signature valid (%s)\n", name, chk.Files, m.Signing.KeyRef)
+	} else {
+		fmt.Fprintf(w, "✗ evidence NOT verified: %s\n", name)
+	}
+	for _, x := range []struct {
+		label string
+		names []string
+	}{{"changed (digest mismatch)", chk.Mismatched}, {"missing", chk.Missing}, {"not in the manifest", chk.Unlisted}, {"duplicated entries", chk.Duplicates}} {
+		if len(x.names) > 0 {
+			fmt.Fprintf(w, "  %s: %s\n", x.label, termSafe(strings.Join(x.names, ", ")))
+		}
+	}
+	if !chk.SignatureOK {
+		fmt.Fprintf(w, "  signature: %s\n", termSafe(chk.SignatureErr))
+	}
+	fmt.Fprintf(w, "  %s %s, period %s to %s (%d days, %d scans from %s)\n", m.FrameworkName, m.Version,
+		m.Period.From.Format("2006-01-02"), m.Period.To.Format("2006-01-02"), m.Period.Days, m.Period.Scans, m.Period.Source)
+	manual, shown := 0, 0
+	for _, c := range m.Controls {
+		if c.Kind == compliance.KindManual {
+			manual++
+			continue
+		}
+		if c.EffectiveDays+c.FailingDays > 0 && shown < 10 {
+			fmt.Fprintf(w, "  %-12s %s\n", termSafe(c.ID), termSafe(c.Statement))
+			shown++
+		}
+	}
+	fmt.Fprintf(w, "  %d manual control(s): never passed automatically\n", manual)
 }

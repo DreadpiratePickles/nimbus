@@ -134,7 +134,7 @@ func Open(path string) (*Store, error) {
 			fmt.Fprintf(pol.Notice, "notice: upgrading %s (built by the Python layer) to the Go schema v%d; read-only commands never migrate a database\n", path, LatestSchemaVersion())
 		}
 	}
-	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate")
+	db, err := sql.Open("sqlite", fileURI(path, "_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate"))
 	if err != nil {
 		return nil, err
 	}

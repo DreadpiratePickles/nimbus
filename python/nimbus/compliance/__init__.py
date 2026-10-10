@@ -12,3 +12,4 @@ from .engine import (  # noqa: F401
     DEFAULT_FRAMEWORK_SET, ControlResult, Evidence, Framework, Report, RoadmapItem, build_report, framework_set, frameworks,
     load_custom_framework, load_frameworks, resolve_key, weakness_mappings,
 )
+from .evidence import EvidenceError, EvidencePackage, read_evidence  # noqa: F401,E402

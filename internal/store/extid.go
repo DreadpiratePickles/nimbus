@@ -98,8 +98,9 @@ const (
 )
 
 // IDMapper translates between stored digest ids (findings, attack paths) and their external
-// keyed form. It reloads the id set (at most once a second) when it meets an unknown digest,
-// so a long MCP session also keys the findings of a later scan.
+// keyed form. It reloads the id set when it meets an unknown digest and the stored id set has
+// changed since the last load (no time window: Verification 7 defect 3), so a long MCP session
+// also keys the findings of a later scan, even one committed a millisecond ago.
 type IDMapper struct {
 	st     *Store
 	mu     sync.Mutex
@@ -117,12 +118,24 @@ func (s *Store) IDMapper() (*IDMapper, error) {
 	return m, m.reloadLocked()
 }
 
+// idSources are every stored place an exposed digest id comes from. Issue rows are a source of
+// their own (Verification 7 defect 2): a resolved path Issue keeps path ids whose attack_paths
+// row is gone, and they must be keyed all the same.
+var idSources = []struct {
+	sql  string
+	kind int
+}{
+	{"SELECT id FROM findings", kindFinding},
+	{"SELECT id FROM attack_paths", kindPath},
+	{"SELECT DISTINCT j.value FROM issues, json_each(issues.path_ids) j WHERE json_valid(issues.path_ids)", kindPath},
+	{"SELECT DISTINCT j.value FROM issues, json_each(issues.finding_ids) j WHERE json_valid(issues.finding_ids)", kindFinding},
+}
+
+// reloadLocked builds the new maps completely and only then swaps them in, so no reader ever
+// sees a partial set (the mapper's mutex is held by the caller).
 func (m *IDMapper) reloadLocked() error {
 	toExt, toRaw, kind := map[string]string{}, map[string]string{}, map[string]int{}
-	for _, q := range []struct {
-		sql  string
-		kind int
-	}{{"SELECT id FROM findings", kindFinding}, {"SELECT id FROM attack_paths", kindPath}} {
+	for _, q := range idSources {
 		rows, err := m.st.db.Query(q.sql)
 		if err != nil {
 			return err
@@ -130,6 +143,9 @@ func (m *IDMapper) reloadLocked() error {
 		for rows.Next() {
 			var id string
 			if rows.Scan(&id) != nil || !IsDigestID(id) {
+				continue
+			}
+			if _, seen := kind[id]; seen {
 				continue
 			}
 			var ext string
@@ -140,11 +156,52 @@ func (m *IDMapper) reloadLocked() error {
 			}
 			toExt[id], toRaw[ext], kind[id] = ext, id, q.kind
 		}
+		err = rows.Err()
 		rows.Close()
+		if err != nil {
+			return err
+		}
 	}
 	m.toExt, m.toRaw, m.kind, m.loaded = toExt, toRaw, kind, time.Now()
 	return nil
 }
+
+// lookupLocked classifies a digest the maps do not hold by asking the store directly (indexed
+// lookups on findings / attack_paths, then the Issue id lists), and adds it when stored: no time
+// window, so an id committed a millisecond ago is keyed too (Verification 7 defect 3).
+// ok=false: the store could not be read; the caller fails closed.
+func (m *IDMapper) lookupLocked(tok string) (kind int, ok bool) {
+	var n int
+	for _, q := range []struct {
+		sql  string
+		kind int
+		args []any
+	}{
+		{"SELECT COUNT(*) FROM findings WHERE id = ?", kindFinding, []any{tok}},
+		{"SELECT COUNT(*) FROM attack_paths WHERE id = ?", kindPath, []any{tok}},
+		{"SELECT COUNT(*) FROM issues, json_each(issues.path_ids) j WHERE json_valid(issues.path_ids) AND instr(issues.path_ids, ?) > 0 AND j.value = ?", kindPath, []any{tok, tok}},
+		{"SELECT COUNT(*) FROM issues, json_each(issues.finding_ids) j WHERE json_valid(issues.finding_ids) AND instr(issues.finding_ids, ?) > 0 AND j.value = ?", kindFinding, []any{tok, tok}},
+	} {
+		if err := m.st.db.QueryRow(q.sql, q.args...).Scan(&n); err != nil {
+			return 0, false
+		}
+		if n > 0 {
+			var ext string
+			if q.kind == kindFinding {
+				ext = m.st.ExternalFindingID(tok)
+			} else {
+				ext = m.st.ExternalPathID(tok)
+			}
+			m.toExt[tok], m.toRaw[ext], m.kind[tok] = ext, tok, q.kind
+			return q.kind, true
+		}
+	}
+	return 0, true
+}
+
+// idUnavailable replaces a digest the mapper cannot classify because the store could not be
+// read: never the raw value (fail closed).
+const idUnavailable = "[id-unavailable]"
 
 // Ext is the external form of a stored id (unchanged when it is not a stored digest).
 func (m *IDMapper) Ext(raw string) string {
@@ -163,12 +220,16 @@ func (m *IDMapper) extLocked(tok string) string {
 	if _, isExt := m.toRaw[tok]; isExt {
 		return tok
 	}
-	if time.Since(m.loaded) > time.Second && m.reloadLocked() == nil {
-		if e, ok := m.toExt[tok]; ok {
-			return e
-		}
+	if !IsDigestID(tok) {
+		return tok
 	}
-	return tok
+	if _, ok := m.lookupLocked(tok); !ok {
+		return idUnavailable
+	}
+	if e, ok := m.toExt[tok]; ok {
+		return e
+	}
+	return tok // not a stored id
 }
 
 // Raw maps an external id back to the stored id.
@@ -181,9 +242,12 @@ func (m *IDMapper) Raw(ext string) (string, bool) {
 	if r, ok := m.toRaw[ext]; ok {
 		return r, true
 	}
+	// An external id of an id stored after the last load: reload (the keyed form cannot be looked
+	// up directly) — at most once a second, which can only delay a resolution, never leak.
 	if time.Since(m.loaded) > time.Second && m.reloadLocked() == nil {
-		r, ok := m.toRaw[ext]
-		return r, ok
+		if r, ok := m.toRaw[ext]; ok {
+			return r, true
+		}
 	}
 	return ext, false
 }
@@ -211,8 +275,14 @@ func (m *IDMapper) IsRaw(id string) bool {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	_, ok := m.toExt[id]
-	return ok
+	if _, ok := m.toExt[id]; ok {
+		return true
+	}
+	if _, isExt := m.toRaw[id]; isExt || !IsDigestID(id) {
+		return false
+	}
+	kind, ok := m.lookupLocked(id)
+	return kind != 0 || !ok // unreadable store: treat as raw (refuse), fail closed
 }
 
 // MapString replaces every stored digest id inside s (also inside JSON text) by its external id.

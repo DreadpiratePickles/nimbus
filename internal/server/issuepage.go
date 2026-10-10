@@ -38,6 +38,10 @@ type IssuePage struct {
 	Suppression PageSuppression `json:"suppression"`
 	// ScoreHistory is the Issue's score journey, one point per scan (W7-VERIFY r5 #11).
 	ScoreHistory PageScoreHistory `json:"score_history"`
+	// PotentialEscalations are the inferred path-rule matches anchored on a finding Issue's
+	// principal (r5 #10): permissions allow an escalation the graph cannot prove. Never a path
+	// Issue; empty for path Issues (their chains are their hops).
+	PotentialEscalations []attackpath.PathRuleMatch `json:"potential_escalations"`
 }
 
 // PageScoreHistory is one Issue's per-scan score journey and the one-line text sparkline every
@@ -78,6 +82,54 @@ type PagePath struct {
 	RuleID   string  `json:"rule_id"`
 	Toxic    string  `json:"toxic,omitempty"`
 	WeakLink bool    `json:"weak_link,omitempty"`
+	// Title is the path Issue title of the path (the shared builder: the stored Issue title,
+	// else model.PathIssueTitle); Via names the hops between entry and target, so variants of
+	// one Issue (same title) read apart.
+	Title string `json:"title"`
+	Via   string `json:"via"`
+}
+
+func pathTitle(st *store.Store, o *IssuePageOptions, p model.AttackPath, is model.Issue) string {
+	id := st.PathIssueIDOf(p)
+	if id == is.ID && is.Title != "" {
+		return is.Title
+	}
+	for i := range o.Issues {
+		if o.Issues[i].ID == id && o.Issues[i].Title != "" {
+			return o.Issues[i].Title
+		}
+	}
+	var lookup func(string) (model.PathNode, bool)
+	if g := o.Graph; g != nil {
+		lookup = func(nid string) (model.PathNode, bool) {
+			n, ok := g.Node(nid)
+			if !ok || n == nil {
+				return model.PathNode{}, false
+			}
+			return model.PathNode{Name: n.Name, Attrs: n.Attributes}, true
+		}
+	}
+	return model.PathIssueTitle(p, lookup)
+}
+
+// pathVia names every hop resource of p after the entry (graph names, ids when unknown).
+func pathVia(g *graph.Graph, p model.AttackPath) string {
+	var names []string
+	for i, s := range p.Steps {
+		if i == 0 || s.Resource == "" || s.Resource == graph.InternetNodeID {
+			continue
+		}
+		name := s.Resource
+		if g != nil {
+			if n, ok := g.Node(s.Resource); ok && n.Name != "" {
+				name = n.Name
+			}
+		}
+		if len(names) == 0 || names[len(names)-1] != name {
+			names = append(names, name)
+		}
+	}
+	return strings.Join(names, " → ")
 }
 
 // PageScore: the Issue's own score (path score for a path Issue) and the published finding
@@ -178,6 +230,11 @@ type IssuePageOptions struct {
 	Issues   []model.Issue
 	Ranked   []risk.Ranked
 	Now      time.Time
+	// PathRules are the rules potential escalations are matched with (nil: the library;
+	// the CLI passes library + customer rules, pathRulesFor).
+	PathRules []attackpath.PathRule
+
+	potential map[string][]attackpath.PathRuleMatch // resource id -> inferred matches (prepare)
 }
 
 // prepare fills every missing shared input from the store.
@@ -217,6 +274,9 @@ func (o *IssuePageOptions) prepare(st *store.Store) error {
 		}
 		ro.Top = 0
 		o.Ranked = risk.PrioritizeWith(fs, o.Graph, o.Paths, ro)
+	}
+	if o.potential == nil {
+		o.potential = attackpath.PotentialEscalations(o.Graph, o.PathRules)
 	}
 	return nil
 }
@@ -285,7 +345,13 @@ func hopConfidence(s model.Step) string {
 
 func buildPage(st *store.Store, is model.Issue, o *IssuePageOptions) *IssuePage {
 	pg := &IssuePage{Issue: is, Findings: []model.Finding{}, Hops: []PageHop{}, Paths: []PagePath{}, Linked: []LinkedIssue{},
-		Fixes: []PageFix{}, Tickets: []PageTicket{}, Timeline: []TimelineEntry{}, ScoreHistory: scoreHistoryOf(st, is.ID)}
+		Fixes: []PageFix{}, Tickets: []PageTicket{}, Timeline: []TimelineEntry{}, ScoreHistory: scoreHistoryOf(st, is.ID),
+		PotentialEscalations: []attackpath.PathRuleMatch{}}
+	if is.Kind != model.IssuePath && is.ResourceID != "" {
+		if ms := o.potential[is.ResourceID]; len(ms) > 0 {
+			pg.PotentialEscalations = ms
+		}
+	}
 
 	// Paths: the Issue's own variants (path Issue) or every path through the resource.
 	fids := map[string]bool{}
@@ -310,7 +376,8 @@ func buildPage(st *store.Store, is model.Issue, o *IssuePageOptions) *IssuePage 
 			toxic = is.ToxicCombination
 		}
 		pg.Paths = append(pg.Paths, PagePath{ID: p.ID, IssueID: st.PathIssueIDOf(p), Name: p.Name, Impact: p.Impact, Score: p.Score,
-			Band: risk.BandFor(p.Score), Hops: len(p.Steps), RuleID: rule, Toxic: toxic, WeakLink: p.WeakLink})
+			Band: risk.BandFor(p.Score), Hops: len(p.Steps), RuleID: rule, Toxic: toxic, WeakLink: p.WeakLink,
+			Title: pathTitle(st, o, p, is), Via: pathVia(o.Graph, p)})
 	}
 	if len(mine) > 0 {
 		for _, s := range mine[0].Steps {

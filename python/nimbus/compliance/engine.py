@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -391,7 +392,9 @@ def build_report(framework: str, findings: Iterable[Finding | dict], custom_path
     rep.total_controls = len(rep.controls)
     assessed = rep.assessed = rep.passing + rep.failing
     rep.coverage = dict(fw.coverage)
-    rep.score_percent = round(int(rep.passing / assessed * 1000) / 10, 1) if assessed else 0.0
+    # Rounded half away from zero to one decimal, exactly as Go's compliance.scorePercent
+    # (Verification 7 defect 11: 36.36 -> 36.4, never truncated to 36.3).
+    rep.score_percent = score_percent(rep.passing, rep.failing)
     rep.findings_evaluated = len(in_scope)
     sev_counts: dict[str, int] = defaultdict(int)
     for f, _ in in_scope:
@@ -457,3 +460,12 @@ def _monitoring(items: list[Finding], scan: Optional[ScanSummary | dict]) -> dic
         "continuous": True,
         "note": "Evidence is refreshed on every `cloud-posture scan`; the dashboard pushes findings_updated events when the database changes.",
     }
+
+
+def score_percent(passing: int, failing: int) -> float:
+    """passing / (passing + failing) in percent, rounded half away from zero to one decimal —
+    the same value as Go's compliance.scorePercent (never truncated: 4/11 is 36.4, not 36.3)."""
+    assessed = passing + failing
+    if not assessed:
+        return 0.0
+    return math.floor(passing / assessed * 1000 + 0.5) / 10

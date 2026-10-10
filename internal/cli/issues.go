@@ -2,16 +2,19 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/DreadpiratePickles/nimbus/internal/attackpath"
 	"github.com/DreadpiratePickles/nimbus/internal/config"
 	"github.com/DreadpiratePickles/nimbus/internal/graph"
+	"github.com/DreadpiratePickles/nimbus/internal/integrations"
 	"github.com/DreadpiratePickles/nimbus/internal/model"
 	"github.com/DreadpiratePickles/nimbus/internal/output"
 	"github.com/DreadpiratePickles/nimbus/internal/risk"
@@ -149,6 +152,8 @@ var issuesFlags struct {
 	overdue                                        bool
 	pendingBy                                      string
 	since                                          string
+	exportTo, exportURL                            string
+	exportDryRun, exportAllowEmpty, exportRecipe   bool
 }
 
 var issuesCmd = &cobra.Command{
@@ -403,7 +408,7 @@ func issuePageOptions(ctx context.Context, cfg *config.Config, st *store.Store) 
 	if paths == nil {
 		paths = []model.AttackPath{}
 	}
-	return server.IssuePageOptions{Risk: ro, Graph: g, Paths: paths, Analysis: an}, nil
+	return server.IssuePageOptions{Risk: ro, Graph: g, Paths: paths, Analysis: an, PathRules: pathRulesFor(cfg)}, nil
 }
 
 func buildIssuePage(ctx context.Context, cfg *config.Config, st *store.Store, id string) (*server.IssuePage, error) {
@@ -530,7 +535,7 @@ func printIssuePage(w io.Writer, pg *server.IssuePage) {
 				fmt.Fprintf(w, "  … %d more\n", len(pg.Paths)-10)
 				break
 			}
-			fmt.Fprintf(w, "  %.1f %-8s %s → %s  [issue %s]\n", p.Score, p.Band, p.Name, p.Impact, p.IssueID)
+			fmt.Fprintf(w, "  %.1f %-8s %s via %s  [issue %s]\n", p.Score, p.Band, firstNonEmpty(p.Title, p.Name), firstNonEmpty(p.Via, "—"), p.IssueID)
 		}
 	}
 	if len(pg.Linked) > 0 {
@@ -774,7 +779,13 @@ func init() {
 	lf.BoolVar(&issuesFlags.overdue, "overdue", false, "only open Issues past their governance due date (suppressed Issues are never overdue)")
 	issuesMarkPendingCmd.Flags().StringVar(&issuesFlags.pendingBy, "by", "", "what applied the fix: a PR URL, ticket key or name (recorded on the Issue)")
 	issuesTrendCmd.Flags().StringVar(&issuesFlags.since, "since", "90d", "lookback: Nd, Nw, Nm (months), Ny, a duration (36h), YYYY-MM-DD, RFC 3339 or all")
-	issuesCmd.AddCommand(issuesShowCmd, issuesSuppressCmd, issuesHistoryCmd, issuesMetricsCmd, issuesMarkPendingCmd, issuesTrendCmd)
+	ef := issuesExportCmd.Flags()
+	ef.StringVar(&issuesFlags.exportTo, "to", "", "destination: vanta")
+	ef.BoolVar(&issuesFlags.exportDryRun, "dry-run", false, "send nothing; print what the full-state sync would add and delete")
+	ef.BoolVar(&issuesFlags.exportAllowEmpty, "allow-empty", false, "allow an empty set (deletes every nimbus resource in Vanta)")
+	ef.BoolVar(&issuesFlags.exportRecipe, "recipe", false, "print the Vanta custom test recipe and exit")
+	ef.StringVar(&issuesFlags.exportURL, "url", "", "dashboard base URL each resource links to (externalUrl), e.g. the `serve` address")
+	issuesCmd.AddCommand(issuesShowCmd, issuesSuppressCmd, issuesHistoryCmd, issuesMetricsCmd, issuesMarkPendingCmd, issuesTrendCmd, issuesExportCmd)
 	root.AddCommand(issuesCmd)
 }
 
@@ -902,4 +913,89 @@ func doctorScoreCadence(dbPath string, add func(status, name, detail string)) {
 		status = docWarn
 	}
 	add(status, "history", sp.Text())
+}
+
+// ---------------------------------------------------------------- issues export (r5 #9)
+
+var issuesExportCmd = &cobra.Command{
+	Use:   "export --to vanta",
+	Short: "Export nimbus resources to a GRC tool: Vanta custom resources (full-state sync), with a dry run and the custom test recipe",
+	Long: `export --to vanta pushes one Vanta custom resource per cloud resource nimbus evaluated, with flat
+properties (open_issues, open_critical, open_high, failing_checks, passing_checks, on_attack_path,
+max_path_score_x10, nimbus_pass, last_seen, provider, account, resource_type), through a Vanta
+private integration (VANTA_CLIENT_ID, VANTA_CLIENT_SECRET, VANTA_RESOURCE_ID).
+
+Vanta's resources API is full-state: every sync carries the complete set and a resource omitted
+from it is deleted in Vanta. nimbus therefore sends one PUT with every resource, refuses an empty
+set (--allow-empty overrides) or one over the cap, and --dry-run prints what the sync would add
+and delete against the last successful sync (kept in the state directory). --recipe prints the
+Vanta custom test that turns the resources into passing / failing tests.`,
+	Example: `  cloud-posture issues export --to vanta --recipe
+  cloud-posture issues export --to vanta --dry-run
+  cloud-posture issues export --to vanta --url https://nimbus.internal.example.com`,
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if !strings.EqualFold(issuesFlags.exportTo, "vanta") {
+			return fmt.Errorf("--to: only vanta is supported (got %q)", issuesFlags.exportTo)
+		}
+		if issuesFlags.exportRecipe {
+			fmt.Println(integrations.VantaCustomTestRecipe())
+			return nil
+		}
+		st, err := openStore()
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		fs, err := st.Findings(store.Filter{})
+		if err != nil {
+			return err
+		}
+		is, err := st.Issues(store.IssueFilter{})
+		if err != nil {
+			return err
+		}
+		rs := integrations.BuildVantaResources(fs, is, integrations.VantaBuildOptions{ExternalURLBase: issuesFlags.exportURL})
+		v := integrations.NewVantaFromEnv()
+		statePath := filepath.Join(stateDir(), "vanta-"+safeName(firstNonEmpty(v.ResourceID, "default"))+".json")
+		var prev []string
+		if b, err := os.ReadFile(statePath); err == nil {
+			_ = json.Unmarshal(b, &prev)
+		}
+		ctx := cmd.Context()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		res, err := v.Sync(ctx, rs, integrations.VantaSyncOptions{DryRun: issuesFlags.exportDryRun, Previous: prev, AllowEmpty: issuesFlags.exportAllowEmpty})
+		if err != nil {
+			return err
+		}
+		if !res.DryRun {
+			ids := make([]string, 0, len(rs))
+			for _, r := range rs {
+				ids = append(ids, r.UniqueID)
+			}
+			if b, err := json.Marshal(ids); err == nil {
+				_ = os.MkdirAll(stateDir(), 0o700)
+				_ = os.WriteFile(statePath, b, 0o600)
+			}
+		}
+		if issuesFlags.json {
+			return output.JSON(os.Stdout, res)
+		}
+		fmt.Println(res.Text())
+		if len(res.Removed) > 0 {
+			fmt.Printf("  omitted since the last sync (Vanta %s them): %s\n", map[bool]string{true: "would delete", false: "deleted"}[res.DryRun], termSafe(strings.Join(res.Removed, ", ")))
+		}
+		return nil
+	},
+}
+
+func safeName(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' {
+			return r
+		}
+		return '_'
+	}, s)
 }

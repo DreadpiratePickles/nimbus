@@ -16,7 +16,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -127,12 +130,26 @@ func fileOrigin(path string) (string, error) {
 	if fi, err := os.Stat(path); err != nil || fi.Size() == 0 {
 		return OriginNew, nil
 	}
-	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro&_pragma=busy_timeout(5000)")
+	db, err := sql.Open("sqlite", fileURI(path, "mode=ro&_pragma=busy_timeout(5000)"))
 	if err != nil {
 		return "", err
 	}
 	defer db.Close()
 	return dbOrigin(db)
+}
+
+// fileURI is a SQLite file: URI for path with query, escaped (Verification 7 defect 4: a '#',
+// '?' or '%' in a concatenated URI cut or changed the path). The path is made absolute first so
+// it is always the URI path, never an authority.
+func fileURI(path, query string) string {
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	u := url.URL{Scheme: "file", Path: filepath.ToSlash(path), RawQuery: query}
+	if !strings.HasPrefix(u.Path, "/") {
+		u.Path = "/" + u.Path // Windows drive paths: file:///C:/...
+	}
+	return u.String()
 }
 
 func markGo(db *sql.DB) error {

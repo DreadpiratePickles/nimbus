@@ -124,7 +124,11 @@ func runPlanComment(cmd *cobra.Command) error {
 	// unredacted ones keep the digest and say id_scheme "unkeyed".
 	pub := res
 	if redact {
-		pub = res.WithKeyedIDs(output.NewRunKeyer([]byte(os.Getenv("NIMBUS_ID_KEY"))))
+		keyer, err := output.RunKeyerFromKey(os.Getenv("NIMBUS_ID_KEY"))
+		if err != nil {
+			return err
+		}
+		pub = res.WithKeyedIDs(keyer)
 	}
 	if planCommentFlags.jsonOut != "" {
 		b, _ := json.MarshalIndent(pub, "", "  ")

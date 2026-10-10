@@ -164,6 +164,27 @@ func (s *Store) recordTrend(scanID string, finished time.Time) error {
 			t.VerifiedFixed++
 		}
 	}
+	// Regressions caught by `verify` between the scans (verified_fixed → reopened by a re-read)
+	// count as regressed after verify of this scan; the scan itself sees an already-reopened
+	// Issue (Verification 7 defect 8).
+	if rs, err := s.VerificationsBetween(prev, finished, VerifyReopened); err == nil {
+		counted := map[string]bool{}
+		for id, st := range now {
+			if active(st) && snap.states[id] == model.StateVerifiedFixed {
+				counted[id] = true // already counted above
+			}
+		}
+		for _, v := range rs {
+			if counted[v.IssueID] || !(prev.IsZero() || v.At.After(prev)) {
+				continue
+			}
+			var flag int
+			if s.db.QueryRow("SELECT COALESCE(regressed_after_verify,0) FROM issues WHERE id = ?", v.IssueID).Scan(&flag) == nil && flag == 1 && active(now[v.IssueID]) {
+				counted[v.IssueID] = true
+				t.Regressed++
+			}
+		}
+	}
 	if m, err := s.ClosureMetrics(); err == nil {
 		t.VerifiedShare = m.VerifiedShare
 	}

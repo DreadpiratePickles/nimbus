@@ -32,6 +32,9 @@ var serveFlags struct {
 	corsOrigins  []string
 	allowedHosts []string
 	queryTimeout time.Duration
+	mcp          bool
+	mcpScopes    []string
+	mcpTokens    []string
 }
 
 var serveCmd = &cobra.Command{
@@ -41,7 +44,9 @@ var serveCmd = &cobra.Command{
   CLOUD_POSTURE_TOKEN=… cloud-posture serve --addr 0.0.0.0:8080 --allowed-host posture.corp.example
                                                        # remote access: token required; open /?token=… once in the browser
   cloud-posture serve --scan-interval 24h --monitor    # continuous compliance + change detection by polling audit logs
-  cloud-posture serve --copilot http://localhost:8081  # wire the Python copilot (nimbus serve --port 8081)`,
+  cloud-posture serve --copilot http://localhost:8081  # wire the Python copilot (nimbus serve --port 8081)
+  NIMBUS_MCP_READER=… cloud-posture serve --mcp --mcp-token NIMBUS_MCP_READER=read
+                                                       # MCP over streamable HTTP at /mcp (bearer token, scoped tools)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := signalContext()
 		defer cancel()
@@ -73,6 +78,9 @@ var serveCmd = &cobra.Command{
 		srv.AllowedHosts = serveFlags.allowedHosts
 		srv.QueryTimeout = serveFlags.queryTimeout
 		if err := server.ValidateBind(serveFlags.addr, srv.Token); err != nil {
+			return err
+		}
+		if err := mountMCP(srv, st, cfg); err != nil {
 			return err
 		}
 		srv.CORSOrigins = serveFlags.corsOrigins
@@ -260,6 +268,9 @@ var costCmd = &cobra.Command{
 func init() {
 	serveCmd.Flags().StringVar(&serveFlags.addr, "addr", "127.0.0.1:8080", "listen address; a non-loopback address requires a token")
 	serveCmd.Flags().StringVar(&serveFlags.copilot, "copilot", "", "URL of the Python intelligence API for the copilot panel")
+	serveCmd.Flags().BoolVar(&serveFlags.mcp, "mcp", false, "also serve MCP over streamable HTTP at /mcp (bearer token required; stdio `cloud-posture mcp` stays the default)")
+	serveCmd.Flags().StringSliceVar(&serveFlags.mcpScopes, "mcp-scope", nil, "MCP tool scopes of the --token (default read)")
+	serveCmd.Flags().StringArrayVar(&serveFlags.mcpTokens, "mcp-token", nil, "an extra MCP bearer token: ENV_VAR=scope[,scope] (the token is read from ENV_VAR; repeatable)")
 	serveCmd.Flags().DurationVar(&serveFlags.scanInterval, "scan-interval", 0, "re-scan configured accounts on this interval (continuous compliance)")
 	serveCmd.Flags().BoolVar(&serveFlags.monitor, "monitor", false, "run change detection and push events to the dashboard")
 	serveCmd.Flags().DurationVar(&serveFlags.monInterval, "monitor-interval", 2*time.Minute, "monitor poll interval")

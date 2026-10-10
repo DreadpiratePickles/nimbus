@@ -32,6 +32,8 @@ type auditRecord struct {
 	Rows        int             `json:"rows,omitempty"`
 	ResultBytes int             `json:"result_bytes,omitempty"`
 	Client      string          `json:"client,omitempty"`
+	Transport   string          `json:"transport,omitempty"` // "http" for the streamable HTTP transport
+	Principal   string          `json:"principal,omitempty"` // HTTP: the token's name (never the token)
 }
 
 // maxAuditArgs caps the arguments copied into one record.

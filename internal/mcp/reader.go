@@ -56,9 +56,9 @@ func (r storeReader) PathIssueHistory(id string) ([]store.PathIssueHistoryEntry,
 func (r storeReader) Coverage(scanID string) ([]store.CoverageEntry, error) {
 	return r.st.Coverage(scanID)
 }
-func (r storeReader) LastScan() (*model.ScanSummary, error) { return r.st.LastScan() }
+func (r storeReader) LastScan() (*model.ScanSummary, error)   { return r.st.LastScan() }
 func (r storeReader) PathIssueIDOf(p model.AttackPath) string { return r.st.PathIssueIDOf(p) }
-func (r storeReader) Headline() (*store.Headline, error)    { return r.st.Headline() }
+func (r storeReader) Headline() (*store.Headline, error)      { return r.st.Headline() }
 func (r storeReader) Verifications(id string) ([]store.Verification, error) {
 	return r.st.Verifications(id)
 }

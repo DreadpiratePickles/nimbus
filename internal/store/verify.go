@@ -126,6 +126,7 @@ func (s *Store) RecordVerification(v Verification) error {
 	// A suppression is an accepted-risk decision with its own expiry: verify records its run but
 	// never removes it (Verification 5 C8).
 	transition := (v.Result == VerifyFixed || v.Result == VerifyReopened) && state != model.StateSuppressed
+	regressed := v.Result == VerifyReopened && state == StateVerifiedFixed
 	if transition {
 		switch v.Result {
 		case VerifyFixed:
@@ -135,7 +136,11 @@ func (s *Store) RecordVerification(v Verification) error {
 				return err
 			}
 		case VerifyReopened:
-			if _, err := tx.Exec(`UPDATE issues SET state = ?, resolved_at = NULL, pending_at = NULL, pending_by = NULL WHERE id = ?`, model.StateReopened, v.IssueID); err != nil {
+			// A verified fix observed again is a regression after verify (Verification 7 defect 8),
+			// exactly as when a scan reopens it.
+			if _, err := tx.Exec(`UPDATE issues SET state = ?, resolved_at = NULL, pending_at = NULL, pending_by = NULL,
+			  regressed_after_verify = CASE WHEN ? THEN 1 ELSE COALESCE(regressed_after_verify,0) END WHERE id = ?`,
+				model.StateReopened, regressed, v.IssueID); err != nil {
 				return err
 			}
 		}
@@ -143,8 +148,8 @@ func (s *Store) RecordVerification(v Verification) error {
 	// Every kind records the Issue-level transition (governance metrics read it).
 	if transition {
 		_ = kind
-		if _, err := tx.Exec("INSERT INTO path_issue_history (issue_id, state, at, scan_id, score, secondary_key) VALUES (?,?,?,NULL,?,?)",
-			v.IssueID, v.Result, at, score, key); err != nil {
+		if _, err := tx.Exec("INSERT INTO path_issue_history (issue_id, state, at, scan_id, score, secondary_key, regressed_after_verify) VALUES (?,?,?,NULL,?,?,?)",
+			v.IssueID, v.Result, at, score, key, regressed); err != nil {
 			return err
 		}
 	}

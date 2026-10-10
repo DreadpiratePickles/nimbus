@@ -2,19 +2,14 @@
 package compliance
 
 import (
-	"archive/zip"
-	"crypto/sha256"
 	"embed"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io/fs"
-	"os"
+	"math"
 	"path"
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/DreadpiratePickles/nimbus/internal/catalog"
 	"github.com/DreadpiratePickles/nimbus/internal/model"
@@ -101,6 +96,7 @@ var (
 	weaknessMappings map[string]map[string][]string
 	checkIndex       map[string]map[string][]string // framework -> upper(canonical id) -> controls
 	coverage         map[string]ControlCoverage
+	controlKinds     map[string]map[string]string // framework -> control -> Kind*
 )
 
 func load() {
@@ -183,7 +179,7 @@ func load() {
 			}
 			checkIndex[k] = idx
 		}
-		coverage = computeCoverage(loaded, handWritten, weaknessMappings)
+		coverage, controlKinds = computeCoverage(loaded, handWritten, weaknessMappings)
 	})
 }
 
@@ -191,7 +187,7 @@ func load() {
 // catalog canonical id, prowler_ingest when only PROWLER:<check> ids are listed, manual when none.
 // Hand-written frameworks: native when any catalog entry maps to the control, through its
 // compliance list or through a weakness mapping, else manual.
-func computeCoverage(fws map[string]*Framework, handWritten map[string]bool, wm map[string]map[string][]string) map[string]ControlCoverage {
+func computeCoverage(fws map[string]*Framework, handWritten map[string]bool, wm map[string]map[string][]string) (map[string]ControlCoverage, map[string]map[string]string) {
 	mapped := map[string]map[string]bool{}
 	mark := func(fw string, ctrls []string) {
 		if mapped[fw] == nil {
@@ -212,14 +208,18 @@ func computeCoverage(fws map[string]*Framework, handWritten map[string]bool, wm 
 		}
 	}
 	out := map[string]ControlCoverage{}
+	kinds := map[string]map[string]string{}
 	for k, fw := range fws {
 		var c ControlCoverage
+		kinds[k] = map[string]string{}
 		for ctrl := range fw.Controls {
 			if handWritten[k] {
 				if mapped[k][ctrl] {
 					c.Native++
+					kinds[k][ctrl] = KindNative
 				} else {
 					c.Manual++
+					kinds[k][ctrl] = KindManual
 				}
 				continue
 			}
@@ -234,15 +234,32 @@ func computeCoverage(fws map[string]*Framework, handWritten map[string]bool, wm 
 			switch {
 			case native:
 				c.Native++
+				kinds[k][ctrl] = KindNative
 			case ingest:
 				c.ProwlerIngest++
+				kinds[k][ctrl] = KindProwlerIngest
 			default:
 				c.Manual++
+				kinds[k][ctrl] = KindManual
 			}
 		}
 		out[k] = c
 	}
-	return out
+	return out, kinds
+}
+
+// Control kinds: how a control can be assessed.
+const (
+	KindNative        = "native"         // a nimbus check maps to it
+	KindProwlerIngest = "prowler_ingest" // only ingested Prowler results map to it
+	KindManual        = "manual"         // no automated check: evidence is collected by people
+)
+
+// ControlKind classifies one control of a built-in framework ("" for an unknown framework or
+// control, e.g. a custom framework's).
+func ControlKind(framework, control string) string {
+	load()
+	return controlKinds[framework][control]
 }
 
 func copyFramework(fw *Framework) *Framework {
@@ -475,10 +492,17 @@ func Build(frameworkKey string, findings []model.Finding, scope string) (*Report
 	sort.Slice(rep.Controls, func(i, j int) bool { return controlLess(rep.Controls[i].ID, rep.Controls[j].ID) })
 	rep.Total = len(rep.Controls)
 	rep.Assessed = rep.Passing + rep.Failing
-	if assessed := rep.Passing + rep.Failing; assessed > 0 {
-		rep.ScorePercent = float64(int(float64(rep.Passing)/float64(assessed)*1000)) / 10
-	}
+	rep.ScorePercent = scorePercent(rep.Passing, rep.Failing)
 	return rep, nil
+}
+
+// scorePercent is passing / (passing + failing) in percent, rounded (not truncated) to one
+// decimal (Verification 7 defect 11); 0 when nothing is assessed.
+func scorePercent(pass, fail int) float64 {
+	if pass+fail == 0 {
+		return 0
+	}
+	return math.Round(float64(pass)/float64(pass+fail)*1000) / 10
 }
 
 func (r *Report) Markdown() string {
@@ -539,82 +563,4 @@ func controlLess(a, b string) bool {
 
 func splitControl(s string) []string {
 	return strings.FieldsFunc(s, func(r rune) bool { return r == '.' || r == '-' || r == '(' || r == ')' })
-}
-
-// EvidenceZip writes an auditor-ready evidence package: one folder per control with the
-// failing/passing findings as JSON, a manifest with SHA-256 digests (AWS Audit Manager style),
-// the markdown report and the scan metadata.
-func EvidenceZip(path string, rep *Report, findings []model.Finding, meta map[string]any) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	zw := zip.NewWriter(f)
-	defer zw.Close()
-	byID := map[string]model.Finding{}
-	for _, fd := range findings {
-		byID[fd.ID] = fd
-	}
-	manifest := map[string]string{}
-	write := func(name string, data []byte) error {
-		w, err := zw.Create(name)
-		if err != nil {
-			return err
-		}
-		if _, err := w.Write(data); err != nil {
-			return err
-		}
-		sum := sha256.Sum256(data)
-		manifest[name] = hex.EncodeToString(sum[:])
-		return nil
-	}
-	if err := write("report.md", []byte(rep.Markdown())); err != nil {
-		return err
-	}
-	repJSON, _ := json.MarshalIndent(rep, "", "  ")
-	if err := write("report.json", repJSON); err != nil {
-		return err
-	}
-	for _, c := range rep.Controls {
-		dir := "controls/" + strings.NewReplacer("/", "_", "(", "_", ")", "").Replace(c.ID) + "/"
-		var evidence []model.Finding
-		for _, id := range c.Findings {
-			if fd, ok := byID[id]; ok {
-				evidence = append(evidence, fd)
-			}
-		}
-		for _, fd := range findings {
-			if fd.Status == model.Pass {
-				for _, ctl := range controlsFor(rep.Framework.Key, &fd) {
-					if ctl == c.ID {
-						evidence = append(evidence, fd)
-					}
-				}
-			}
-		}
-		if len(evidence) == 0 {
-			continue
-		}
-		data, _ := json.MarshalIndent(map[string]any{"control": c, "evidence": evidence, "collected_at": time.Now().UTC()}, "", "  ")
-		if err := write(dir+"evidence.json", data); err != nil {
-			return err
-		}
-	}
-	if meta == nil {
-		meta = map[string]any{}
-	}
-	meta["framework"] = rep.Framework
-	meta["generated_at"] = time.Now().UTC()
-	metaJSON, _ := json.MarshalIndent(meta, "", "  ")
-	if err := write("metadata.json", metaJSON); err != nil {
-		return err
-	}
-	digest, _ := json.MarshalIndent(manifest, "", "  ")
-	w, err := zw.Create("MANIFEST.sha256.json")
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(digest)
-	return err
 }
