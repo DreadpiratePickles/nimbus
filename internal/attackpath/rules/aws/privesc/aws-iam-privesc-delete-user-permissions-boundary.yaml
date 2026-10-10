@@ -1,0 +1,59 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-iam-privesc-delete-user-permissions-boundary
+title: Permissions Boundary Removal for Self-Escalation (IAM-022)
+description: >-
+  The user may delete its own permissions boundary, lifting the ceiling the boundary puts on its
+  identity policies. Deny iam:DeleteUserPermissionsBoundary to the users a boundary constrains.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-iam-privesc-delete-user-permissions-boundary
+  upstream: pathfinding.cloud - IAM-022 - iam:DeleteUserPermissionsBoundary
+  upstream_url: https://pathfinding.cloud/paths/iam-022
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator; nimbus requires a boundary to be attached (permissions_boundary / permissions_boundary_document), which Prowler's graph cannot see and leaves to manual review
+anchor:
+  types: [aws_iam_user]
+  include_admin: true
+match:
+  join: self
+  requires_permissions:
+    - {action: "iam:DeleteUserPermissionsBoundary", resource: anchor}
+  target:
+    types: [aws_iam_user]
+    has_attribute: [permissions_boundary, permissions_boundary_document]
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/bounded
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          permissions_boundary: arn:aws:iam::123456789012:policy/dev-boundary
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:DeleteUserPermissionsBoundary", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/unbounded
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:DeleteUserPermissionsBoundary", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/noperm
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          permissions_boundary: arn:aws:iam::123456789012:policy/dev-boundary
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/bounded", target: "arn:aws:iam::123456789012:user/bounded", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/unbounded", target: "arn:aws:iam::123456789012:user/unbounded", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/noperm", target: "arn:aws:iam::123456789012:user/noperm", match: false}

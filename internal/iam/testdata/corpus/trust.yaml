@@ -1,0 +1,93 @@
+category: trust_policy
+cases:
+  - name: same-account trust naming the user ARN suffices
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_compare-resource-policies.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: sts:AssumeRole, resource: "arn:aws:iam::111111111111:role/ops"}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Sid: Alice, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:user/alice"}, Action: "sts:AssumeRole"}]}
+    expect: {decision: allow, matched: [trust#Alice]}
+
+  - name: same-account trust naming the account root needs identity allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html#principal-accounts
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: sts:AssumeRole, resource: "arn:aws:iam::111111111111:role/ops"}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Sid: Acct, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:root"}, Action: "sts:AssumeRole"}]}
+    expect: {decision: implicit_deny, matched: [trust#Acct]}
+
+  - name: same-account trust naming the account root with identity allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html#principal-accounts
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: sts:AssumeRole, resource: "arn:aws:iam::111111111111:role/ops"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Assume, Effect: Allow, Action: "sts:AssumeRole", Resource: "arn:aws:iam::111111111111:role/ops"}]}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Sid: Acct, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:root"}, Action: "sts:AssumeRole"}]}
+    expect: {decision: allow, matched: [id#Assume, trust#Acct]}
+
+  - name: identity allow without trust is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_permissions-to-switch.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: sts:AssumeRole, resource: "arn:aws:iam::111111111111:role/ops"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Assume, Effect: Allow, Action: "sts:AssumeRole", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [id#Assume]}
+
+  - name: cross-account trust without caller sts:AssumeRole is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_common-scenarios_aws-accounts.html
+    request: {principal: "arn:aws:iam::999999999999:user/vendor", action: sts:AssumeRole, resource: "arn:aws:iam::111111111111:role/nimbus-lab-vendor-access"}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Sid: Vendor, Effect: Allow, Principal: {AWS: "arn:aws:iam::999999999999:root"}, Action: "sts:AssumeRole"}]}
+    expect: {decision: implicit_deny, matched: [trust#Vendor]}
+
+  - name: cross-account trust with caller allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_common-scenarios_aws-accounts.html
+    request: {principal: "arn:aws:iam::999999999999:user/vendor", action: sts:AssumeRole, resource: "arn:aws:iam::111111111111:role/nimbus-lab-vendor-access"}
+    identity:
+      - id: vendor
+        document: {Version: "2012-10-17", Statement: [{Sid: Assume, Effect: Allow, Action: "sts:AssumeRole", Resource: "arn:aws:iam::111111111111:role/*"}]}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Sid: Vendor, Effect: Allow, Principal: {AWS: "arn:aws:iam::999999999999:root"}, Action: "sts:AssumeRole"}]}
+    expect: {decision: allow, matched: [vendor#Assume, trust#Vendor]}
+
+  - name: cross-account trust requiring ExternalId absent is unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-user_externalid.html
+    request: {principal: "arn:aws:iam::999999999999:user/vendor", action: sts:AssumeRole, resource: "arn:aws:iam::111111111111:role/vendor"}
+    identity:
+      - id: vendor
+        document: {Version: "2012-10-17", Statement: [{Sid: Assume, Effect: Allow, Action: "sts:AssumeRole", Resource: "*"}]}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Sid: Vendor, Effect: Allow, Principal: {AWS: "999999999999"}, Action: "sts:AssumeRole", Condition: {StringEquals: {"sts:ExternalId": "c0ffee"}}}]}
+    expect: {decision: unknown, matched: [vendor#Assume, "trust#Vendor?"], unknown_keys: ["sts:ExternalId"]}
+
+  - name: cross-account trust with wrong ExternalId is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-user_externalid.html
+    request: {principal: "arn:aws:iam::999999999999:user/vendor", action: sts:AssumeRole, resource: "arn:aws:iam::111111111111:role/vendor", context: {"sts:ExternalId": "guess"}}
+    identity:
+      - id: vendor
+        document: {Version: "2012-10-17", Statement: [{Sid: Assume, Effect: Allow, Action: "sts:AssumeRole", Resource: "*"}]}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Sid: Vendor, Effect: Allow, Principal: {AWS: "999999999999"}, Action: "sts:AssumeRole", Condition: {StringEquals: {"sts:ExternalId": "c0ffee"}}}]}
+    expect: {decision: implicit_deny, matched: [vendor#Assume]}
+
+  - name: service principal trust for EC2
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-service.html
+    request: {principal: "ec2.amazonaws.com", action: sts:AssumeRole, resource: "arn:aws:iam::111111111111:role/web-instance-role"}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Effect: Allow, Principal: {Service: ["ec2.amazonaws.com"]}, Action: "sts:AssumeRole"}]}
+    expect: {decision: allow, matched: ["trust#0"]}
+
+  - name: role session chaining into a role trusted by role ARN
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_terms-and-concepts.html#iam-term-role-chaining
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/ci/run", action: sts:AssumeRole, resource: "arn:aws:iam::111111111111:role/deployer"}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Sid: CI, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:role/ci"}, Action: "sts:AssumeRole"}]}
+    expect: {decision: allow, matched: [trust#CI]}

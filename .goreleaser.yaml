@@ -1,0 +1,186 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# Release pipeline for cloud-posture (nimbus). Run by .github/workflows/release.yml on `v*` tags.
+# Local proof:  make release-snapshot   (goreleaser release --snapshot --clean --skip=publish,sign,sbom)
+#
+# Trust properties (see SECURITY.md "Verifying a release"):
+#   * reproducible-ish builds: -trimpath, CGO off, mod_timestamp from the commit
+#   * checksums.txt over every archive; checksums.txt AND each archive cosign keyless-signed
+#     (Sigstore bundle *.sigstore.json, identity = this repo's release workflow on the tag)
+#   * SPDX SBOM per archive (syft)
+#   * multi-arch distroless non-root image on ghcr.io with BuildKit SBOM + max provenance,
+#     cosign-signed by digest
+#   * SLSA build provenance for archives + checksums via actions/attest-build-provenance (workflow)
+version: 2
+
+project_name: cloud-posture
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: cloud-posture
+    main: ./cmd/cloud-posture
+    binary: cloud-posture
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .FullCommit }} -X main.date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - id: default
+    ids: [cloud-posture]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - SECURITY.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+sboms:
+  - id: archive-sbom
+    artifacts: archive
+    documents:
+      - "{{ .ArtifactName }}.spdx.sbom.json"
+    # default cmd is syft; args spelled out so the format is explicit.
+    args: ["$artifact", "--output", "spdx-json=$document"]
+
+signs:
+  # Keyless (Fulcio/Rekor) via the GitHub Actions OIDC token; needs `id-token: write`.
+  - id: checksum-keyless
+    cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--bundle=${signature}", "${artifact}", "--yes"]
+    output: true
+  - id: archive-keyless
+    cmd: cosign
+    artifacts: archive
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--bundle=${signature}", "${artifact}", "--yes"]
+    output: true
+
+dockers_v2:
+  - id: ghcr
+    ids: [cloud-posture]
+    dockerfile: Dockerfile
+    images:
+      - ghcr.io/dreadpiratepickles/cloud-posture
+    tags:
+      - "{{ .Version }}"
+      - "v{{ .Major }}.{{ .Minor }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    build_args:
+      BIN_STAGE: prebuilt
+    # BuildKit SBOM + max provenance attestations on real releases. Snapshots turn them off because
+    # attestations make a manifest list, which `--load` into the local docker store cannot import.
+    sbom: '{{ if .IsSnapshot }}false{{ else }}true{{ end }}'
+    flags:
+      - '--provenance={{ if .IsSnapshot }}false{{ else }}mode=max{{ end }}'
+    labels:
+      org.opencontainers.image.title: cloud-posture
+      org.opencontainers.image.description: Open, local-first cloud security graph
+      org.opencontainers.image.source: https://github.com/DreadpiratePickles/nimbus
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .CommitDate }}"
+      org.opencontainers.image.licenses: Apache-2.0
+
+docker_signs:
+  - id: image-keyless
+    cmd: cosign
+    artifacts: images
+    args: ["sign", "${artifact}@${digest}", "--yes"]
+    output: true
+
+homebrew_casks:
+  # `brews:` (formula from binaries) is deprecated in goreleaser v2.10+; casks are the replacement.
+  - name: cloud-posture
+    ids: [default]
+    binaries: [cloud-posture]
+    homepage: https://github.com/DreadpiratePickles/nimbus
+    description: Open, local-first cloud security graph that turns findings into attack paths and fix PRs
+    license: Apache-2.0
+    repository:
+      owner: DreadpiratePickles
+      name: homebrew-tap
+      # Fine-grained PAT scoped to the tap repo only; stored as the HOMEBREW_TAP_GITHUB_TOKEN secret.
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Casks
+    commit_author:
+      name: nimbus-release-bot
+      email: noreply@github.com
+    commit_msg_template: "cloud-posture {{ .Tag }}"
+    # Prerelease tags never reach the tap.
+    skip_upload: auto
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/cloud-posture"]
+          end
+
+changelog:
+  use: github
+  sort: asc
+  abbrev: 7
+  groups:
+    - title: Security
+      regexp: '^.*?(sec|security)(\([[:word:]-]+\))??!?:.+$'
+      order: 0
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]-]+\))??!?:.+$'
+      order: 1
+    - title: Bug fixes
+      regexp: '^.*?fix(\([[:word:]-]+\))??!?:.+$'
+      order: 2
+    - title: Other
+      order: 999
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore\(deps\):'
+      - '^ci:'
+
+release:
+  github:
+    owner: DreadpiratePickles
+    name: nimbus
+  # Immutable releases (repo setting) forbid adding assets after publication, so goreleaser uploads
+  # into a draft and the workflow publishes it only after signing + attestation succeed.
+  draft: true
+  replace_existing_draft: true
+  mode: keep-existing
+  prerelease: auto
+  footer: |
+    ## Verify before you run
+    ```sh
+    cosign verify-blob \
+      --bundle checksums.txt.sigstore.json \
+      --certificate-identity "https://github.com/DreadpiratePickles/nimbus/.github/workflows/release.yml@refs/tags/{{ .Tag }}" \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      checksums.txt
+    sha256sum --ignore-missing -c checksums.txt
+    gh attestation verify cloud-posture_{{ .Version }}_linux_amd64.tar.gz --repo DreadpiratePickles/nimbus
+    ```
+    Container: `cosign verify ghcr.io/dreadpiratepickles/cloud-posture:{{ .Version }} --certificate-identity-regexp '^https://github.com/DreadpiratePickles/nimbus/' --certificate-oidc-issuer https://token.actions.githubusercontent.com`
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot.{{ .ShortCommit }}"

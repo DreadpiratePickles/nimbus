@@ -1,4 +1,6 @@
 # cloud-posture.yaml — copy to the repo root or ~/.cloud-posture/cloud-posture.yaml
+# Secrets are never written here: literal token:/password:/secret: values fail
+# validation — use the matching *_env key naming an environment variable.
 accounts:
   aws-prod:
     provider: aws
@@ -34,9 +36,25 @@ accounts:
 scan:
   iac_paths: [./infra]
   parallel: 4
+  account_timeout: 10m        # per-account native collection limit (Go duration; "none" disables)
   # attack_rules_file: ./custom-attack-rules.yaml
-  # crown_jewels:
-  #   - {pattern: "*payments*", criticality: 4}
+
+# Corporate egress / VPN ranges. Internet exposure whose every source CIDR is inside
+# these is labelled exposure: trusted (wide = 0.0.0.0/0 or ::/0, narrow = any other
+# public CIDR) and trusted-only attack paths are suppressed with a reason.
+# 0.0.0.0/0 and ::/0 are rejected.
+trusted_cidrs:
+  - 203.0.113.0/24            # office egress
+  - 198.51.100.10             # VPN concentrator (bare IP = /32)
+
+# Business-priority (crown-jewel) rules. Every selector set on a rule must match;
+# list selectors match any entry; types accept globs; a tag value of "*" means
+# "tag present". The highest matching level wins: very_high > high > medium > low.
+# At most 200 rules are used (extra rules are dropped with a warning).
+crown_jewels:
+  - {level: very_high, types: [aws_s3_bucket, gcp_storage_bucket, azure_storage_account], tags: {classification: pii}}
+  - {level: high, name_regex: "^payments-", accounts: [aws-prod]}
+  - {level: medium, types: ["aws_db_*", azure_sql_server]}
 
 integrations:
   slack:        {url_env: SLACK_WEBHOOK_URL, min_severity: HIGH}
@@ -60,3 +78,27 @@ neo4j:
   uri_env: NEO4J_URI          # bolt://localhost:7687
   user_env: NEO4J_USER
   password_env: NEO4J_PASSWORD
+
+# Governance (docs/governance.md): who owns each Issue and when it is due.
+# Rules are evaluated in order; the first match wins. owner is an address/team,
+# "tag:<Key>" (the resource's tag value) or "codeowners" (CODEOWNERS owner of the
+# IaC file). Unresolved owners fall back to defaults.owner_tags -> CODEOWNERS ->
+# accounts.<name>.owner -> defaults.owner. SLA days default to 7/14/30/90.
+governance:
+  rules:
+    - id: payments-prod
+      match: {provider: aws, account: "aws-prod*", tag: {team: payments}}
+      owner: payments-oncall@example.com
+      sla_days: {critical: 3, high: 7}
+      grace_days: 2
+    - id: terraform
+      match: {iac_path_glob: "infra/**/*.tf"}
+      owner: codeowners
+    - id: tagged
+      match: {tag: {Owner: "*"}}
+      owner: "tag:Owner"
+  defaults:
+    owner: secops@example.com
+    sla_days: {critical: 7, high: 14, medium: 30, low: 90}
+    grace_days: 3
+  digest: {schedule: weekly, sink: slack, group_by: owner}

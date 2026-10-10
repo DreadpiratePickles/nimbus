@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/DreadpiratePickles/nimbus/internal/collector"
@@ -15,6 +16,7 @@ import (
 	"github.com/DreadpiratePickles/nimbus/internal/model"
 	"github.com/DreadpiratePickles/nimbus/internal/monitor"
 	"github.com/DreadpiratePickles/nimbus/internal/output"
+	"github.com/DreadpiratePickles/nimbus/internal/risk"
 	"github.com/DreadpiratePickles/nimbus/internal/server"
 	"github.com/DreadpiratePickles/nimbus/internal/store"
 	"github.com/spf13/cobra"
@@ -27,13 +29,18 @@ var serveFlags struct {
 	monitor      bool
 	monInterval  time.Duration
 	token        string
+	corsOrigins  []string
+	allowedHosts []string
+	queryTimeout time.Duration
 }
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Live dashboard + JSON API + WebSocket updates; optional scheduled scans and change monitoring",
-	Example: `  cloud-posture serve                                  # http://localhost:8080
-  cloud-posture serve --scan-interval 24h --monitor    # continuous compliance + real-time change detection
+	Example: `  cloud-posture serve                                  # http://127.0.0.1:8080 (loopback only)
+  CLOUD_POSTURE_TOKEN=… cloud-posture serve --addr 0.0.0.0:8080 --allowed-host posture.corp.example
+                                                       # remote access: token required; open /?token=… once in the browser
+  cloud-posture serve --scan-interval 24h --monitor    # continuous compliance + change detection by polling audit logs
   cloud-posture serve --copilot http://localhost:8081  # wire the Python copilot (nimbus serve --port 8081)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := signalContext()
@@ -56,7 +63,20 @@ var serveCmd = &cobra.Command{
 			return renderDashboard(res, "live", serveFlags.copilot)
 		})
 		srv.Logf = logf
-		srv.Token = serveFlags.token
+		token, err := serveToken(cmd.Flags().Changed("token"))
+		if err != nil {
+			return err
+		}
+		srv.Token = token
+		srv.RiskOptions = func() risk.Options { return riskOptions(ctx, cfg) }
+		srv.Traversal = storedTraversal(cfg, st)
+		srv.AllowedHosts = serveFlags.allowedHosts
+		srv.QueryTimeout = serveFlags.queryTimeout
+		if err := server.ValidateBind(serveFlags.addr, srv.Token); err != nil {
+			return err
+		}
+		srv.CORSOrigins = serveFlags.corsOrigins
+		srv.CopilotURL = serveFlags.copilot
 		if len(cfg.Accounts) > 0 {
 			srv.Rescan = func(c context.Context) error {
 				scanFlags.out = "summary"
@@ -78,6 +98,24 @@ var serveCmd = &cobra.Command{
 	},
 }
 
+// serveToken resolves --token / $CLOUD_POSTURE_TOKEN. Surrounding whitespace is trimmed
+// (a pasted " abc " would otherwise never match "Bearer abc" and lock the operator out);
+// a whitespace-only value is refused: it would unlock a non-loopback bind while
+// protecting nothing.
+func serveToken(flagSet bool) (string, error) {
+	tok, src := serveFlags.token, "--token"
+	if !flagSet {
+		tok, src = os.Getenv("CLOUD_POSTURE_TOKEN"), "CLOUD_POSTURE_TOKEN"
+	}
+	if tok != "" && strings.TrimSpace(tok) == "" {
+		return "", fmt.Errorf("%s is empty or whitespace only; set a real secret (e.g. openssl rand -hex 32) or omit it on a loopback address", src)
+	}
+	if flagSet && tok == "" {
+		return "", fmt.Errorf("--token is empty; set a real secret or omit the flag")
+	}
+	return strings.TrimSpace(tok), nil
+}
+
 func displayAddr(a string) string {
 	if len(a) > 0 && a[0] == ':' {
 		return "localhost" + a
@@ -96,7 +134,7 @@ var monitorFlags struct {
 
 var monitorCmd = &cobra.Command{
 	Use:   "monitor",
-	Short: "Real-time change detection from CloudTrail, Azure Activity Log and GCP audit logs; alerts on risky changes",
+	Short: "Change detection by polling CloudTrail, Azure Activity Log and GCP audit logs (minutes of delay, not real time); alerts on risky changes",
 	Example: `  cloud-posture monitor --interval 60s --alert
   cloud-posture monitor --once --json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -107,7 +145,7 @@ var monitorCmd = &cobra.Command{
 			return err
 		}
 		if monitorFlags.once {
-			m := monitor.New(specsFromConfig(cfg), filepath.Join(".cloud-posture", "monitor-checkpoint.json"))
+			m := monitor.New(specsFromConfig(cfg), filepath.Join(stateDir(), "monitor-checkpoint.json"))
 			events, err := m.Poll(ctx)
 			if err != nil {
 				logf("monitor: %v", err)
@@ -146,7 +184,7 @@ func runMonitorLoop(ctx context.Context, cfg *config.Config, interval time.Durat
 	if len(specs) == 0 {
 		return fmt.Errorf("no accounts configured for monitoring")
 	}
-	m := monitor.New(specs, filepath.Join(".cloud-posture", "monitor-checkpoint.json"))
+	m := monitor.New(specs, filepath.Join(stateDir(), "monitor-checkpoint.json"))
 	ch := make(chan monitor.Event, 64)
 	go func() {
 		if err := m.Run(ctx, interval, ch); err != nil && ctx.Err() == nil {
@@ -192,7 +230,7 @@ var costCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		data, err := os.ReadFile(filepath.Join(".cloud-posture", "cost-signals.json"))
+		data, err := os.ReadFile(filepath.Join(stateDir(), "cost-signals.json"))
 		if err != nil {
 			return fmt.Errorf("no cost signals yet — run `cloud-posture scan --accounts …` with the native collectors first")
 		}
@@ -220,12 +258,16 @@ var costCmd = &cobra.Command{
 }
 
 func init() {
-	serveCmd.Flags().StringVar(&serveFlags.addr, "addr", ":8080", "listen address")
+	serveCmd.Flags().StringVar(&serveFlags.addr, "addr", "127.0.0.1:8080", "listen address; a non-loopback address requires a token")
 	serveCmd.Flags().StringVar(&serveFlags.copilot, "copilot", "", "URL of the Python intelligence API for the copilot panel")
 	serveCmd.Flags().DurationVar(&serveFlags.scanInterval, "scan-interval", 0, "re-scan configured accounts on this interval (continuous compliance)")
 	serveCmd.Flags().BoolVar(&serveFlags.monitor, "monitor", false, "run change detection and push events to the dashboard")
 	serveCmd.Flags().DurationVar(&serveFlags.monInterval, "monitor-interval", 2*time.Minute, "monitor poll interval")
-	serveCmd.Flags().StringVar(&serveFlags.token, "token", os.Getenv("CLOUD_POSTURE_TOKEN"), "bearer token required for POST /api/scan")
+	serveCmd.Flags().StringArrayVar(&serveFlags.corsOrigins, "cors-origin", nil, "extra browser origin (scheme://host:port) allowed to call the API; repeatable (the server's own host is always allowed)")
+	// The default is resolved at run time so the secret never appears in --help.
+	serveCmd.Flags().StringVar(&serveFlags.token, "token", "", "bearer token required on /, /ws and /api/* (default from $CLOUD_POSTURE_TOKEN)")
+	serveCmd.Flags().StringArrayVar(&serveFlags.allowedHosts, "allowed-host", nil, "extra Host header name accepted (DNS-rebinding protection); repeatable. The bound host, localhost, 127.0.0.1 and [::1] are always accepted")
+	serveCmd.Flags().DurationVar(&serveFlags.queryTimeout, "query-timeout", server.DefaultQueryTimeout, "per-request limit for POST /api/query")
 	monitorCmd.Flags().DurationVar(&monitorFlags.interval, "interval", 2*time.Minute, "poll interval")
 	monitorCmd.Flags().BoolVar(&monitorFlags.once, "once", false, "poll once and exit")
 	monitorCmd.Flags().BoolVar(&monitorFlags.alert, "alert", false, "dispatch events to configured integrations")

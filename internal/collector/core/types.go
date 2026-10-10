@@ -33,6 +33,9 @@ type AccountSpec struct {
 	Domain         string
 	// TokenEnv overrides the environment variable a REST collector reads its token from.
 	TokenEnv string
+	// TrustedCIDRs (config trusted_cidrs) turn internet exposure whose every source
+	// falls inside them into exposure "trusted" instead of wide/narrow.
+	TrustedCIDRs []string
 }
 
 // Label is the human name of the account (Name, else the provider-specific identifier).
@@ -68,7 +71,8 @@ type CostSignal struct {
 }
 
 // Result is everything one collection produced. Errors are partial failures; the
-// collection still returns whatever it gathered.
+// collection still returns whatever it gathered. Each entry is (or wraps) a
+// *CollectError — use CollectErrors() for the typed provider/account/API/reason list.
 type Result struct {
 	Findings []model.Finding
 	Cost     []CostSignal
@@ -121,7 +125,7 @@ func (a *Acc) Error(scope string, err error) {
 		return
 	}
 	a.mu.Lock()
-	a.r.Errors = append(a.r.Errors, fmt.Errorf("%s: %w", scope, err))
+	a.r.Errors = append(a.r.Errors, NewCollectError(scope, err))
 	a.mu.Unlock()
 }
 

@@ -1,0 +1,86 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-lambda-privesc-update-function-code-invoke
+title: Lambda Function Code Injection with Direct Invocation (LAMBDA-004)
+description: >-
+  The principal may replace the code of an existing Lambda function whose execution role is privileged and invoke it at once, running its own code with that role's permissions. Scope lambda:UpdateFunctionCode to functions whose roles the principal may already use.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-lambda-privesc-update-function-code-invoke
+  upstream: pathfinding.cloud - LAMBDA-004 - lambda:UpdateFunctionCode + lambda:InvokeFunction
+  upstream_url: https://pathfinding.cloud/paths/lambda-004
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator (every action allowed on the function ARN, Deny and SCPs honoured); the function's execution role (runs_as edge) must be one the evaluator rates admin-capable (rewriting a function whose role lifts nothing is not an escalation; Prowler lists every function with a role)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "lambda:UpdateFunctionCode", resource: target}
+    - {action: "lambda:InvokeFunction", resource: target}
+  target:
+    types: [aws_lambda_function]
+    has_edge: {edge: runs_as, to_types: [aws_iam_role], to_admin: true}
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/dev
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["lambda:UpdateFunctionCode", "lambda:InvokeFunction"], Resource: "arn:aws:lambda:us-east-1:123456789012:function:*"}
+      - id: arn:aws:iam::123456789012:user/reader
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["lambda:GetFunction", "lambda:InvokeFunction", "lambda:AddPermission"], Resource: "*"}
+      - id: arn:aws:lambda:us-east-1:123456789012:function:privileged
+        type: aws_lambda_function
+        account: "123456789012"
+        region: us-east-1
+      - id: arn:aws:lambda:us-east-1:123456789012:function:lowpriv
+        type: aws_lambda_function
+        account: "123456789012"
+        region: us-east-1
+      - id: arn:aws:lambda:us-east-1:123456789012:function:norole
+        type: aws_lambda_function
+        account: "123456789012"
+        region: us-east-1
+      - id: arn:aws:iam::123456789012:role/fn-admin
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [lambda.amazonaws.com], attached_policies: [arn:aws:iam::aws:policy/AdministratorAccess]}
+      - id: arn:aws:iam::123456789012:role/fn-logs
+        type: aws_iam_role
+        account: "123456789012"
+        attributes:
+          trust_principals: [lambda.amazonaws.com]
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["logs:CreateLogStream", "logs:PutLogEvents"], Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/codeonly
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "lambda:UpdateFunctionCode", Resource: "*"}
+    edges:
+      - {from: arn:aws:lambda:us-east-1:123456789012:function:privileged, to: arn:aws:iam::123456789012:role/fn-admin, kind: runs_as}
+      - {from: arn:aws:lambda:us-east-1:123456789012:function:lowpriv, to: arn:aws:iam::123456789012:role/fn-logs, kind: runs_as}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:lambda:us-east-1:123456789012:function:privileged", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:lambda:us-east-1:123456789012:function:lowpriv", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:lambda:us-east-1:123456789012:function:norole", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/reader", target: "arn:aws:lambda:us-east-1:123456789012:function:privileged", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/codeonly", target: "arn:aws:lambda:us-east-1:123456789012:function:privileged", match: false}

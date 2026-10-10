@@ -5,10 +5,13 @@ const vscode = require('vscode');
 const cp = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { resolveBinary } = require('./binary');
 
 const IAC_LANGS = new Set(['terraform', 'hcl', 'yaml', 'json', 'bicep', 'dockerfile']);
 let diagnostics;
 let lastFindings = [];
+let extContext;
+let warnedWorkspaceBinary = false;
 
 function cfg(key) { return vscode.workspace.getConfiguration('cloudPosture').get(key); }
 
@@ -21,9 +24,25 @@ function sevToVS(sev) {
   }
 }
 
-function runCLI(args, cwd) {
+// binary returns the executable to run, or null when the user declined to trust it (defect 16).
+function binary() {
+  return resolveBinary({
+    config: vscode.workspace.getConfiguration('cloudPosture'),
+    state: extContext.globalState,
+    prompt: async (bin) => {
+      const pick = await vscode.window.showWarningMessage(
+        `cloud-posture will run the executable ${bin} (from your user settings). Trust and run it?`,
+        { modal: true }, 'Trust and run');
+      return pick === 'Trust and run';
+    },
+    warn: (msg) => { if (!warnedWorkspaceBinary) { warnedWorkspaceBinary = true; vscode.window.showWarningMessage(msg); } },
+  });
+}
+
+async function runCLI(args, cwd) {
+  const bin = await binary();
+  if (!bin) throw new Error('the configured cloud-posture binary was not trusted; nothing was run');
   return new Promise((resolve, reject) => {
-    const bin = cfg('binaryPath') || 'cloud-posture';
     cp.execFile(bin, args, { cwd, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
       // scan exits non-zero when findings exceed --fail-on; still parse output
       if (err && !stdout) return reject(new Error(stderr || err.message));
@@ -111,6 +130,7 @@ async function generateFix(f) {
 }
 
 function activate(context) {
+  extContext = context;
   diagnostics = vscode.languages.createDiagnosticCollection('cloud-posture');
   context.subscriptions.push(diagnostics);
   const root = () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;

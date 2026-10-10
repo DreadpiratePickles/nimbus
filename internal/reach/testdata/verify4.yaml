@@ -1,0 +1,97 @@
+# Verify-4 reachability defects (defect 9 + LOW items): prefix lists are never expanded, so
+# they leave the verdict unknown (never blocked/verified); an IPv6 address is globally
+# routable; tcp 0-0 is port 0 only; an open layer is never listed as a blocker.
+cases:
+  - name: v4 route destination is a prefix list to an igw -> unknown
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/managed-prefix-lists.html (prefix lists in route tables; entries not expanded in v1)
+    port: {protocol: tcp, number: 22}
+    target: &v4inst
+      id: i-1
+      kind: instance
+      public_ip: true
+      subnets:
+        - id: subnet-pl
+          route_table: {id: rtb-pl, routes: [{destination: 10.0.0.0/16, target: local}, {destination: pl-123, target: igw-1}]}
+          nacl: &v4open {id: acl-open, inbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}, {rule: 101, protocol: "-1", cidr: "::/0", action: allow}], outbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}, {rule: 101, protocol: "-1", cidr: "::/0", action: allow}]}
+      security_groups: [{id: sg-ssh, ingress: [{protocol: tcp, from: 22, to: 22, sources: [0.0.0.0/0]}]}]
+    expect:
+      status: unknown
+      unknown: "sends prefix list pl-123 to internet gateway igw-1"
+      no_blocker: "no route to an internet gateway"
+
+  - name: v4 security group source is a prefix list -> unknown
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html (a rule source can be a prefix list ID; the CloudFront origin-facing list holds public CIDRs)
+    port: {protocol: tcp, number: 443}
+    target:
+      <<: *v4inst
+      subnets:
+        - id: subnet-a
+          route_table: {id: rtb-pub, routes: [{destination: 10.0.0.0/16, target: local}, {destination: 0.0.0.0/0, target: igw-1}]}
+          nacl: *v4open
+      security_groups: [{id: sg-cf, ingress: [{protocol: tcp, from: 443, to: 443, prefix_lists: [pl-3b927c52]}]}]
+    expect:
+      status: unknown
+      unknown: "allows 443/tcp from prefix list pl-3b927c52"
+      confidence: hint
+
+  - name: v4 IPv6-only instance with an IPv6 address and igw ::/0 -> reachable
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-ip-addressing.html (IPv6 addresses are globally unique and reachable through an internet gateway)
+    port: {protocol: tcp, number: 443}
+    target:
+      id: i-6
+      kind: instance
+      public_ip: false
+      ipv6_addresses: ["2600:1f18::10"]
+      subnets:
+        - id: subnet-6
+          route_table: {id: rtb-6, routes: [{destination: 10.0.0.0/16, target: local}, {destination: "::/0", target: igw-1}]}
+          nacl: *v4open
+      security_groups: [{id: sg-6, ingress: [{protocol: tcp, from: 443, to: 443, sources: ["::/0"]}]}]
+    expect:
+      status: reachable
+      path_has: "IPv6 address 2600:1f18::10 is assigned"
+
+  - name: v4 IPv6-only instance whose IPv6 addresses were not collected -> unknown
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-ip-addressing.html (missing data never makes a target reachable or blocked)
+    port: {protocol: tcp, number: 443}
+    target:
+      id: i-6
+      kind: instance
+      public_ip: false
+      subnets:
+        - id: subnet-6
+          route_table: {id: rtb-6, routes: [{destination: 10.0.0.0/16, target: local}, {destination: "::/0", target: igw-1}]}
+          nacl: *v4open
+      security_groups: [{id: sg-6, ingress: [{protocol: tcp, from: 443, to: 443, sources: ["::/0"]}]}]
+    expect:
+      status: unknown
+      unknown: "IPv6 addresses were not collected"
+
+  - name: v4 security group tcp 0-0 is port 0 only
+    source: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_IpPermission.html (FromPort/ToPort are the literal range; -1 or 0-65535 is all)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *v4inst
+      subnets:
+        - id: subnet-a
+          route_table: {id: rtb-pub, routes: [{destination: 10.0.0.0/16, target: local}, {destination: 0.0.0.0/0, target: igw-1}]}
+          nacl: *v4open
+      security_groups: [{id: sg-0, ingress: [{protocol: tcp, from: 0, to: 0, sources: [0.0.0.0/0]}]}]
+    expect:
+      status: blocked
+      blocker: "security groups sg-0 admit no internet source on 22/tcp"
+
+  - name: v4 an open NACL and igw route are not blockers when the SG admits nothing
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/infrastructure-security.html (evidence names the control that stops traffic)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *v4inst
+      subnets:
+        - id: subnet-a
+          route_table: {id: rtb-pub, routes: [{destination: 10.0.0.0/16, target: local}, {destination: 0.0.0.0/0, target: igw-1}]}
+          nacl: *v4open
+      security_groups: [{id: sg-g, ingress: [{protocol: tcp, from: 22, to: 22, groups: [sg-other]}]}]
+    expect:
+      status: blocked
+      blocker: "security groups sg-g admit no internet source"
+      no_blocker: "acl-open"

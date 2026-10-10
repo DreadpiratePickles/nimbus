@@ -1,0 +1,2737 @@
+{
+    "check_type": "terraform",
+    "results": {
+        "passed_checks": [
+            {
+                "check_id": "CKV_AZURE_43",
+                "bc_check_id": null,
+                "check_name": "Ensure Storage Accounts adhere to the naming rules",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "name"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.StorageAccountName",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_244",
+                "bc_check_id": null,
+                "check_name": "Avoid the use of local users for Azure Storage unless necessary",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "local_user_enabled"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.StorageLocalUsers",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_36",
+                "bc_check_id": null,
+                "check_name": "Ensure 'Trusted Microsoft Services' is enabled for Storage Account access",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": []
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.StorageAccountAzureServicesAccessEnabled",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_3",
+                "bc_check_id": null,
+                "check_name": "Ensure that 'enable_https_traffic_only' is enabled",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "enable_https_traffic_only"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.StorageAccountsTransportEncryption",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_77",
+                "bc_check_id": null,
+                "check_name": "Ensure that UDP Services are restricted from the Internet ",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "security_rule"
+                    ]
+                },
+                "code_block": [
+                    [
+                        61,
+                        "resource \"azurerm_network_security_group\" \"jump\" {\n"
+                    ],
+                    [
+                        62,
+                        "  name                = \"nimbus-lab-jump-nsg\"\n"
+                    ],
+                    [
+                        63,
+                        "  location            = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        64,
+                        "  resource_group_name = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        65,
+                        "  security_rule {\n"
+                    ],
+                    [
+                        66,
+                        "    name                       = \"allow-rdp-any\"\n"
+                    ],
+                    [
+                        67,
+                        "    priority                   = 100\n"
+                    ],
+                    [
+                        68,
+                        "    direction                  = \"Inbound\"\n"
+                    ],
+                    [
+                        69,
+                        "    access                     = \"Allow\"\n"
+                    ],
+                    [
+                        70,
+                        "    protocol                   = \"Tcp\"\n"
+                    ],
+                    [
+                        71,
+                        "    source_port_range          = \"*\"\n"
+                    ],
+                    [
+                        72,
+                        "    destination_port_range     = \"3389\"\n"
+                    ],
+                    [
+                        73,
+                        "    source_address_prefix      = \"*\"\n"
+                    ],
+                    [
+                        74,
+                        "    destination_address_prefix = \"*\"\n"
+                    ],
+                    [
+                        75,
+                        "  }\n"
+                    ],
+                    [
+                        76,
+                        "  tags = local.tags\n"
+                    ],
+                    [
+                        77,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    61,
+                    77
+                ],
+                "resource": "azurerm_network_security_group.jump",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.NSGRuleUDPAccessRestricted",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${var.expires_at}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_10",
+                "bc_check_id": null,
+                "check_name": "Ensure that SSH access is restricted from the internet",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "security_rule"
+                    ]
+                },
+                "code_block": [
+                    [
+                        61,
+                        "resource \"azurerm_network_security_group\" \"jump\" {\n"
+                    ],
+                    [
+                        62,
+                        "  name                = \"nimbus-lab-jump-nsg\"\n"
+                    ],
+                    [
+                        63,
+                        "  location            = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        64,
+                        "  resource_group_name = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        65,
+                        "  security_rule {\n"
+                    ],
+                    [
+                        66,
+                        "    name                       = \"allow-rdp-any\"\n"
+                    ],
+                    [
+                        67,
+                        "    priority                   = 100\n"
+                    ],
+                    [
+                        68,
+                        "    direction                  = \"Inbound\"\n"
+                    ],
+                    [
+                        69,
+                        "    access                     = \"Allow\"\n"
+                    ],
+                    [
+                        70,
+                        "    protocol                   = \"Tcp\"\n"
+                    ],
+                    [
+                        71,
+                        "    source_port_range          = \"*\"\n"
+                    ],
+                    [
+                        72,
+                        "    destination_port_range     = \"3389\"\n"
+                    ],
+                    [
+                        73,
+                        "    source_address_prefix      = \"*\"\n"
+                    ],
+                    [
+                        74,
+                        "    destination_address_prefix = \"*\"\n"
+                    ],
+                    [
+                        75,
+                        "  }\n"
+                    ],
+                    [
+                        76,
+                        "  tags = local.tags\n"
+                    ],
+                    [
+                        77,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    61,
+                    77
+                ],
+                "resource": "azurerm_network_security_group.jump",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.NSGRuleSSHAccessRestricted",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${var.expires_at}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_160",
+                "bc_check_id": null,
+                "check_name": "Ensure that HTTP (port 80) access is restricted from the internet",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "security_rule"
+                    ]
+                },
+                "code_block": [
+                    [
+                        61,
+                        "resource \"azurerm_network_security_group\" \"jump\" {\n"
+                    ],
+                    [
+                        62,
+                        "  name                = \"nimbus-lab-jump-nsg\"\n"
+                    ],
+                    [
+                        63,
+                        "  location            = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        64,
+                        "  resource_group_name = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        65,
+                        "  security_rule {\n"
+                    ],
+                    [
+                        66,
+                        "    name                       = \"allow-rdp-any\"\n"
+                    ],
+                    [
+                        67,
+                        "    priority                   = 100\n"
+                    ],
+                    [
+                        68,
+                        "    direction                  = \"Inbound\"\n"
+                    ],
+                    [
+                        69,
+                        "    access                     = \"Allow\"\n"
+                    ],
+                    [
+                        70,
+                        "    protocol                   = \"Tcp\"\n"
+                    ],
+                    [
+                        71,
+                        "    source_port_range          = \"*\"\n"
+                    ],
+                    [
+                        72,
+                        "    destination_port_range     = \"3389\"\n"
+                    ],
+                    [
+                        73,
+                        "    source_address_prefix      = \"*\"\n"
+                    ],
+                    [
+                        74,
+                        "    destination_address_prefix = \"*\"\n"
+                    ],
+                    [
+                        75,
+                        "  }\n"
+                    ],
+                    [
+                        76,
+                        "  tags = local.tags\n"
+                    ],
+                    [
+                        77,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    61,
+                    77
+                ],
+                "resource": "azurerm_network_security_group.jump",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.NSGRuleHTTPAccessRestricted",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${var.expires_at}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV2_AZURE_8",
+                "bc_check_id": null,
+                "check_name": "Ensure the storage container storing the activity logs is not publicly accessible",
+                "check_result": {
+                    "result": "PASSED",
+                    "entity": {
+                        "azurerm_storage_container": {
+                            "exports": {
+                                "__end_line__": 58,
+                                "__start_line__": 54,
+                                "container_access_type": [
+                                    "blob"
+                                ],
+                                "name": [
+                                    "exports"
+                                ],
+                                "storage_account_id": [
+                                    "azurerm_storage_account.hr.id"
+                                ],
+                                "__address__": "azurerm_storage_container.exports",
+                                "__provider_address__": "azurerm.default"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "container_access_type",
+                        "enabled",
+                        "resource_type"
+                    ]
+                },
+                "code_block": [
+                    [
+                        54,
+                        "resource \"azurerm_storage_container\" \"exports\" {\n"
+                    ],
+                    [
+                        55,
+                        "  name                  = \"exports\"\n"
+                    ],
+                    [
+                        56,
+                        "  storage_account_id    = azurerm_storage_account.hr.id\n"
+                    ],
+                    [
+                        57,
+                        "  container_access_type = \"blob\"\n"
+                    ],
+                    [
+                        58,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    54,
+                    58
+                ],
+                "resource": "azurerm_storage_container.exports",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf"
+            }
+        ],
+        "failed_checks": [
+            {
+                "check_id": "CKV_AZURE_33",
+                "bc_check_id": null,
+                "check_name": "Ensure Storage logging is enabled for Queue service for read, write and delete requests",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "account_kind"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.StorageAccountLoggingQueueServiceEnabled",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_59",
+                "bc_check_id": null,
+                "check_name": "Ensure that Storage accounts disallow public access",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "public_network_access_enabled"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.StorageAccountDisablePublicAccess",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_44",
+                "bc_check_id": null,
+                "check_name": "Ensure Storage Account is using the latest version of TLS encryption",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "min_tls_version"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.StorageAccountMinimumTlsVersion",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_206",
+                "bc_check_id": null,
+                "check_name": "Ensure that Storage Accounts use replication",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "account_replication_type"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.StorageAccountsUseReplication",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_190",
+                "bc_check_id": null,
+                "check_name": "Ensure that Storage blobs restrict public access",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "allow_nested_items_to_be_public"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.StorageBlobRestrictPublicAccess",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_AZURE_34",
+                "bc_check_id": null,
+                "check_name": "Ensure that 'Public access level' is set to Private for blob containers",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "container_access_type/[0]"
+                    ]
+                },
+                "code_block": [
+                    [
+                        54,
+                        "resource \"azurerm_storage_container\" \"exports\" {\n"
+                    ],
+                    [
+                        55,
+                        "  name                  = \"exports\"\n"
+                    ],
+                    [
+                        56,
+                        "  storage_account_id    = azurerm_storage_account.hr.id\n"
+                    ],
+                    [
+                        57,
+                        "  container_access_type = \"blob\"\n"
+                    ],
+                    [
+                        58,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    54,
+                    58
+                ],
+                "resource": "azurerm_storage_container.exports",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.StorageBlobServiceContainerPrivateAccess",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf"
+            },
+            {
+                "check_id": "CKV_AZURE_9",
+                "bc_check_id": null,
+                "check_name": "Ensure that RDP access is restricted from the internet",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "security_rule/[0]/access",
+                        "security_rule/[0]/direction",
+                        "security_rule/[0]/protocol",
+                        "security_rule/[0]/destination_port_range",
+                        "security_rule/[0]/destination_port_ranges",
+                        "security_rule/[0]/source_address_prefix",
+                        "security_rule/[0]/source_address_prefixes"
+                    ]
+                },
+                "code_block": [
+                    [
+                        61,
+                        "resource \"azurerm_network_security_group\" \"jump\" {\n"
+                    ],
+                    [
+                        62,
+                        "  name                = \"nimbus-lab-jump-nsg\"\n"
+                    ],
+                    [
+                        63,
+                        "  location            = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        64,
+                        "  resource_group_name = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        65,
+                        "  security_rule {\n"
+                    ],
+                    [
+                        66,
+                        "    name                       = \"allow-rdp-any\"\n"
+                    ],
+                    [
+                        67,
+                        "    priority                   = 100\n"
+                    ],
+                    [
+                        68,
+                        "    direction                  = \"Inbound\"\n"
+                    ],
+                    [
+                        69,
+                        "    access                     = \"Allow\"\n"
+                    ],
+                    [
+                        70,
+                        "    protocol                   = \"Tcp\"\n"
+                    ],
+                    [
+                        71,
+                        "    source_port_range          = \"*\"\n"
+                    ],
+                    [
+                        72,
+                        "    destination_port_range     = \"3389\"\n"
+                    ],
+                    [
+                        73,
+                        "    source_address_prefix      = \"*\"\n"
+                    ],
+                    [
+                        74,
+                        "    destination_address_prefix = \"*\"\n"
+                    ],
+                    [
+                        75,
+                        "  }\n"
+                    ],
+                    [
+                        76,
+                        "  tags = local.tags\n"
+                    ],
+                    [
+                        77,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    61,
+                    77
+                ],
+                "resource": "azurerm_network_security_group.jump",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.azure.NSGRuleRDPAccessRestricted",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${var.expires_at}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV2_AZURE_41",
+                "bc_check_id": null,
+                "check_name": "Ensure storage account is configured with SAS expiration policy",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "azurerm_storage_account": {
+                            "hr": {
+                                "__end_line__": 52,
+                                "__start_line__": 44,
+                                "account_replication_type": [
+                                    "LRS"
+                                ],
+                                "account_tier": [
+                                    "Standard"
+                                ],
+                                "allow_nested_items_to_be_public": [
+                                    true
+                                ],
+                                "location": [
+                                    "eastus"
+                                ],
+                                "name": [
+                                    "nimbuslabhrexports"
+                                ],
+                                "resource_group_name": [
+                                    "nimbus-lab-rg"
+                                ],
+                                "tags": [
+                                    {
+                                        "cost_ceiling_usd": "25",
+                                        "expires_at": "var.expires_at",
+                                        "nimbus_lab": true,
+                                        "data_classification": "confidential",
+                                        "environment": "production"
+                                    }
+                                ],
+                                "__address__": "azurerm_storage_account.hr",
+                                "__provider_address__": "azurerm.default"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "sas_policy/expiration_period",
+                        "sas_policy",
+                        "shared_access_key_enabled"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV2_AZURE_38",
+                "bc_check_id": null,
+                "check_name": "Ensure soft-delete is enabled on Azure storage account",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "azurerm_storage_account": {
+                            "hr": {
+                                "__end_line__": 52,
+                                "__start_line__": 44,
+                                "account_replication_type": [
+                                    "LRS"
+                                ],
+                                "account_tier": [
+                                    "Standard"
+                                ],
+                                "allow_nested_items_to_be_public": [
+                                    true
+                                ],
+                                "location": [
+                                    "eastus"
+                                ],
+                                "name": [
+                                    "nimbuslabhrexports"
+                                ],
+                                "resource_group_name": [
+                                    "nimbus-lab-rg"
+                                ],
+                                "tags": [
+                                    {
+                                        "cost_ceiling_usd": "25",
+                                        "expires_at": "var.expires_at",
+                                        "nimbus_lab": true,
+                                        "data_classification": "confidential",
+                                        "environment": "production"
+                                    }
+                                ],
+                                "__address__": "azurerm_storage_account.hr",
+                                "__provider_address__": "azurerm.default"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "account_kind",
+                        "blob_properties/delete_retention_policy/days",
+                        "blob_properties/delete_retention_policy"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV2_AZURE_33",
+                "bc_check_id": null,
+                "check_name": "Ensure storage account is configured with private endpoint",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "azurerm_storage_account": {
+                            "hr": {
+                                "__end_line__": 52,
+                                "__start_line__": 44,
+                                "account_replication_type": [
+                                    "LRS"
+                                ],
+                                "account_tier": [
+                                    "Standard"
+                                ],
+                                "allow_nested_items_to_be_public": [
+                                    true
+                                ],
+                                "location": [
+                                    "eastus"
+                                ],
+                                "name": [
+                                    "nimbuslabhrexports"
+                                ],
+                                "resource_group_name": [
+                                    "nimbus-lab-rg"
+                                ],
+                                "tags": [
+                                    {
+                                        "cost_ceiling_usd": "25",
+                                        "expires_at": "var.expires_at",
+                                        "nimbus_lab": true,
+                                        "data_classification": "confidential",
+                                        "environment": "production"
+                                    }
+                                ],
+                                "__address__": "azurerm_storage_account.hr",
+                                "__provider_address__": "azurerm.default"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "resource_type"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV2_AZURE_1",
+                "bc_check_id": null,
+                "check_name": "Ensure storage for critical data are encrypted with Customer Managed Key",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "azurerm_storage_account": {
+                            "hr": {
+                                "__end_line__": 52,
+                                "__start_line__": 44,
+                                "account_replication_type": [
+                                    "LRS"
+                                ],
+                                "account_tier": [
+                                    "Standard"
+                                ],
+                                "allow_nested_items_to_be_public": [
+                                    true
+                                ],
+                                "location": [
+                                    "eastus"
+                                ],
+                                "name": [
+                                    "nimbuslabhrexports"
+                                ],
+                                "resource_group_name": [
+                                    "nimbus-lab-rg"
+                                ],
+                                "tags": [
+                                    {
+                                        "cost_ceiling_usd": "25",
+                                        "expires_at": "var.expires_at",
+                                        "nimbus_lab": true,
+                                        "data_classification": "confidential",
+                                        "environment": "production"
+                                    }
+                                ],
+                                "__address__": "azurerm_storage_account.hr",
+                                "__provider_address__": "azurerm.default"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "customer_managed_key/key_vault_key_id",
+                        "resource_type"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV2_AZURE_40",
+                "bc_check_id": null,
+                "check_name": "Ensure storage account is not configured with Shared Key authorization",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "azurerm_storage_account": {
+                            "hr": {
+                                "__end_line__": 52,
+                                "__start_line__": 44,
+                                "account_replication_type": [
+                                    "LRS"
+                                ],
+                                "account_tier": [
+                                    "Standard"
+                                ],
+                                "allow_nested_items_to_be_public": [
+                                    true
+                                ],
+                                "location": [
+                                    "eastus"
+                                ],
+                                "name": [
+                                    "nimbuslabhrexports"
+                                ],
+                                "resource_group_name": [
+                                    "nimbus-lab-rg"
+                                ],
+                                "tags": [
+                                    {
+                                        "cost_ceiling_usd": "25",
+                                        "expires_at": "var.expires_at",
+                                        "nimbus_lab": true,
+                                        "data_classification": "confidential",
+                                        "environment": "production"
+                                    }
+                                ],
+                                "__address__": "azurerm_storage_account.hr",
+                                "__provider_address__": "azurerm.default"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "shared_access_key_enabled"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV2_AZURE_47",
+                "bc_check_id": null,
+                "check_name": "Ensure storage account is configured without blob anonymous access",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "azurerm_storage_account": {
+                            "hr": {
+                                "__end_line__": 52,
+                                "__start_line__": 44,
+                                "account_replication_type": [
+                                    "LRS"
+                                ],
+                                "account_tier": [
+                                    "Standard"
+                                ],
+                                "allow_nested_items_to_be_public": [
+                                    true
+                                ],
+                                "location": [
+                                    "eastus"
+                                ],
+                                "name": [
+                                    "nimbuslabhrexports"
+                                ],
+                                "resource_group_name": [
+                                    "nimbus-lab-rg"
+                                ],
+                                "tags": [
+                                    {
+                                        "cost_ceiling_usd": "25",
+                                        "expires_at": "var.expires_at",
+                                        "nimbus_lab": true,
+                                        "data_classification": "confidential",
+                                        "environment": "production"
+                                    }
+                                ],
+                                "__address__": "azurerm_storage_account.hr",
+                                "__provider_address__": "azurerm.default"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "allow_nested_items_to_be_public"
+                    ]
+                },
+                "code_block": [
+                    [
+                        44,
+                        "resource \"azurerm_storage_account\" \"hr\" {\n"
+                    ],
+                    [
+                        45,
+                        "  name                            = \"nimbuslabhrexports\"\n"
+                    ],
+                    [
+                        46,
+                        "  resource_group_name             = azurerm_resource_group.lab.name\n"
+                    ],
+                    [
+                        47,
+                        "  location                        = azurerm_resource_group.lab.location\n"
+                    ],
+                    [
+                        48,
+                        "  account_tier                    = \"Standard\"\n"
+                    ],
+                    [
+                        49,
+                        "  account_replication_type        = \"LRS\"\n"
+                    ],
+                    [
+                        50,
+                        "  allow_nested_items_to_be_public = true\n"
+                    ],
+                    [
+                        51,
+                        "  tags                            = merge(local.tags, { data_classification = \"confidential\", environment = \"production\" })\n"
+                    ],
+                    [
+                        52,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    44,
+                    52
+                ],
+                "resource": "azurerm_storage_account.hr",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "var.expires_at",
+                    "nimbus_lab": true,
+                    "data_classification": "confidential",
+                    "environment": "production"
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf",
+                "breadcrumbs": {
+                    "tags": [
+                        {
+                            "type": "locals",
+                            "name": "tags",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "resource_group_name": [
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "location": [
+                        {
+                            "type": "variable",
+                            "name": "location",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        },
+                        {
+                            "type": "resource",
+                            "name": "azurerm_resource_group.lab",
+                            "path": "/src/lab/terraform/azure/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV2_AZURE_21",
+                "bc_check_id": null,
+                "check_name": "Ensure Storage logging is enabled for Blob service for read requests",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "azurerm_storage_container": {
+                            "exports": {
+                                "__end_line__": 58,
+                                "__start_line__": 54,
+                                "container_access_type": [
+                                    "blob"
+                                ],
+                                "name": [
+                                    "exports"
+                                ],
+                                "storage_account_id": [
+                                    "azurerm_storage_account.hr.id"
+                                ],
+                                "__address__": "azurerm_storage_container.exports",
+                                "__provider_address__": "azurerm.default"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "container_access_type",
+                        "resource_type",
+                        "blob_container_names"
+                    ]
+                },
+                "code_block": [
+                    [
+                        54,
+                        "resource \"azurerm_storage_container\" \"exports\" {\n"
+                    ],
+                    [
+                        55,
+                        "  name                  = \"exports\"\n"
+                    ],
+                    [
+                        56,
+                        "  storage_account_id    = azurerm_storage_account.hr.id\n"
+                    ],
+                    [
+                        57,
+                        "  container_access_type = \"blob\"\n"
+                    ],
+                    [
+                        58,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/azure/main.tf",
+                "repo_file_path": "/lab/terraform/azure/main.tf",
+                "file_line_range": [
+                    54,
+                    58
+                ],
+                "resource": "azurerm_storage_container.exports",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/azure/main.tf"
+            }
+        ],
+        "skipped_checks": [],
+        "parsing_errors": []
+    },
+    "summary": {
+        "passed": 8,
+        "failed": 14,
+        "skipped": 0,
+        "parsing_errors": 0,
+        "resource_count": 6,
+        "checkov_version": "3.3.26"
+    },
+    "url": "Add an api key '--bc-api-key <api-key>' to see more detailed insights via https://bridgecrew.cloud"
+}

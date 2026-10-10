@@ -119,3 +119,32 @@ func TestTrustedPrincipals(t *testing.T) {
 		t.Error("non-assume statement must be ignored")
 	}
 }
+
+// Defect 15(a): Allow + NotAction grants everything except the listed actions, so it
+// is administrative unless the exclusions cover IAM privilege escalation.
+func TestIsAdminNotAction(t *testing.T) {
+	cases := []struct {
+		name string
+		doc  string
+		want bool
+	}{
+		{"NotAction s3 on star is admin", `{"Statement":[{"Effect":"Allow","NotAction":"s3:*","Resource":"*"}]}`, true},
+		{"NotAction list without iam is admin", `{"Statement":[{"Effect":"Allow","NotAction":["ec2:*","s3:DeleteBucket"],"Resource":"*"}]}`, true},
+		{"NotAction iam:Create* leaves iam:Put*/Attach* open", `{"Statement":[{"Effect":"Allow","NotAction":["iam:Create*"],"Resource":"*"}]}`, true},
+		{"NotResource with all actions is admin", `{"Statement":[{"Effect":"Allow","Action":"*","NotResource":"arn:aws:s3:::audit-logs/*"}]}`, true},
+		{"PowerUserAccess shape is not admin", `{"Statement":[{"Effect":"Allow","NotAction":["iam:*","organizations:*","account:*"],"Resource":"*"}]}`, false},
+		{"NotAction star excludes everything", `{"Statement":[{"Effect":"Allow","NotAction":"*","Resource":"*"}]}`, false},
+		{"NotAction scoped to one bucket is not admin", `{"Statement":[{"Effect":"Allow","NotAction":"s3:DeleteObject","Resource":"arn:aws:s3:::b/*"}]}`, false},
+		{"Deny NotAction is not admin", `{"Statement":[{"Effect":"Deny","NotAction":"s3:*","Resource":"*"}]}`, false},
+		{"conditional NotAction is not admin", `{"Statement":[{"Effect":"Allow","NotAction":"s3:*","Resource":"*","Condition":{"Bool":{"aws:MultiFactorAuthPresent":"true"}}}]}`, false},
+	}
+	for _, tc := range cases {
+		d, err := ParsePolicy(tc.doc)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if got := d.IsAdmin(); got != tc.want {
+			t.Errorf("%s: IsAdmin = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

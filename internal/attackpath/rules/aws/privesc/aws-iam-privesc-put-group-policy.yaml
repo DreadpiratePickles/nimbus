@@ -1,0 +1,58 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-iam-privesc-put-group-policy
+title: Inline Policy Injection on Group for Self-Escalation (IAM-011)
+description: >-
+  The principal may write an inline policy onto a group it belongs to, escalating every member.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-iam-privesc-put-group-policy
+  upstream: pathfinding.cloud - IAM-011 - iam:PutGroupPolicy
+  upstream_url: https://pathfinding.cloud/paths/iam-011
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator; anchor is an IAM user; target is a group it is a member of (member_of edge); nimbus does not anchor on principals already allowed * on * (an escalation adds nothing; Prowler lists them)
+anchor:
+  types: [aws_iam_user]
+  include_admin: true
+match:
+  join: path
+  path:
+    - {edge: member_of, to_types: [aws_iam_group]}
+  requires_permissions:
+    - {action: "iam:PutGroupPolicy", resource: target}
+  target:
+    types: [aws_iam_group]
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/priv
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PutGroupPolicy", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/plain
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+      - id: arn:aws:iam::123456789012:group/devs
+        type: aws_iam_group
+        account: "123456789012"
+      - id: arn:aws:iam::123456789012:group/other
+        type: aws_iam_group
+        account: "123456789012"
+    edges:
+      - {from: arn:aws:iam::123456789012:user/priv, to: arn:aws:iam::123456789012:group/devs, kind: member_of}
+      - {from: arn:aws:iam::123456789012:user/plain, to: arn:aws:iam::123456789012:group/devs, kind: member_of}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:group/devs", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:group/other", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/plain", target: "arn:aws:iam::123456789012:group/devs", match: false}

@@ -1,0 +1,20 @@
+# Remediation plan metadata for ec2_imdsv1.cfn.yaml (schema: internal/remediation/metadata.go).
+actions_required:
+  - "cloudformation:CreateChangeSet"
+  - "cloudformation:DescribeChangeSet"
+  - "cloudformation:ExecuteChangeSet"
+  - "cloudformation:DescribeStacks"
+  - "ec2:CreateLaunchTemplate"
+  - "ec2:ModifyInstanceMetadataOptions"
+  - "ec2:DescribeInstances"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Set the hop limit to 1 and scope down the instance role so stolen IMDSv1 credentials are worth less."
+effort: S
+confidence: medium
+rollback: "aws ec2 modify-instance-metadata-options --instance-id <id> --http-tokens optional; delete the stack to remove the launch template."
+breaks_function:
+  value: true
+  note: "Software that only speaks IMDSv1 (SDKs and agents older than late 2019) can no longer get instance credentials. Check the MetadataNoToken CloudWatch metric is zero first. The stack only creates a launch template for future launches; the running instance needs the CLI line."

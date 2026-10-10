@@ -1,0 +1,71 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-iam-privesc-put-role-policy-update-assume-role
+title: Inline Policy Injection with Trust Policy Hijacking for Privilege Escalation (IAM-021)
+description: >-
+  The principal may write an inline policy granting any permission onto another role and rewrite that role's trust policy to admit itself, then assume the role. Remove iam:PutRolePolicy and iam:UpdateAssumeRolePolicy on roles the principal does not own.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-iam-privesc-put-role-policy-update-assume-role
+  upstream: pathfinding.cloud - IAM-021 - iam:PutRolePolicy + iam:UpdateAssumeRolePolicy
+  upstream_url: https://pathfinding.cloud/paths/iam-021
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator (both actions must be allowed on the same target role, Deny and SCPs honoured); target is any other IAM role in the account; nimbus does not anchor on principals already allowed * on * (an escalation adds nothing; Prowler lists them)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+  include_admin: true
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:PutRolePolicy", resource: target}
+    - {action: "iam:UpdateAssumeRolePolicy", resource: target}
+  target:
+    types: [aws_iam_role]
+    exclude_self: true
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/priv
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["iam:PutRolePolicy", "iam:UpdateAssumeRolePolicy"], Resource: "arn:aws:iam::123456789012:role/*"}
+      - id: arn:aws:iam::123456789012:user/partial
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PutRolePolicy", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/trustonly
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:UpdateAssumeRolePolicy", Resource: "*"}
+              - {Effect: Allow, Action: "iam:PutRolePolicy", Resource: "arn:aws:iam::123456789012:role/sandbox-*"}
+      - id: arn:aws:iam::123456789012:role/target
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com]}
+      - id: arn:aws:iam::123456789012:user/admin
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "*", Resource: "*"}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:role/target", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/partial", target: "arn:aws:iam::123456789012:role/target", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/trustonly", target: "arn:aws:iam::123456789012:role/target", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/admin", target: "arn:aws:iam::123456789012:role/target", match: false}

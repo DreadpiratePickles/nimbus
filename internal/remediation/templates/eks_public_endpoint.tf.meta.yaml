@@ -1,0 +1,16 @@
+# Remediation plan metadata for eks_public_endpoint.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "eks:DescribeCluster"
+  - "eks:UpdateClusterConfig"
+  - "eks:DescribeUpdate"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Restrict the public endpoint to known CIDRs: aws eks update-cluster-config --resources-vpc-config publicAccessCidrs=<ranges>."
+effort: M
+confidence: medium
+rollback: "aws eks update-cluster-config --name <cluster> --resources-vpc-config endpointPublicAccess=true (takes about 10 minutes)."
+breaks_function:
+  value: true
+  note: "kubectl, CI/CD and GitOps controllers outside the VPC lose API access; set up VPN, bastion or in-VPC runners first, or set keep_public_endpoint with their CIDRs in public_access_cidrs."

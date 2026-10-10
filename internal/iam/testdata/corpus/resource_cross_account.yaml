@@ -1,0 +1,129 @@
+category: resource_policy_cross_account
+cases:
+  - name: same-account bucket policy naming the user grants without identity policy
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Alice, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:user/alice"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: allow, matched: [bucket#Alice]}
+
+  - name: same-account bucket policy naming the account needs identity allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html#principal-accounts
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Acct, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:root"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: implicit_deny, matched: [bucket#Acct]}
+
+  - name: same-account identity allow alone suffices for S3
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    expect: {decision: allow, matched: [id#Read]}
+
+  - name: cross-account identity allow without resource policy is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic-cross-account.html
+    request: {principal: "arn:aws:iam::222222222222:user/carol", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [id#Read]}
+
+  - name: cross-account resource policy without identity allow is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic-cross-account.html
+    request: {principal: "arn:aws:iam::222222222222:user/carol", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Carol, Effect: Allow, Principal: {AWS: "arn:aws:iam::222222222222:user/carol"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: implicit_deny, matched: [bucket#Carol]}
+
+  - name: cross-account with both identity and resource allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic-cross-account.html
+    request: {principal: "arn:aws:iam::222222222222:user/carol", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Acct, Effect: Allow, Principal: {AWS: "222222222222"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: allow, matched: [id#Read, bucket#Acct]}
+
+  - name: cross-account resource policy for a different account
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic-cross-account.html
+    request: {principal: "arn:aws:iam::222222222222:user/carol", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Other, Effect: Allow, Principal: {AWS: "333333333333"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: implicit_deny, matched: [id#Read]}
+
+  - name: public bucket policy grants anonymous read
+    source: https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies.html
+    request: {principal: "", action: s3:GetObject, resource: "arn:aws:s3:::site/index.html", resource_account: "111111111111"}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: PublicRead, Effect: Allow, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::site/*"}]}
+    expect: {decision: allow, matched: [bucket#PublicRead]}
+
+  - name: public bucket policy cross-account still needs caller identity allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic-cross-account.html
+    request: {principal: "arn:aws:iam::222222222222:user/carol", action: s3:GetObject, resource: "arn:aws:s3:::site/index.html", resource_account: "111111111111"}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: PublicRead, Effect: Allow, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::site/*"}]}
+    expect: {decision: implicit_deny, matched: [bucket#PublicRead]}
+
+  - name: cross-account deny in caller identity wins over resource allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic-cross-account.html
+    request: {principal: "arn:aws:iam::222222222222:user/carol", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: Read, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: NoExternal, Effect: Deny, Action: "s3:*", Resource: "*", Condition: {StringNotEquals: {"aws:ResourceAccount": "222222222222"}}}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Acct, Effect: Allow, Principal: {AWS: "222222222222"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: explicit_deny, matched: [id#Read, id#NoExternal, bucket#Acct]}
+
+  - name: SQS queue cross-account via account ARN in ARN segment
+    source: https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-basic-examples-of-sqs-policies.html
+    request: {principal: "arn:aws:sts::222222222222:assumed-role/producer/p", action: sqs:SendMessage, resource: "arn:aws:sqs:us-east-1:111111111111:jobs"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Send, Effect: Allow, Action: "sqs:SendMessage", Resource: "arn:aws:sqs:*:111111111111:jobs"}]}
+    resource_policy:
+      id: queue
+      document: {Version: "2012-10-17", Statement: [{Sid: Producer, Effect: Allow, Principal: {AWS: "arn:aws:iam::222222222222:role/producer"}, Action: "sqs:SendMessage", Resource: "arn:aws:sqs:us-east-1:111111111111:jobs"}]}
+    expect: {decision: allow, matched: [id#Send, queue#Producer]}
+
+  - name: Lambda resource policy lets S3 service invoke
+    source: https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html
+    request: {principal: "s3.amazonaws.com", action: lambda:InvokeFunction, resource: "arn:aws:lambda:us-east-1:111111111111:function:thumb", context: {"aws:SourceAccount": "111111111111", "aws:SourceArn": "arn:aws:s3:::uploads"}}
+    resource_policy:
+      id: fn
+      document: {Version: "2012-10-17", Statement: [{Sid: S3Invoke, Effect: Allow, Principal: {Service: s3.amazonaws.com}, Action: "lambda:InvokeFunction", Resource: "arn:aws:lambda:us-east-1:111111111111:function:thumb", Condition: {StringEquals: {"aws:SourceAccount": "111111111111"}, ArnLike: {"aws:SourceArn": "arn:aws:s3:::uploads"}}}]}
+    expect: {decision: allow, matched: [fn#S3Invoke]}
+
+  - name: unknown resource account with only a resource policy grant is unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic-cross-account.html
+    request: {principal: "arn:aws:iam::222222222222:user/carol", action: s3:GetObject, resource: "arn:aws:s3:::b/k"}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Carol, Effect: Allow, Principal: {AWS: "arn:aws:iam::222222222222:user/carol"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: unknown, matched: [bucket#Carol]}
+
+  - name: Secrets Manager same-account resource policy naming the role
+    source: https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_resource-policies.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: secretsmanager:GetSecretValue, resource: "arn:aws:secretsmanager:us-east-1:111111111111:secret:db-AbCdEf"}
+    resource_policy:
+      id: secret
+      document: {Version: "2012-10-17", Statement: [{Sid: App, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:role/app"}, Action: "secretsmanager:GetSecretValue", Resource: "*"}]}
+    expect: {decision: allow, matched: [secret#App]}

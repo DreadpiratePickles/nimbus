@@ -76,10 +76,13 @@ def test_ai_endpoints(client, seeded):
 
 def test_alerts_endpoint(client, seeded, monkeypatch):
     monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
+    # 2026-10-09: /api/alerts requires the server token (inventory defect 2); see test_security.py.
+    monkeypatch.setenv("CLOUD_POSTURE_TOKEN", "t")
+    auth = {"Authorization": "Bearer t"}
     fid = seeded.findings()[0].id
-    res = client.post("/api/alerts", json={"finding_ids": [fid, "missing"], "targets": ["slack"]}).json()
+    res = client.post("/api/alerts", json={"finding_ids": [fid, "missing"], "targets": ["slack"]}, headers=auth).json()
     assert res["results"][0]["skipped"] and res["missing"] == ["missing"]
-    assert client.post("/api/alerts", json={"finding_ids": [fid], "targets": ["carrier-pigeon"]}).status_code == 400
+    assert client.post("/api/alerts", json={"finding_ids": [fid], "targets": ["carrier-pigeon"]}, headers=auth).status_code == 400
 
 
 def test_index_pages(client, tmp_path, monkeypatch):

@@ -1,0 +1,15 @@
+# Remediation plan metadata for okta_signon_mfa.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "okta.policies.read"
+  - "okta.policies.manage"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the sign-on policy and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Remove the user from the group the exempt rule targets, or suspend federation into the AWS admin group, until MFA is enforced."
+effort: S
+confidence: medium
+rollback: "Set mfa_required = false on the rule again (Admin Console or terraform), after documenting why."
+breaks_function:
+  value: true
+  note: "Users under the rule without an enrolled factor are prompted to enrol at next sign-in."

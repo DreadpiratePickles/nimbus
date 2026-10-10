@@ -39,5 +39,5 @@ def run_named(store: Store, name: str, max_rows: int = 1000) -> tuple[list[str],
 
 
 def run_sql(store: Store, sql: str, max_rows: int = 1000) -> tuple[list[str], list[list[Any]]]:
-    """Run ad-hoc read-only SQL (single SELECT/WITH, LIMIT enforced)."""
-    return store.query(sanitize(sql, max_rows))
+    """Run ad-hoc untrusted SQL: lexical sanitize, then engine-enforced read-only execution."""
+    return store.query_readonly(sanitize(sql, max_rows), max_rows=max_rows)

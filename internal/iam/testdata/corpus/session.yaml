@@ -1,0 +1,71 @@
+category: session_policy
+cases:
+  - name: session policy intersects role permissions
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: role
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}]}
+    session:
+      id: sess
+      document: {Version: "2012-10-17", Statement: [{Sid: ReadOnly, Effect: Allow, Action: ["s3:Get*", "s3:List*"], Resource: "*"}]}
+    expect: {decision: allow, matched: [role#All, sess#ReadOnly]}
+
+  - name: session policy excludes write
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: s3:PutObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: role
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}]}
+    session:
+      id: sess
+      document: {Version: "2012-10-17", Statement: [{Sid: ReadOnly, Effect: Allow, Action: ["s3:Get*", "s3:List*"], Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [role#All]}
+
+  - name: session policy cannot grant beyond the role
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: ec2:RunInstances, resource: "*"}
+    identity:
+      - id: role
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}]}
+    session:
+      id: sess
+      document: {Version: "2012-10-17", Statement: [{Sid: Everything, Effect: Allow, Action: "*", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [sess#Everything]}
+
+  - name: session policy deny wins
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: s3:DeleteObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: role
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}]}
+    session:
+      id: sess
+      document:
+        Version: "2012-10-17"
+        Statement:
+          - {Sid: Everything, Effect: Allow, Action: "*", Resource: "*"}
+          - {Sid: NoDelete, Effect: Deny, Action: "s3:Delete*", Resource: "*"}
+    expect: {decision: explicit_deny, matched: [role#All, sess#Everything, sess#NoDelete]}
+
+  - name: resource policy naming the role ARN is limited by session policy
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: s3:PutObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    session:
+      id: sess
+      document: {Version: "2012-10-17", Statement: [{Sid: ReadOnly, Effect: Allow, Action: "s3:Get*", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Role, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:role/app"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: implicit_deny, matched: [bucket#Role]}
+
+  - name: resource policy naming the session ARN is not limited by session policy
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: s3:PutObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    session:
+      id: sess
+      document: {Version: "2012-10-17", Statement: [{Sid: ReadOnly, Effect: Allow, Action: "s3:Get*", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Sess, Effect: Allow, Principal: {AWS: "arn:aws:sts::111111111111:assumed-role/app/s"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: allow, matched: [bucket#Sess]}

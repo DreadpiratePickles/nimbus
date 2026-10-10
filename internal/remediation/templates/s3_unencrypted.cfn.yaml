@@ -8,6 +8,5 @@ Resources:
       BucketName: {{ .Name }}
       BucketEncryption:
         ServerSideEncryptionConfiguration:
-          - BucketKeyEnabled: true
-            ServerSideEncryptionByDefault:
-              SSEAlgorithm: aws:kms
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256   # SSE-S3; aws:kms with the AWS-managed key would break cross-account readers

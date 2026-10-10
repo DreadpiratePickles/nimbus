@@ -25,7 +25,8 @@ internal/integrations         Slack, Teams, PagerDuty, Jira, GitHub Issues, Splu
 internal/neo4j                Cartography-style Neo4j push
 internal/server               HTTP + WebSocket live dashboard API
 internal/risk                 context-aware scoring (Go fallback; Python model preferred)
-internal/dashboard            single-file HTML dashboard (Cytoscape attack graph)
+internal/dashboard            cwm-style desktop dashboard: dashboard.html shell + cwm.js/cwm.css (window manager) + clients.js (xterm views) + embedded Cytoscape; spec docs/design/cwm-dashboard-spec.md
+tools/ui-smoke                Playwright smoke suite for the dashboard (`make ui-test`)
 python/nimbus                 Python package `nimbus-cspm` (compliance, ai, risk, reports, server, checks, plugin SDK)
 vscode-extension/             inline IaC diagnostics
 .planning/                    GSD-style PROJECT / ROADMAP / STATE

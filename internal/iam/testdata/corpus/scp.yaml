@@ -1,0 +1,200 @@
+category: scp_rcp
+cases:
+  - name: S01 quarantine SCP denies the batch role despite AdministratorAccess
+    source: lab/local/estate.yaml (nimbus-lab-batch-role governing_scps p-lab0quarantine)
+    request: {principal: "arn:aws:sts::222222222222:assumed-role/nimbus-lab-batch-role/batch", action: s3:GetObject, resource: "arn:aws:s3:::nimbus-lab-customer-pii/a.csv", resource_account: "222222222222"}
+    identity:
+      - id: AdministratorAccess
+        document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+    scps:
+      - - id: root-FullAWSAccess
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+      - - id: account-FullAWSAccess
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+        - id: p-lab0quarantine
+          document: {Version: "2012-10-17", Statement: [{Effect: Deny, Action: "*", Resource: "*", Condition: {ArnLike: {"aws:PrincipalArn": "arn:aws:iam::222222222222:role/nimbus-lab-batch-role"}}}]}
+    expect: {decision: explicit_deny, matched: ["AdministratorAccess#0", "root-FullAWSAccess#0", "account-FullAWSAccess#0", "p-lab0quarantine#0"]}
+
+  - name: S01 quarantine SCP does not affect another role in the same account
+    source: lab/local/estate.yaml (nimbus-lab-batch-role governing_scps p-lab0quarantine)
+    request: {principal: "arn:aws:sts::222222222222:assumed-role/nimbus-lab-etl-role/etl", action: s3:GetObject, resource: "arn:aws:s3:::nimbus-lab-customer-pii/a.csv", resource_account: "222222222222"}
+    identity:
+      - id: AdministratorAccess
+        document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+    scps:
+      - - id: root-FullAWSAccess
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+      - - id: account-FullAWSAccess
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+        - id: p-lab0quarantine
+          document: {Version: "2012-10-17", Statement: [{Effect: Deny, Action: "*", Resource: "*", Condition: {ArnLike: {"aws:PrincipalArn": "arn:aws:iam::222222222222:role/nimbus-lab-batch-role"}}}]}
+    expect: {decision: allow, matched: ["AdministratorAccess#0", "root-FullAWSAccess#0", "account-FullAWSAccess#0"]}
+
+  - name: SCP denying s3 for a specific role
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps_examples_general.html
+    request: {principal: "arn:aws:sts::222222222222:assumed-role/batch/job", action: s3:PutObject, resource: "arn:aws:s3:::data/x", resource_account: "222222222222"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: S3, Effect: Allow, Action: "s3:*", Resource: "*"}]}
+    scps:
+      - - id: FullAWSAccess
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+        - id: deny-batch-s3
+          document: {Version: "2012-10-17", Statement: [{Sid: NoS3ForBatch, Effect: Deny, Action: "s3:*", Resource: "*", Condition: {ArnLike: {"aws:PrincipalArn": "arn:aws:iam::*:role/batch"}}}]}
+    expect: {decision: explicit_deny, matched: [id#S3, "FullAWSAccess#0", deny-batch-s3#NoS3ForBatch]}
+
+  - name: SCP allow list without the action is implicit deny
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps_evaluation.html
+    request: {principal: "arn:aws:iam::222222222222:user/dev", action: dynamodb:DeleteTable, resource: "arn:aws:dynamodb:us-east-1:222222222222:table/t"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    scps:
+      - - id: allow-list
+          document: {Version: "2012-10-17", Statement: [{Sid: Some, Effect: Allow, Action: ["ec2:*", "s3:*"], Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [id#All]}
+
+  - name: SCP allow must exist at every OU level
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps_evaluation.html
+    request: {principal: "arn:aws:iam::222222222222:user/dev", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "222222222222"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    scps:
+      - - id: root-full
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+      - - id: ou-ec2-only
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "ec2:*", Resource: "*"}]}
+      - - id: account-full
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [id#All, "root-full#0", "account-full#0"]}
+
+  - name: SCP allow does not grant without identity policy
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html
+    request: {principal: "arn:aws:iam::222222222222:user/dev", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "222222222222"}
+    scps:
+      - - id: full
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: ["full#0"]}
+
+  - name: SCP region deny with NotAction exemption for global services
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps_examples_general.html
+    request: {principal: "arn:aws:iam::222222222222:user/dev", action: iam:ListRoles, resource: "*", context: {"aws:RequestedRegion": ap-south-1}}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    scps:
+      - - id: full
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+        - id: region
+          document: {Version: "2012-10-17", Statement: [{Sid: DenyAllOutsideEU, Effect: Deny, NotAction: ["iam:*", "organizations:*", "sts:*"], Resource: "*", Condition: {StringNotEquals: {"aws:RequestedRegion": [eu-central-1, eu-west-1]}}}]}
+    expect: {decision: allow, matched: [id#All, "full#0"]}
+
+  - name: SCP region deny applies to regional service
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps_examples_general.html
+    request: {principal: "arn:aws:iam::222222222222:user/dev", action: ec2:RunInstances, resource: "*", context: {"aws:RequestedRegion": ap-south-1}}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    scps:
+      - - id: full
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "*", Resource: "*"}]}
+        - id: region
+          document: {Version: "2012-10-17", Statement: [{Sid: DenyAllOutsideEU, Effect: Deny, NotAction: ["iam:*", "organizations:*", "sts:*"], Resource: "*", Condition: {StringNotEquals: {"aws:RequestedRegion": [eu-central-1, eu-west-1]}}}]}
+    expect: {decision: explicit_deny, matched: [id#All, "full#0", region#DenyAllOutsideEU]}
+
+  - name: SCP applies even when a resource policy grants same-account access
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::222222222222:user/dev", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "222222222222"}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Dev, Effect: Allow, Principal: {AWS: "arn:aws:iam::222222222222:user/dev"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    scps:
+      - - id: ec2only
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "ec2:*", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [bucket#Dev]}
+
+  - name: SCPs do not restrict service principals
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html
+    request: {principal: "cloudtrail.amazonaws.com", action: s3:PutObject, resource: "arn:aws:s3:::trail-logs/AWSLogs/222222222222/x", resource_account: "222222222222"}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Trail, Effect: Allow, Principal: {Service: cloudtrail.amazonaws.com}, Action: "s3:PutObject", Resource: "arn:aws:s3:::trail-logs/AWSLogs/222222222222/*"}]}
+    scps:
+      - - id: ec2only
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "ec2:*", Resource: "*"}]}
+    expect: {decision: allow, matched: [bucket#Trail]}
+
+  - name: RCP deny blocks external principals on resource
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_rcps_examples.html
+    request: {principal: "arn:aws:iam::999999999999:user/ext", action: s3:GetObject, resource: "arn:aws:s3:::shared/k", resource_account: "111111111111", context: {"aws:PrincipalOrgID": o-other}}
+    identity:
+      - id: ext
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Ext, Effect: Allow, Principal: {AWS: "999999999999"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::shared/*"}]}
+    rcps:
+      - - id: RCPFullAWSAccess
+          document: {Version: "2012-10-17", Statement: [{Effect: Allow, Principal: "*", Action: "*", Resource: "*"}]}
+        - id: perimeter
+          document: {Version: "2012-10-17", Statement: [{Sid: OrgOnly, Effect: Deny, Principal: "*", Action: "s3:*", Resource: "*", Condition: {StringNotEqualsIfExists: {"aws:PrincipalOrgID": o-abc123}}}]}
+    expect: {decision: explicit_deny, matched: [ext#Read, bucket#Ext, perimeter#OrgOnly]}
+
+  - name: RCP deny does not apply inside the org
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_rcps_examples.html
+    request: {principal: "arn:aws:iam::222222222222:user/dev", action: s3:GetObject, resource: "arn:aws:s3:::shared/k", resource_account: "111111111111", context: {"aws:PrincipalOrgID": o-abc123}}
+    identity:
+      - id: dev
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Org, Effect: Allow, Principal: {AWS: "222222222222"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::shared/*"}]}
+    rcps:
+      - - id: perimeter
+          document: {Version: "2012-10-17", Statement: [{Sid: OrgOnly, Effect: Deny, Principal: "*", Action: "s3:*", Resource: "*", Condition: {StringNotEqualsIfExists: {"aws:PrincipalOrgID": o-abc123}}}]}
+    expect: {decision: allow, matched: [dev#Read, bucket#Org]}
+
+  - name: V4 SCP Deny * does not apply to a service principal (exempt before deny)
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html (SCPs do not affect service principals; verify-4 defect)
+    request: {principal: cloudtrail.amazonaws.com, action: s3:PutObject, resource: "arn:aws:s3:::trail-bkt/k", resource_account: "111111111111"}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Trail, Effect: Allow, Principal: {Service: cloudtrail.amazonaws.com}, Action: "s3:PutObject", Resource: "*"}]}
+    scps:
+      - - id: deny-all
+          document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Deny, Action: "*", Resource: "*"}]}
+    expect: {decision: allow, matched: [bucket#Trail]}
+
+  - name: V4 SCP Deny * does not apply to a service-linked role
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html (SCPs do not affect service-linked roles; verify-4 TestVerify4IAM/25)
+    request: {principal: "arn:aws:iam::111111111111:role/aws-service-role/elasticloadbalancing.amazonaws.com/AWSServiceRoleForElasticLoadBalancing", action: ec2:DescribeInstances, resource: "*", resource_account: "111111111111"}
+    identity:
+      - id: slr
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    scps:
+      - - id: deny-all
+          document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Deny, Action: "*", Resource: "*"}]}
+    expect: {decision: allow, matched: [slr#All]}
+
+  - name: V4 SCP Deny * does not apply to a service-linked role session
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html (verify-4 TestVerify4IAM/26)
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/AWSServiceRoleForElasticLoadBalancing/ElasticLoadBalancing", action: ec2:DescribeInstances, resource: "*", resource_account: "111111111111"}
+    identity:
+      - id: slr
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    scps:
+      - - id: deny-all
+          document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Deny, Action: "*", Resource: "*"}]}
+    expect: {decision: allow, matched: [slr#All]}
+
+  - name: V4 SCP Deny * still applies to an ordinary role named like a service role
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html (control for the SLR exemption)
+    request: {principal: "arn:aws:iam::111111111111:role/AWSServiceRoleForFake", action: ec2:DescribeInstances, resource: "*", resource_account: "111111111111"}
+    identity:
+      - id: r
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    scps:
+      - - id: deny-all
+          document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Deny, Action: "*", Resource: "*"}]}
+    expect: {decision: explicit_deny, matched: [r#All, deny-all#All]}

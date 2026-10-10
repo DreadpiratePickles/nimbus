@@ -36,16 +36,22 @@ type analyzer struct {
 	sgByID       map[string]ec2types.SecurityGroup // sg-id -> sg
 	sgRegion     map[string]string
 	sgOpen       map[string]openInfo
-	profileRoles map[string]string // instance profile ARN -> role ARN
+	profileRoles map[string]string   // instance profile ARN -> role ARN
 	datastores   map[string][]string // service -> datastore node IDs
+	// eniPublic: instance id -> public IPs of its ENIs (DescribeNetworkInterfaces).
+	eniPublic map[string][]string
 }
 
 type openInfo struct {
 	Ports      []string // every internet-open port spec
 	SSH, RDP   bool
 	All        bool
-	AllIngress []string // every ingress port spec (any source)
+	AllIngress []string            // every ingress port spec (any source)
 	SGSources  map[string][]string // source sg-id -> ports
+	// PublicPorts / PublicSources cover every internet-routable source (0.0.0.0/0
+	// and narrower public CIDRs) — the basis for exposure width (O10).
+	PublicPorts   []string
+	PublicSources []string
 }
 
 func (a *analyzer) check(id string, res model.Resource, region string, pass bool, detail string) {
@@ -66,22 +72,34 @@ func analyze(inv *inventory, spec core.AccountSpec, g *graph.Graph, now time.Tim
 		sgByID: map[string]ec2types.SecurityGroup{}, sgRegion: map[string]string{}, sgOpen: map[string]openInfo{},
 		profileRoles: map[string]string{}, datastores: map[string][]string{}}
 	a.acctN = core.EnsureAccount(g, model.ProviderAWS, a.acct, spec.Name)
-	// Datastores first so IAM grants can resolve "*" to every store in the account.
+	a.orgPolicies()
+	// Network reachability facts (subnets, route tables, NACLs, ENIs) before the resources
+	// that reference them.
+	a.eniPublic = a.network()
+	// Security groups first so RDS exposure sees their sources; datastores before IAM
+	// so grants can resolve "*" to every store in the account.
+	a.securityGroups()
 	a.buckets()
 	a.databases()
 	a.secrets()
-	a.securityGroups()
 	a.iam()
 	a.instances()
 	a.volumes()
 	a.addresses()
 	a.lambdas()
+	a.loadBalancers()
 	a.eks()
 	a.kms()
 	a.cloudtrail()
 	a.spend()
 	sort.SliceStable(a.findings, func(i, j int) bool { return a.findings[i].ID < a.findings[j].ID })
 	core.AttachFindings(g, a.findings)
+	// Evaluator-driven permission edges (internal/iam via graph.EvaluatePermissions); the CLI's
+	// graph.AttachFindings re-runs the pass on the merged multi-account graph.
+	g.EvaluatePermissions()
+	// Effective reachability on every internet edge / exposed node (internal/reach); the CLI's
+	// graph.AttachFindings re-runs it on the merged graph.
+	g.AnnotateReachability()
 	return a.findings, a.cost
 }
 
@@ -89,20 +107,44 @@ func analyze(inv *inventory, spec core.AccountSpec, g *graph.Graph, now time.Tim
 
 func (a *analyzer) buckets() {
 	sort.Slice(a.inv.buckets, func(i, j int) bool { return a.inv.buckets[i].Name < a.inv.buckets[j].Name })
+	acctPAB := a.inv.accountPAB
+	acctAll := acctPAB.All()
 	for _, b := range a.inv.buckets {
-		public := !b.PABAll && (b.PolicyPublic || b.ACLPublic)
+		// Effective exposure: a public ACL is neutralised by IgnorePublicAcls and a
+		// public policy by RestrictPublicBuckets, at bucket OR account level.
+		ignoreACLs := b.PABIgnoreACLs || (acctPAB != nil && acctPAB.IgnorePublicAcls)
+		restrictPolicy := b.PABRestrictPolicy || (acctPAB != nil && acctPAB.RestrictPublicBuckets)
+		public := !b.PABAll && !acctAll && ((b.PolicyPublic && !restrictPolicy) || (b.ACLPublic && !ignoreACLs))
+		pabSource := "none"
+		switch {
+		case b.PABAll && acctAll:
+			pabSource = "account+bucket"
+		case acctAll:
+			pabSource = "account"
+		case b.PABAll:
+			pabSource = "bucket"
+		}
 		res := model.Resource{ID: "arn:aws:s3:::" + b.Name, Type: "aws_s3_bucket", Name: b.Name, Attributes: map[string]any{
 			"region": b.Region, "public": public, "public_access_block": b.PABAll, "policy_public": b.PolicyPublic, "acl_public": b.ACLPublic, "encrypted": b.Encrypted,
+			"account_public_access_block": acctAll, "public_access_block_source": pabSource,
 		}}
+		if acctPAB == nil {
+			res.Attributes["account_public_access_block_known"] = false
+		}
+		setResourcePolicy(res.Attributes, b.Policy, b.PolicyStatus)
 		id := a.add(b.Region, res, b.Tags, b.Created, false)
 		a.datastores["s3"] = append(a.datastores["s3"], id)
 		detail := "Bucket is not publicly accessible."
 		switch {
+		case acctAll:
+			detail = "All four S3 Block Public Access settings are enabled at the account level, overriding any public bucket policy or ACL."
 		case b.PABAll:
 			detail = "All four S3 Block Public Access settings are enabled on the bucket."
 		case public:
-			detail = fmt.Sprintf("Bucket is public (policy public: %v, ACL grants AllUsers/AuthenticatedUsers: %v) and Block Public Access is not fully enabled.", b.PolicyPublic, b.ACLPublic)
-			a.g.AddEdge(graph.InternetNodeID, id, graph.EdgeExposes, map[string]any{"via": "s3_public_access"})
+			detail = fmt.Sprintf("Bucket is public (policy public: %v, ACL grants AllUsers/AuthenticatedUsers: %v) and Block Public Access (bucket or account level) does not neutralise it.", b.PolicyPublic && !restrictPolicy, b.ACLPublic && !ignoreACLs)
+			core.Expose(a.g, id, map[string]any{"via": "s3_public_access"}, nil, a.spec.TrustedCIDRs)
+		case (b.PolicyPublic || b.ACLPublic) && acctPAB != nil:
+			detail = "Bucket policy/ACL would be public but Block Public Access (IgnorePublicAcls / RestrictPublicBuckets, bucket or account level) neutralises it."
 		}
 		a.check("s3_bucket_public_access", res, b.Region, !public, detail)
 		if b.EncKnown {
@@ -133,6 +175,16 @@ func (a *analyzer) databases() {
 			"storage_encrypted": awssdk.ToBool(db.StorageEncrypted), "security_groups": sgs, "allocated_storage_gb": awssdk.ToInt32(db.AllocatedStorage)}
 		if db.DBSubnetGroup != nil {
 			attrs["vpc_id"] = awssdk.ToString(db.DBSubnetGroup.VpcId)
+			attrs["db_subnet_group"] = awssdk.ToString(db.DBSubnetGroup.DBSubnetGroupName)
+			var subnetIDs []string
+			for _, sn := range db.DBSubnetGroup.Subnets {
+				if id := awssdk.ToString(sn.SubnetIdentifier); id != "" {
+					subnetIDs = append(subnetIDs, id)
+				}
+			}
+			if len(subnetIDs) > 0 {
+				attrs["subnet_ids"] = subnetIDs
+			}
 		}
 		if db.Endpoint != nil {
 			attrs["endpoint"] = awssdk.ToString(db.Endpoint.Address)
@@ -152,9 +204,10 @@ func (a *analyzer) databases() {
 		a.check("rds_instance_no_public_access", res, d.Region, !public, map[bool]string{true: "DB instance is publicly accessible.", false: "DB instance is not publicly accessible."}[public])
 		enc := awssdk.ToBool(db.StorageEncrypted)
 		a.check("rds_instance_storage_encrypted", res, d.Region, enc, map[bool]string{true: "Storage is encrypted at rest.", false: "Storage is not encrypted at rest."}[enc])
-		a.attachSGs(id, d.Region, sgs, public, "rds_publicly_accessible")
-		if public {
-			a.g.AddEdge(graph.InternetNodeID, id, graph.EdgeExposes, map[string]any{"via": "rds_publicly_accessible"})
+		exposed := a.attachSGs(id, d.Region, sgs, public, "rds_publicly_accessible")
+		if public && !exposed && len(sgs) == 0 {
+			// Publicly accessible with no security group information: assume unrestricted.
+			core.Expose(a.g, id, map[string]any{"via": "rds_publicly_accessible"}, nil, a.spec.TrustedCIDRs)
 		}
 	}
 }
@@ -173,6 +226,15 @@ func (a *analyzer) secrets() {
 		}
 		res := model.Resource{ID: awssdk.ToString(s.Item.ARN), Type: "aws_secretsmanager_secret", Name: awssdk.ToString(s.Item.Name),
 			Attributes: map[string]any{"rotation_enabled": awssdk.ToBool(s.Item.RotationEnabled), "kms_key_id": awssdk.ToString(s.Item.KmsKeyId)}}
+		if arn := awssdk.ToString(s.Item.ARN); a.inv.secretPolicyErr[arn] {
+			setResourcePolicy(res.Attributes, "", "error")
+		} else if pol, ok := a.inv.secretPolicies[arn]; ok {
+			st := "none"
+			if pol != "" {
+				st = "collected"
+			}
+			setResourcePolicy(res.Attributes, pol, st)
+		}
 		id := a.add(s.Region, res, tags, created, true)
 		a.datastores["secretsmanager"] = append(a.datastores["secretsmanager"], id)
 	}
@@ -195,15 +257,21 @@ func sgOpenInfo(sg ec2types.SecurityGroup) openInfo {
 		}
 		oi.AllIngress = append(oi.AllIngress, spec)
 		open := false
+		var srcs []string
 		for _, r := range p.IpRanges {
-			if core.IsOpenCIDR(awssdk.ToString(r.CidrIp)) {
+			srcs = append(srcs, awssdk.ToString(r.CidrIp))
+		}
+		for _, r := range p.Ipv6Ranges {
+			srcs = append(srcs, awssdk.ToString(r.CidrIpv6))
+		}
+		for _, src := range srcs {
+			if core.IsOpenCIDR(src) {
 				open = true
 			}
 		}
-		for _, r := range p.Ipv6Ranges {
-			if core.IsOpenCIDR(awssdk.ToString(r.CidrIpv6)) {
-				open = true
-			}
+		if pub := core.PublicSources(srcs); len(pub) > 0 {
+			oi.PublicPorts = append(oi.PublicPorts, spec)
+			oi.PublicSources = append(oi.PublicSources, pub...)
 		}
 		for _, pair := range p.UserIdGroupPairs {
 			if id := awssdk.ToString(pair.GroupId); id != "" {
@@ -238,6 +306,7 @@ func (a *analyzer) securityGroups() {
 		id := arnEC2(s.Region, a.acct, "security-group", gid)
 		res := model.Resource{ID: id, Type: "aws_security_group", Name: awssdk.ToString(sg.GroupName), Attributes: map[string]any{
 			"group_id": gid, "vpc_id": awssdk.ToString(sg.VpcId), "description": awssdk.ToString(sg.Description), "open_to_internet": oi.Ports, "ingress": oi.AllIngress,
+			"ingress_rules": sgIngressRules(sg),
 		}}
 		a.add(s.Region, res, tagsEC2(sg.Tags), time.Time{}, false)
 		ports := strings.Join(oi.Ports, ",")
@@ -266,21 +335,25 @@ func openDetail(open bool, what, ports string) string {
 
 // attachSGs wires resource→sg attached_to, sg→resource allows_traffic_to, and internet
 // exposure when the resource is publicly addressable and an attached group is open.
-func (a *analyzer) attachSGs(resID, region string, sgs []string, publiclyAddressable bool, via string) {
-	var openPorts, openSGs []string
+// It reports whether the resource was exposed.
+func (a *analyzer) attachSGs(resID, region string, sgs []string, publiclyAddressable bool, via string) bool {
+	var openPorts, openSGs, sources []string
 	for _, sg := range sgs {
 		sgN := arnEC2(region, a.acct, "security-group", sg)
 		a.g.AddEdge(resID, sgN, graph.EdgeAttachedTo, nil)
 		oi := a.sgOpen[sg]
 		a.g.AddEdge(sgN, resID, graph.EdgeAllowsTrafficTo, map[string]any{"ports": oi.AllIngress, "internet_ports": oi.Ports})
-		if len(oi.Ports) > 0 {
-			openPorts = append(openPorts, oi.Ports...)
+		if len(oi.PublicPorts) > 0 {
+			openPorts = append(openPorts, oi.PublicPorts...)
 			openSGs = append(openSGs, sg)
+			sources = append(sources, oi.PublicSources...)
 		}
 	}
 	if publiclyAddressable && len(openPorts) > 0 {
-		a.g.AddEdge(graph.InternetNodeID, resID, graph.EdgeExposes, map[string]any{"via": via, "ports": openPorts, "security_groups": openSGs})
+		core.Expose(a.g, resID, map[string]any{"via": via, "ports": openPorts, "security_groups": openSGs}, sources, a.spec.TrustedCIDRs)
+		return true
 	}
+	return false
 }
 
 // ---------------------------------------------------------------- IAM
@@ -295,11 +368,23 @@ func (a *analyzer) iam() {
 		pi := a.inv.policies[arn]
 		a.policyNode(pi.ARN, pi.Name, pi.Document, pi.AWSManaged, "")
 	}
+	// holders: policy id -> principals it applies to (group policies apply to members);
+	// complete: principal -> every identity policy document parsed by the evaluator.
+	holders := map[string][]string{}
+	complete := map[string]bool{}
+	docOK := func(id string) bool {
+		n, ok := a.g.Node(id)
+		return ok && n.Attributes["policy_document"] != nil && n.Attributes["policy_parse_error"] == nil
+	}
 	link := func(from string, aps []iamtypes.AttachedPolicy) {
 		for _, ap := range aps {
 			parn := awssdk.ToString(ap.PolicyArn)
 			attached[parn] = true
 			a.g.AddEdge(from, parn, graph.EdgeHasPolicy, map[string]any{"type": "managed"})
+			holders[parn] = append(holders[parn], from)
+			if !docOK(parn) {
+				complete[from] = false
+			}
 		}
 	}
 	inline := func(from string, pds []iamtypes.PolicyDetail) {
@@ -308,10 +393,14 @@ func (a *analyzer) iam() {
 			pid := from + "/inline-policy/" + name
 			doc := a.policyNode(pid, name, awssdk.ToString(pd.PolicyDocument), false, from)
 			a.g.AddEdge(from, pid, graph.EdgeHasPolicy, map[string]any{"type": "inline"})
+			holders[pid] = append(holders[pid], from)
+			if !docOK(pid) {
+				complete[from] = false
+			}
 			if doc != nil {
 				res := model.Resource{ID: pid, Type: "aws_iam_policy", Name: name, Related: []string{from}}
 				admin := doc.IsAdmin()
-				a.check("iam_inline_policy_no_administrative_privileges", res, "", !admin, adminDetail(admin))
+				a.check("iam_inline_policy_no_administrative_privileges", res, "", !admin, adminDetail(doc.AdminLevel()))
 			}
 		}
 	}
@@ -319,11 +408,14 @@ func (a *analyzer) iam() {
 	for _, r := range a.inv.credReport {
 		creds[r["arn"]] = r
 	}
+	groupComplete := map[string]bool{}
 	for _, gd := range a.inv.groups {
 		arn := awssdk.ToString(gd.Arn)
 		a.add("", model.Resource{ID: arn, Type: "aws_iam_group", Name: awssdk.ToString(gd.GroupName)}, nil, timeOf(gd.CreateDate), false)
+		complete[arn] = true
 		link(arn, gd.AttachedManagedPolicies)
 		inline(arn, gd.GroupPolicyList)
+		groupComplete[awssdk.ToString(gd.GroupName)] = complete[arn]
 	}
 	groupArn := map[string]string{}
 	for _, gd := range a.inv.groups {
@@ -333,18 +425,39 @@ func (a *analyzer) iam() {
 		arn := awssdk.ToString(u.Arn)
 		row := creds[arn]
 		attrs := map[string]any{"groups": u.GroupList, "console_access": row["password_enabled"] == "true", "mfa_active": row["mfa_active"] == "true"}
+		if b := boundaryARN(u.PermissionsBoundary); b != "" {
+			attrs["permissions_boundary"] = b
+		}
 		a.add("", model.Resource{ID: arn, Type: "aws_iam_user", Name: awssdk.ToString(u.UserName), Attributes: attrs}, tagsIAM(u.Tags), timeOf(u.CreateDate), false)
+		complete[arn] = true
 		link(arn, u.AttachedManagedPolicies)
 		inline(arn, u.UserPolicyList)
 		for _, gname := range u.GroupList {
 			if garn, ok := groupArn[gname]; ok {
 				a.g.AddEdge(arn, garn, graph.EdgeMemberOf, nil)
+				for pid, hs := range holders {
+					for _, h := range hs {
+						if h == garn {
+							holders[pid] = append(holders[pid], arn)
+						}
+					}
+				}
+				if !groupComplete[gname] {
+					complete[arn] = false
+				}
+			} else {
+				complete[arn] = false
 			}
 		}
+		a.markComplete(arn, complete[arn], attrs["permissions_boundary"])
 	}
 	for _, r := range a.inv.roles {
+		arn := awssdk.ToString(r.Arn)
+		complete[arn] = true
 		a.role(r, link, inline)
+		a.markComplete(arn, complete[arn], boundaryARN(r.PermissionsBoundary))
 	}
+	a.heuristicFallback(holders)
 	// Admin checks for attached managed policies.
 	for _, arn := range core.SortedKeys(a.inv.policies) {
 		if !attached[arn] {
@@ -361,14 +474,17 @@ func (a *analyzer) iam() {
 		if pi.AWSManaged {
 			id = "iam_aws_attached_policy_no_administrative_privileges"
 		}
-		a.check(id, res, "", !admin, adminDetail(admin))
+		a.check(id, res, "", !admin, adminDetail(doc.AdminLevel()))
 	}
 	a.credentialChecks()
 }
 
-func adminDetail(admin bool) string {
-	if admin {
-		return `Policy allows "*" actions on "*" resources (full administrative privileges).`
+func adminDetail(level AdminLevel) string {
+	switch level {
+	case AdminFull:
+		return `Policy allows all actions (Action "*", "iam:*", or NotAction that leaves IAM privilege escalation open) on all resources, and no Deny removes it (full administrative privileges).`
+	case AdminConditional:
+		return "Policy grants administrative privileges only when its Condition holds (conditional admin); not full administrative privileges."
 	}
 	return "Policy does not grant full administrative privileges."
 }
@@ -380,33 +496,30 @@ func timeOf(t *time.Time) time.Time {
 	return *t
 }
 
-// policyNode adds the policy node and its datastore grants; it returns the parsed document.
+// policyNode adds the policy node with its raw document (policy_document, decoded JSON text;
+// policy_arn) and returns the parsed document. Data-store grants are not drawn from policy
+// nodes: the IAM evaluator draws principal -> store edges (graph.EvaluatePermissions).
 func (a *analyzer) policyNode(id, name, document string, awsManaged bool, owner string) *PolicyDocument {
-	attrs := map[string]any{"aws_managed": awsManaged}
+	attrs := map[string]any{"aws_managed": awsManaged, "policy_arn": id}
 	if owner != "" {
 		attrs["inline_of"] = owner
 	}
 	var doc *PolicyDocument
 	if document != "" {
+		text := decodeDoc(document)
+		attrs["policy_document"] = text
 		if d, err := ParsePolicy(document); err == nil {
 			doc = &d
 			attrs["admin"] = d.IsAdmin()
+			attrs["admin_level"] = d.AdminLevel().String()
+			if d.evaluated == nil {
+				attrs["policy_parse_error"] = "the IAM evaluator cannot parse this document (statement heuristic fallback, confidence hint)"
+			}
+		} else {
+			attrs["policy_parse_error"] = err.Error()
 		}
 	}
 	a.add("", model.Resource{ID: id, Type: "aws_iam_policy", Name: name, Attributes: attrs}, nil, time.Time{}, false)
-	if doc == nil {
-		return nil
-	}
-	for _, da := range doc.DataAccess() {
-		for _, target := range a.datastores[da.Service] {
-			for _, pat := range da.Resources {
-				if MatchesResource(pat, target) {
-					a.g.AddEdge(id, target, graph.EdgeGrantsAccessTo, map[string]any{"actions": da.Actions, "service": da.Service, "resource_pattern": pat})
-					break
-				}
-			}
-		}
-	}
 	return doc
 }
 
@@ -420,6 +533,12 @@ func (a *analyzer) role(r iamtypes.RoleDetail, link func(string, []iamtypes.Atta
 		a.profileRoles[parn] = arn
 	}
 	attrs := map[string]any{"path": path, "instance_profiles": profiles, "service_linked": strings.HasPrefix(path, "/aws-service-role/")}
+	if t := awssdk.ToString(r.AssumeRolePolicyDocument); t != "" {
+		attrs["trust_policy"] = decodeDoc(t)
+	}
+	if b := boundaryARN(r.PermissionsBoundary); b != "" {
+		attrs["permissions_boundary"] = b
+	}
 	if r.RoleLastUsed != nil && r.RoleLastUsed.LastUsedDate != nil {
 		attrs["last_used"] = r.RoleLastUsed.LastUsedDate.UTC().Format(time.RFC3339)
 	}
@@ -580,6 +699,23 @@ func (a *analyzer) instances() {
 		if in.PublicIpAddress != nil {
 			attrs["public_ip"] = awssdk.ToString(in.PublicIpAddress)
 		}
+		// Every public IPv4 on the instance's ENIs (primary public IP, Elastic IPs on secondary
+		// ENIs); an empty list is a collected "none" for the reachability model.
+		pubIPs := []string{}
+		if in.PublicIpAddress != nil {
+			pubIPs = append(pubIPs, awssdk.ToString(in.PublicIpAddress))
+		}
+		for _, ni := range in.NetworkInterfaces {
+			if ni.Association != nil && awssdk.ToString(ni.Association.PublicIp) != "" {
+				pubIPs = append(pubIPs, awssdk.ToString(ni.Association.PublicIp))
+			}
+		}
+		pubIPs = append(pubIPs, a.eniPublic[iid]...)
+		pubIPs = dedupe(pubIPs)
+		if pubIPs == nil {
+			pubIPs = []string{}
+		}
+		attrs["public_ips"] = pubIPs
 		var related []string
 		profile, role := "", ""
 		if in.IamInstanceProfile != nil {
@@ -606,7 +742,7 @@ func (a *analyzer) instances() {
 			a.g.AddEdge(id, profile, graph.EdgeRunsAs, nil)
 		}
 		res.Related = related
-		a.attachSGs(id, ri.Region, sgs, in.PublicIpAddress != nil, "public_ip+open_security_group")
+		a.attachSGs(id, ri.Region, sgs, len(pubIPs) > 0, "public_ip+open_security_group")
 
 		imdsv2 := in.MetadataOptions != nil && (in.MetadataOptions.HttpTokens == ec2types.HttpTokensStateRequired || in.MetadataOptions.HttpEndpoint == ec2types.InstanceMetadataEndpointStateDisabled)
 		a.check("ec2_instance_imdsv2_enabled", res, ri.Region, imdsv2, map[bool]string{true: "IMDSv2 is required (or the metadata endpoint is disabled).", false: "Instance metadata service accepts IMDSv1 requests (HttpTokens optional)."}[imdsv2])
@@ -713,6 +849,7 @@ func (a *analyzer) lambdas() {
 			attrs["vpc_id"] = awssdk.ToString(fn.VpcConfig.VpcId)
 			attrs["security_groups"] = sgs
 		}
+		setResourcePolicy(attrs, lf.Policy, lf.PolicyStatus)
 		res := model.Resource{ID: arn, Type: "aws_lambda_function", Name: awssdk.ToString(fn.FunctionName), Attributes: attrs}
 		var modified time.Time
 		if t, err := time.Parse("2006-01-02T15:04:05.000-0700", awssdk.ToString(fn.LastModified)); err == nil {
@@ -725,7 +862,7 @@ func (a *analyzer) lambdas() {
 		a.attachSGs(arn, lf.Region, sgs, false, "")
 		public := lf.URL != "" && strings.EqualFold(lf.URLAuth, "NONE")
 		if public {
-			a.g.AddEdge(graph.InternetNodeID, arn, graph.EdgeExposes, map[string]any{"via": "lambda_function_url", "url": lf.URL})
+			core.Expose(a.g, arn, map[string]any{"via": "lambda_function_url", "url": lf.URL}, nil, a.spec.TrustedCIDRs)
 		}
 		d := "Function has no public function URL."
 		if public {
@@ -740,8 +877,8 @@ func (a *analyzer) eks() {
 		c := rc.Item
 		arn := awssdk.ToString(c.Arn)
 		attrs := map[string]any{"version": awssdk.ToString(c.Version), "iam_role": awssdk.ToString(c.RoleArn)}
-		var sgs []string
-		public := false
+		var sgs, endpointSources []string
+		public, reachable := false, false
 		if v := c.ResourcesVpcConfig; v != nil {
 			sgs = append(sgs, v.SecurityGroupIds...)
 			if v.ClusterSecurityGroupId != nil {
@@ -760,6 +897,8 @@ func (a *analyzer) eks() {
 				if len(v.PublicAccessCidrs) == 0 {
 					public = true
 				}
+				endpointSources = core.PublicSources(v.PublicAccessCidrs)
+				reachable = len(v.PublicAccessCidrs) == 0 || len(endpointSources) > 0
 			}
 		}
 		res := model.Resource{ID: arn, Type: "aws_eks_cluster", Name: awssdk.ToString(c.Name), Attributes: attrs}
@@ -768,8 +907,8 @@ func (a *analyzer) eks() {
 			a.g.AddEdge(arn, role, graph.EdgeRunsAs, nil)
 		}
 		a.attachSGs(arn, rc.Region, sgs, false, "")
-		if public {
-			a.g.AddEdge(graph.InternetNodeID, arn, graph.EdgeExposes, map[string]any{"via": "eks_public_endpoint"})
+		if reachable {
+			core.Expose(a.g, arn, map[string]any{"via": "eks_public_endpoint"}, endpointSources, a.spec.TrustedCIDRs)
 		}
 		d := "Cluster API endpoint is private or restricted to specific CIDRs."
 		if public {
@@ -782,6 +921,7 @@ func (a *analyzer) eks() {
 func (a *analyzer) kms() {
 	for _, k := range a.inv.keys {
 		res := model.Resource{ID: k.ARN, Type: "aws_kms_key", Name: k.ID, Attributes: map[string]any{"rotation_enabled": k.Rotation}}
+		setResourcePolicy(res.Attributes, k.Policy, k.PolicyStatus)
 		a.add(k.Region, res, nil, time.Time{}, false)
 		a.check("kms_cmk_rotation_enabled", res, k.Region, k.Rotation, map[bool]string{true: "Automatic key rotation is enabled.", false: "Automatic key rotation is disabled."}[k.Rotation])
 	}

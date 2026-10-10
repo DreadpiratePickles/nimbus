@@ -1,0 +1,81 @@
+category: kms
+cases:
+  - name: KMS identity allow without key policy supplied is implicit deny
+    source: https://docs.aws.amazon.com/kms/latest/developerguide/control-access.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: kms:Decrypt, resource: "arn:aws:kms:us-east-1:111111111111:key/1234abcd-12ab-34cd-56ef-1234567890ab"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Decrypt, Effect: Allow, Action: "kms:Decrypt", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [id#Decrypt]}
+
+  - name: KMS default key policy enables IAM policies
+    source: https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html#key-policy-default-allow-root-enable-iam
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: kms:Decrypt, resource: "arn:aws:kms:us-east-1:111111111111:key/1234abcd-12ab-34cd-56ef-1234567890ab"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Decrypt, Effect: Allow, Action: "kms:Decrypt", Resource: "*"}]}
+    resource_policy:
+      id: keypol
+      document: {Version: "2012-10-17", Statement: [{Sid: "Enable IAM User Permissions", Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:root"}, Action: "kms:*", Resource: "*"}]}
+    expect: {decision: allow, matched: [id#Decrypt, "keypol#Enable IAM User Permissions"]}
+
+  - name: KMS key policy without the account statement ignores identity allow
+    source: https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: kms:Decrypt, resource: "arn:aws:kms:us-east-1:111111111111:key/k1"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Decrypt, Effect: Allow, Action: "kms:*", Resource: "*"}]}
+    resource_policy:
+      id: keypol
+      document: {Version: "2012-10-17", Statement: [{Sid: AdminsOnly, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:role/key-admin"}, Action: "kms:*", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [id#Decrypt]}
+
+  - name: KMS key policy naming the role grants without identity policy
+    source: https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: kms:Decrypt, resource: "arn:aws:kms:us-east-1:111111111111:key/k1"}
+    resource_policy:
+      id: keypol
+      document: {Version: "2012-10-17", Statement: [{Sid: App, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:role/app"}, Action: ["kms:Decrypt", "kms:GenerateDataKey*"], Resource: "*"}]}
+    expect: {decision: allow, matched: [keypol#App]}
+
+  - name: KMS cross-account needs key policy and caller identity
+    source: https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-modifying-external-accounts.html
+    request: {principal: "arn:aws:sts::222222222222:assumed-role/reader/s", action: kms:Decrypt, resource: "arn:aws:kms:us-east-1:111111111111:key/k1"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Decrypt, Effect: Allow, Action: "kms:Decrypt", Resource: "arn:aws:kms:us-east-1:111111111111:key/k1"}]}
+    resource_policy:
+      id: keypol
+      document: {Version: "2012-10-17", Statement: [{Sid: External, Effect: Allow, Principal: {AWS: "arn:aws:iam::222222222222:root"}, Action: ["kms:Decrypt"], Resource: "*"}]}
+    expect: {decision: allow, matched: [id#Decrypt, keypol#External]}
+
+  - name: KMS cross-account key policy alone is implicit deny
+    source: https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-modifying-external-accounts.html
+    request: {principal: "arn:aws:sts::222222222222:assumed-role/reader/s", action: kms:Decrypt, resource: "arn:aws:kms:us-east-1:111111111111:key/k1"}
+    resource_policy:
+      id: keypol
+      document: {Version: "2012-10-17", Statement: [{Sid: External, Effect: Allow, Principal: {AWS: "arn:aws:iam::222222222222:root"}, Action: ["kms:Decrypt"], Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [keypol#External]}
+
+  - name: KMS key policy deny wins over everything
+    source: https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: kms:ScheduleKeyDeletion, resource: "arn:aws:kms:us-east-1:111111111111:key/k1"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "kms:*", Resource: "*"}]}
+    resource_policy:
+      id: keypol
+      document:
+        Version: "2012-10-17"
+        Statement:
+          - {Sid: EnableIAM, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:root"}, Action: "kms:*", Resource: "*"}
+          - {Sid: NoDelete, Effect: Deny, Principal: "*", Action: "kms:ScheduleKeyDeletion", Resource: "*"}
+    expect: {decision: explicit_deny, matched: [id#All, keypol#EnableIAM, keypol#NoDelete]}
+
+  - name: KMS ViaService condition satisfied
+    source: https://docs.aws.amazon.com/kms/latest/developerguide/conditions-kms.html#conditions-kms-via-service
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s", action: kms:Decrypt, resource: "arn:aws:kms:us-east-1:111111111111:key/k1", context: {"kms:ViaService": s3.us-east-1.amazonaws.com}}
+    resource_policy:
+      id: keypol
+      document: {Version: "2012-10-17", Statement: [{Sid: ViaS3, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:role/app"}, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:ViaService": s3.us-east-1.amazonaws.com}}}]}
+    expect: {decision: allow, matched: [keypol#ViaS3]}

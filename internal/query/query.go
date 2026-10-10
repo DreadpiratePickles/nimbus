@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/DreadpiratePickles/nimbus/internal/store"
 )
@@ -18,6 +19,8 @@ type Result struct {
 	Columns []string `json:"columns"`
 	Rows    [][]any  `json:"rows"`
 	Engine  string   `json:"engine"` // local | steampipe
+	// Truncated is set when the row cap cut the result short.
+	Truncated bool `json:"truncated,omitempty"`
 }
 
 var tableRe = regexp.MustCompile(`(?i)\b(?:from|join)\s+([a-zA-Z_][a-zA-Z0-9_.]*)`)
@@ -31,37 +34,27 @@ func Tables(sqlText string) []string {
 	return out
 }
 
-// IsReadOnly rejects anything but a single SELECT/WITH/EXPLAIN statement.
-func IsReadOnly(sqlText string) bool {
-	s := strings.TrimSpace(strings.ToLower(stripComments(sqlText)))
-	s = strings.TrimSuffix(s, ";")
-	if strings.Contains(s, ";") {
-		return false
-	}
-	for _, kw := range []string{"insert ", "update ", "delete ", "drop ", "alter ", "create ", "attach ", "detach ", "pragma ", "replace ", "vacuum"} {
-		if strings.Contains(s, kw) {
-			return false
-		}
-	}
-	return strings.HasPrefix(s, "select") || strings.HasPrefix(s, "with") || strings.HasPrefix(s, "explain")
-}
+// IsReadOnly reports whether sqlText passes the lexical read-only check (one SELECT/WITH
+// statement, no ATTACH/DETACH/PRAGMA, no sqlite_*/pragma_* references). Run additionally
+// enforces read-only execution in the engine; see store.QueryReadOnly.
+func IsReadOnly(sqlText string) bool { return store.CheckReadOnlySQL(sqlText) == nil }
 
-func stripComments(s string) string {
-	var out []string
-	for _, line := range strings.Split(s, "\n") {
-		if i := strings.Index(line, "--"); i >= 0 {
-			line = line[:i]
-		}
-		out = append(out, line)
-	}
-	return strings.Join(out, "\n")
+// Options bound a local query; zero values use the store defaults.
+type Options struct {
+	Timeout time.Duration
+	MaxRows int
 }
 
 // Run executes against the local DB; when the query references tables the local DB does not
 // have and Steampipe is installed, it is proxied to `steampipe query`.
 func Run(ctx context.Context, st *store.Store, sqlText string, forceEngine string) (*Result, error) {
-	if !IsReadOnly(sqlText) {
-		return nil, fmt.Errorf("only read-only SELECT queries are allowed")
+	return RunWith(ctx, st, sqlText, forceEngine, Options{})
+}
+
+// RunWith is Run with explicit limits.
+func RunWith(ctx context.Context, st *store.Store, sqlText string, forceEngine string, opts Options) (*Result, error) {
+	if err := store.CheckReadOnlySQL(sqlText); err != nil {
+		return nil, err
 	}
 	if _, err := EnsureAllViews(st); err != nil {
 		return nil, err
@@ -80,11 +73,11 @@ func Run(ctx context.Context, st *store.Store, sqlText string, forceEngine strin
 	if useSteampipe {
 		return runSteampipe(ctx, sqlText)
 	}
-	cols, rows, err := st.Query(sqlText)
+	res, err := st.QueryReadOnly(ctx, sqlText, store.ReadOnlyOptions{Timeout: opts.Timeout, MaxRows: opts.MaxRows})
 	if err != nil {
 		return nil, err
 	}
-	return &Result{Columns: cols, Rows: rows, Engine: "local"}, nil
+	return &Result{Columns: res.Columns, Rows: res.Rows, Engine: "local", Truncated: res.Truncated}, nil
 }
 
 func runSteampipe(ctx context.Context, sqlText string) (*Result, error) {
@@ -129,6 +122,8 @@ var frameworkViews = []string{"cis_aws", "cis_azure", "cis_gcp", "cis_k8s", "cis
 
 // EnsureAllViews (re)creates inventory, compliance and attack-path views.
 func EnsureAllViews(st *store.Store) ([]string, error) {
+	st.LockViews()
+	defer st.UnlockViews()
 	views, err := st.EnsureViews()
 	if err != nil {
 		return nil, err
@@ -187,24 +182,19 @@ func firstLine(s string) string {
 }
 
 // Schema returns a compact description of tables/views and columns for copilots and --describe.
+// It lists exactly what untrusted SQL may read (store.QueryableTables), so /api/schema is the
+// read-only query allowlist.
 func Schema(st *store.Store) (map[string][]string, error) {
 	if _, err := EnsureAllViews(st); err != nil {
 		return nil, err
 	}
-	rows, err := st.DB().Query("SELECT name, type FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name")
+	names, err := st.QueryableTables()
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	out := map[string][]string{}
-	var names []string
-	for rows.Next() {
-		var n, t string
-		rows.Scan(&n, &t)
-		names = append(names, n)
-	}
 	for _, n := range names {
-		crow, err := st.DB().Query("SELECT name FROM pragma_table_info('" + n + "')")
+		crow, err := st.DB().Query("SELECT name FROM pragma_table_info(?)", n)
 		if err != nil {
 			continue
 		}

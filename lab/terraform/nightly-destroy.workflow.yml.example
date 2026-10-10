@@ -1,0 +1,30 @@
+# SKETCH, not active: copy to .github/workflows/lab-nightly.yml once lab credentials exist.
+# Runs the cloud lab benchmark nightly and always destroys it afterwards (cost ceiling).
+name: lab-nightly
+on:
+  schedule: [{cron: '0 5 * * *'}]
+  workflow_dispatch:
+permissions: {id-token: write, contents: read}
+concurrency: {group: nimbus-lab, cancel-in-progress: false}
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env: {NIMBUS_E2E: '1', TF_VAR_external_account_id: '${{ vars.LAB_EXTERNAL_ACCOUNT_ID }}'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: '${{ vars.LAB_ROLE_ARN }}', aws-region: us-east-1}   # OIDC, no stored keys
+      - run: echo "TF_VAR_expires_at=$(date -u -d '+3 hours' +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - run: make -C lab/terraform lab-up
+      - run: go test ./tests/e2e -v   # NIMBUS_E2E=1: scan the lab, score against lab/ground_truth.yaml
+      - if: always()
+        run: make -C lab/terraform lab-down
+  reaper:
+    # Belt and braces: destroy anything tagged nimbus_lab=true whose expires_at has passed.
+    runs-on: ubuntu-latest
+    needs: lab
+    if: always()
+    steps:
+      - run: echo "TODO: aws resourcegroupstaggingapi get-resources --tag-filters Key=nimbus_lab,Values=true | filter expires_at < now | delete"

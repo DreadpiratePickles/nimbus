@@ -1,30 +1,157 @@
 name: cloud-posture
-description: Scan IaC and cloud accounts, post results as a PR comment and SARIF code scanning alerts, fail on severity.
+description: Scan IaC and cloud accounts, post results and the plan-time attack-path diff ("this PR opens N / closes M attack paths") as sticky PR comments and SARIF, fail on severity or on opened paths.
 branding: {icon: shield, color: blue}
+# Supply-chain notes:
+#  * Reference this action by full commit SHA, e.g.
+#      uses: DreadpiratePickles/nimbus@<40-hex-sha> # v0.2.0
+#  * It installs the release named by `version` with the install.sh that ships *in this action's own
+#    checkout* (github.action_path, i.e. the same pinned SHA), never `main`. The download is verified
+#    against checksums.txt and the cosign keyless signature (signature mandatory by default).
+#  * Inputs reach shell steps only through env vars, never `${{ }}` interpolation into scripts.
+#  * Linux and macOS runners only.
 inputs:
   iac-path: {description: Directory of IaC to scan, default: "."}
   accounts: {description: Comma-separated accounts from cloud-posture.yaml (cloud scans), default: ""}
   fail-on: {description: Minimum severity that fails the job, default: HIGH}
   sarif: {description: Upload SARIF to GitHub code scanning, default: "true"}
   pr-comment: {description: Post a sticky PR comment with results, default: "true"}
-  version: {description: cloud-posture release to install, default: latest}
+  version: {description: "cloud-posture release tag to install (a tag, never a branch)", default: v0.2.0}
+  require-signature: {description: "Fail unless the cosign signature verifies", default: "true"}
+  install: {description: "Install the release (false: use a cloud-posture already on PATH, e.g. built from source)", default: "true"}
+  scan: {description: "Run the IaC / cloud scan step", default: "true"}
+  # Plan-time attack-path diff (docs/plan-diff.md). Set plan-json OR terraform-dir.
+  plan-json: {description: "Path to `terraform show -json` / `tofu show -json` output of a saved plan", default: ""}
+  terraform-dir: {description: "Run init + plan -out + show -json here (OpenTofu when `tofu` is on PATH, else terraform)", default: ""}
+  terraform-var-file: {description: "Optional -var-file for the plan (relative to terraform-dir)", default: ""}
+  terraform-refresh: {description: "false adds -refresh=false to the plan", default: "true"}
+  redact: {description: "Topology redaction in the comment: auto (on unless the repository is private) | on | off", default: auto}
+  trusted-cidrs: {description: "Comma-separated trusted CIDRs (never an internet entry)", default: ""}
+  max-paths: {description: "Max paths listed per section of the plan-diff comment", default: "10"}
+  fail-on-opened: {description: "Fail the job when the plan opens an attack path", default: "false"}
+  suggestions: {description: "Offer one-click GitHub suggestions (one per hunk) for fixes of opened / escalated paths, patched from the Terraform in terraform-dir (else iac-path)", default: "true"}
 runs:
   using: composite
   steps:
-    - shell: bash
-      run: curl -fsSL https://raw.githubusercontent.com/DreadpiratePickles/nimbus/main/install.sh | bash -s -- "${{ inputs.version }}"
-    - shell: bash
+    - name: Install cosign
+      if: inputs.install == 'true' && inputs.require-signature == 'true'
+      uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+    - name: Install cloud-posture (verified release)
+      if: inputs.install == 'true'
+      shell: bash
+      env:
+        CP_VERSION: ${{ inputs.version }}
+        CP_REQUIRE_SIG: ${{ inputs.require-signature }}
+        CP_ACTION_PATH: ${{ github.action_path }}
       run: |
         set -euo pipefail
-        ARGS="--iac ${{ inputs.iac-path }} --output json --out-file cloud-posture.json --sarif cloud-posture.sarif --fail-on ${{ inputs.fail-on }} --no-store"
-        if [ -n "${{ inputs.accounts }}" ]; then ARGS="$ARGS --accounts ${{ inputs.accounts }}"; fi
-        cloud-posture scan $ARGS || echo "CP_FAILED=1" >> "$GITHUB_ENV"
+        dir="$RUNNER_TEMP/cloud-posture-bin"
+        args=(--version "$CP_VERSION" --install-dir "$dir")
+        if [ "$CP_REQUIRE_SIG" = "true" ]; then args+=(--require-signature); fi
+        sh "$CP_ACTION_PATH/install.sh" "${args[@]}"
+        echo "$dir" >> "$GITHUB_PATH"
+    - name: Scan
+      if: inputs.scan == 'true'
+      shell: bash
+      env:
+        CP_IAC: ${{ inputs.iac-path }}
+        CP_ACCOUNTS: ${{ inputs.accounts }}
+        CP_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        set -euo pipefail
+        args=(--iac "$CP_IAC" --output json --out-file cloud-posture.json --sarif cloud-posture.sarif --fail-on "$CP_FAIL_ON" --no-store)
+        if [ -n "$CP_ACCOUNTS" ]; then args+=(--accounts "$CP_ACCOUNTS"); fi
+        cloud-posture scan "${args[@]}" || echo "CP_FAILED=1" >> "$GITHUB_ENV"
     - if: inputs.sarif == 'true' && hashFiles('cloud-posture.sarif') != ''
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
       with: {sarif_file: cloud-posture.sarif}
     - if: inputs.pr-comment == 'true' && github.event_name == 'pull_request'
       shell: bash
-      run: cloud-posture pr-comment --results cloud-posture.json --repo "${{ github.repository }}" --pr "${{ github.event.pull_request.number }}"
-      env: {GITHUB_TOKEN: "${{ github.token }}"}
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        CP_REPO: ${{ github.repository }}
+        CP_PR: ${{ github.event.pull_request.number }}
+      run: cloud-posture pr-comment --results cloud-posture.json --repo "$CP_REPO" --pr "$CP_PR"
+    # ---- plan-time attack-path diff (P1-PLANDIFF; untrusted-input rules in docs/plan-diff.md):
+    #  * only under pull_request, push or workflow_dispatch (an allowlist): never under
+    #    pull_request_target, workflow_run, issue_comment or any other event where a fork's plan
+    #    JSON or Terraform (providers, external data sources) could run with the base
+    #    repository's token and secrets;
+    #  * the plan and its JSON stay in $RUNNER_TEMP and are never uploaded as artefacts;
+    #  * a fork PR's read-only token cannot comment: the comment step warns, the gate still applies.
+    - name: Plan-diff guard
+      if: inputs.plan-json != '' || inputs.terraform-dir != ''
+      shell: bash
+      env:
+        CP_EVENT: ${{ github.event_name }}
+      run: |
+        # Allowlist, not denylist: only events whose checkout and token cannot be steered by an
+        # untrusted fork run the plan (pull_request_target, workflow_run, issue_comment, ... are
+        # refused by name).
+        case "$CP_EVENT" in
+          pull_request|push|workflow_dispatch) ;;
+          pull_request_target)
+            echo "::error::plan diff refuses to run under pull_request_target (fork-supplied plans and Terraform would run with the base repository's secrets); use pull_request"
+            exit 1 ;;
+          *)
+            echo "::error::plan diff refuses to run under the '${CP_EVENT//[^A-Za-z0-9_]/_}' event; allowed events: pull_request, push, workflow_dispatch"
+            exit 1 ;;
+        esac
+    - name: Terraform plan (show -json)
+      if: inputs.terraform-dir != '' && inputs.plan-json == ''
+      shell: bash
+      env:
+        CP_TF_DIR: ${{ inputs.terraform-dir }}
+        CP_TF_VARFILE: ${{ inputs.terraform-var-file }}
+        CP_TF_REFRESH: ${{ inputs.terraform-refresh }}
+        TF_IN_AUTOMATION: "1"
+        TF_INPUT: "0"
+      run: |
+        set -euo pipefail
+        if command -v tofu >/dev/null 2>&1; then tf=tofu; elif command -v terraform >/dev/null 2>&1; then tf=terraform; else
+          echo "::error::terraform-dir needs tofu or terraform on PATH"; exit 1; fi
+        args=(plan -input=false -lock=false -no-color -out="$RUNNER_TEMP/nimbus.tfplan")
+        if [ "$CP_TF_REFRESH" = "false" ]; then args+=(-refresh=false); fi
+        if [ -n "$CP_TF_VARFILE" ]; then args+=(-var-file="$CP_TF_VARFILE"); fi
+        (cd "$CP_TF_DIR" && "$tf" init -input=false -no-color >/dev/null && "$tf" "${args[@]}" >/dev/null && "$tf" show -json "$RUNNER_TEMP/nimbus.tfplan" > "$RUNNER_TEMP/nimbus-plan.json")
+        echo "CP_PLAN_JSON=$RUNNER_TEMP/nimbus-plan.json" >> "$GITHUB_ENV"
+    - name: Plan diff (opened / closed attack paths)
+      if: inputs.plan-json != '' || inputs.terraform-dir != ''
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        CP_PLAN_INPUT: ${{ inputs.plan-json }}
+        CP_EVENT: ${{ github.event_name }}
+        CP_REPO: ${{ github.repository }}
+        CP_PR: ${{ github.event.pull_request.number }}
+        CP_REDACT: ${{ inputs.redact }}
+        CP_TRUSTED: ${{ inputs.trusted-cidrs }}
+        CP_MAX_PATHS: ${{ inputs.max-paths }}
+        CP_FAIL_OPENED: ${{ inputs.fail-on-opened }}
+        CP_COMMENT: ${{ inputs.pr-comment }}
+        CP_IAC: ${{ inputs.iac-path }}
+        CP_TF_DIR: ${{ inputs.terraform-dir }}
+        CP_SUGGEST: ${{ inputs.suggestions }}
+      run: |
+        set -uo pipefail
+        plan="${CP_PLAN_JSON:-$CP_PLAN_INPUT}"
+        args=(pr-comment --plan-json "$plan" --redact "$CP_REDACT" --max-paths "$CP_MAX_PATHS" --sarif nimbus-paths.sarif --bot-login "github-actions[bot]")
+        if [ "$CP_SUGGEST" = "true" ]; then args+=(--iac "${CP_TF_DIR:-$CP_IAC}"); fi
+        if [ -n "$CP_TRUSTED" ]; then args+=(--trusted-cidr "$CP_TRUSTED"); fi
+        if [ "$CP_FAIL_OPENED" = "true" ]; then args+=(--fail-on-opened); fi
+        if [ "$CP_COMMENT" = "true" ] && [ "$CP_EVENT" = "pull_request" ] && [ -n "$CP_PR" ]; then
+          args+=(--repo "$CP_REPO" --pr "$CP_PR")
+          cloud-posture "${args[@]}"
+        else
+          cloud-posture "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+        fi
+        rc=${PIPESTATUS[0]}
+        if [ "$rc" = "3" ]; then echo "CP_OPENED=1" >> "$GITHUB_ENV"; elif [ "$rc" != "0" ]; then exit "$rc"; fi
+    - if: (inputs.plan-json != '' || inputs.terraform-dir != '') && inputs.sarif == 'true' && hashFiles('nimbus-paths.sarif') != ''
+      uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      with: {sarif_file: nimbus-paths.sarif, category: nimbus-plan-diff}
     - shell: bash
-      run: if [ "${CP_FAILED:-0}" = "1" ]; then echo "::error::findings at or above ${{ inputs.fail-on }}"; exit 1; fi
+      env:
+        CP_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        if [ "${CP_OPENED:-0}" = "1" ]; then echo "::error::this change opens at least one attack path (plan diff)"; exit 1; fi
+        if [ "${CP_FAILED:-0}" = "1" ]; then echo "::error::findings at or above $CP_FAIL_ON"; exit 1; fi

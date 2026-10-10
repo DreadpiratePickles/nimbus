@@ -66,11 +66,13 @@ def test_llm_path_with_fake_client(monkeypatch, seeded):
             return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text=text)])
 
     monkeypatch.delenv("NIMBUS_OFFLINE", raising=False)
+    monkeypatch.delenv("CLOUD_POSTURE_NO_NETWORK", raising=False)  # this test simulates an online setup
     monkeypatch.delenv("NIMBUS_MODEL", raising=False)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
     monkeypatch.setattr(llm, "_get_client", lambda: SimpleNamespace(beta=SimpleNamespace(messages=FakeMessages())))
     res = SecurityCopilot(seeded).ask("how many open findings?")
-    assert res["mode"] == "llm" and res["rows"] == [[11]] and res["answer"] == "There are 11 open findings."
+    assert res["mode"] == "llm" and res["rows"] == [[11]] and res["answer"].startswith("There are 11 open findings.\n\nSources: 1 query (--show-sql to print)")
+    assert res["citations"]["queries"] == [res["sql"]] and res["sql"].startswith("SELECT COUNT(*)")
     assert calls[0]["model"] == "claude-opus-5-5" and calls[0]["fallbacks"] == "default"
     assert calls[0]["betas"] == ["server-side-fallback-2026-07-01"] and "thinking" not in calls[0]
     # unsafe model SQL is rejected, never executed

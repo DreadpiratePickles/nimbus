@@ -1,0 +1,376 @@
+# Ground truth for the nimbus NOISE estate (lab/local/noise/estate.yaml). Authored with it, independently of the engine.
+#
+# Semantics
+#   expected_paths (per resource): number of attack paths a precise engine should report in which this resource
+#     appears as a step. 0 for every decoy and near-miss. Only the members of the three labelled true-positive
+#     chains (true_positives below) carry 1.
+#   expected_paths_total: the exact number of attack paths a precise engine should report for the whole estate (3).
+#     Any reported path whose resource set is not one of the true_positives chains (or a sub-chain of one, sharing its
+#     entry and target) is a false positive.
+#   findings: the seeded scanner findings (weakness ids; generated finding id = "lab-" + id) on that resource. They are
+#     realistic scanner noise: present and individually "true" as scanner output, but not a path.
+#   near_miss: the resource name is designed to look alarming (admin/prod/pii/customer/root/secret); attributes are benign.
+#   why: the attribute-level reason it is benign (or, for true positives, its role in the chain).
+
+version: 1
+estate: lab/local/noise/estate.yaml
+findings_json: lab/local/out/noise.findings.json
+author: independent noise-estate author (P0-NOISE); file-read log in lab/local/noise/AUTHOR_LOG.md
+authored: 2026-10-09
+expected_paths_total: 3
+
+summary:
+  resources: 300
+  seeded_findings: 103
+  near_misses: 26
+  true_positive_chains: 3
+  true_positive_resources: 9
+  benign_resources: 291
+
+classes:
+  NZ01: {slug: "public_website_bucket", resources: 12, findings: 11, description: "Public buckets that only serve public website assets (no sensitive tag), mostly behind CloudFront"}
+  NZ02: {slug: "alb_private_imdsv2", resources: 35, findings: 10, description: "Internet-facing ALBs in front of private instances (no public IP, IMDSv2 required, scoped roles, no exploitable CVE)"}
+  NZ03: {slug: "sg_443_alb_only", resources: 16, findings: 3, description: "Security groups open to 0.0.0.0/0 on 443 only, attached only to load balancers fronting ECS services"}
+  NZ04: {slug: "scoped_readonly_role", resources: 12, findings: 1, description: "Roles with broad-but-scoped read-only policies, trusted only by SSO or AWS services"}
+  NZ05: {slug: "unreachable_admin_role", resources: 5, findings: 4, description: "Admin roles only assumable via SSO SAML with MFA condition; no workload or external trust"}
+  NZ06: {slug: "org_cross_account_trust", resources: 12, findings: 4, description: "Cross-account trusts to the org's own accounts (PrincipalOrgID / ExternalId conditions)"}
+  NZ07: {slug: "lambda_url_iam_auth", resources: 16, findings: 3, description: "Lambda function URLs with AuthType AWS_IAM (some with org-scoped resource policies scanners call public)"}
+  NZ08: {slug: "eks_private_endpoint", resources: 2, findings: 0, description: "EKS clusters with private-only API endpoints"}
+  NZ09: {slug: "k8s_namespaced_read_sa", resources: 30, findings: 5, description: "K8s service accounts bound to namespaced read-only roles"}
+  NZ10: {slug: "gcp_custom_least_priv_sa", resources: 19, findings: 5, description: "GCP instances running as custom least-privilege service accounts"}
+  NZ11: {slug: "azure_private_storage", resources: 26, findings: 2, description: "Azure storage with private endpoints and no public blob; VMs with scoped managed identities"}
+  NZ12: {slug: "github_protected_repo", resources: 20, findings: 5, description: "GitHub repos with branch protection; OIDC deploy roles pinned to protected environments"}
+  NZ13: {slug: "iam_user_mfa_rotated", resources: 17, findings: 5, description: "IAM users with MFA and rotated keys"}
+  NZ14: {slug: "cve_nonkev_private_host", resources: 16, findings: 16, description: "CVEs not in CISA KEV with low EPSS on private, non-internet-reachable hosts"}
+  NZ15: {slug: "dev_sandbox_tagged", resources: 19, findings: 17, description: "Dev/sandbox accounts and projects, tagged as such, holding only synthetic data and no trust into prod"}
+  NZ16: {slug: "private_data_store", resources: 8, findings: 2, description: "Sensitive data stores that are private and only reachable from unexposed principals"}
+  NZ90: {slug: "near_miss", resources: 26, findings: 4, description: "Alarming names (admin/prod/pii/customer/root/secret) but benign attributes"}
+  NZT1: {slug: "true_positive", resources: 9, findings: 6, description: "Deliberate, labelled true positives (3 chains)"}
+
+true_positives:
+  - id: TP1
+    expected_paths: 1
+    kind: "internet -> host (SSH, IMDSv1) -> instance role -> confidential data"
+    entry: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-0572f176bd9ef97ee"
+    target: "arn:aws:s3:::halyard-finance-ledger"
+    chain: ["arn:aws:ec2:us-east-1:310000000001:security-group/sg-0572f176bd9ef97ee", "arn:aws:ec2:us-east-1:310000000001:instance/i-02fc787a0e4afdcc7", "arn:aws:iam::310000000001:role/legacy-reports-role", "arn:aws:s3:::halyard-finance-ledger"]
+    findings: ["N098", "N099", "N100"]
+    rationale: "SSH (password auth) open to 0.0.0.0/0 on a public-IP host with IMDSv1; its role can read the confidential finance ledger."
+  - id: TP2
+    expected_paths: 1
+    kind: "unprotected repo -> OIDC wildcard sub -> prod admin role"
+    entry: "github.com/halyard/release-tools"
+    target: "arn:aws:iam::310000000001:role/gha-release-tools"
+    chain: ["github.com/halyard/release-tools", "arn:aws:iam::310000000001:role/gha-release-tools"]
+    findings: ["N101", "N102"]
+    rationale: "Any push to any branch (4 outside collaborators, no protection) can mint OIDC tokens accepted by a prod AdministratorAccess role."
+  - id: TP3
+    expected_paths: 1
+    kind: "unauthenticated function URL -> execution role -> PII table"
+    entry: "arn:aws:lambda:us-east-1:310000000001:function:partner-webhook-debug"
+    target: "arn:aws:dynamodb:us-east-1:310000000001:table/halyard-customer-contacts"
+    chain: ["arn:aws:lambda:us-east-1:310000000001:function:partner-webhook-debug", "arn:aws:iam::310000000001:role/partner-webhook-debug-role", "arn:aws:dynamodb:us-east-1:310000000001:table/halyard-customer-contacts"]
+    findings: ["N103"]
+    rationale: "Unauthenticated function URL whose role can Scan the customer contacts (PII) table."
+
+resources:
+  - {id: "arn:aws:iam::310000000006:saml-provider/halyard-okta", class: "NZ05", expected_paths: 0, why: "Identity provider; Okta enforces phishing-resistant MFA before issuing assertions."}
+  - {id: "arn:aws:s3:::halyard-www-static", class: "NZ01", expected_paths: 0, findings: ["N001", "N002"], why: "Public read of intentionally public website assets; bucket tagged data_classification=public; no write, no list, no sensitive objects."}
+  - {id: "arn:aws:cloudfront::310000000001:distribution/E1EC32CC80644", class: "NZ01", expected_paths: 0, why: "CDN for public static content; read-only origin access."}
+  - {id: "arn:aws:s3:::halyard-docs-site", class: "NZ01", expected_paths: 0, findings: ["N003"], why: "Public read of intentionally public website assets; bucket tagged data_classification=public; no write, no list, no sensitive objects."}
+  - {id: "arn:aws:cloudfront::310000000001:distribution/E17ED7E9E06CB", class: "NZ01", expected_paths: 0, why: "CDN for public static content; read-only origin access."}
+  - {id: "arn:aws:s3:::halyard-marketing-assets", class: "NZ01", expected_paths: 0, findings: ["N004"], why: "Public read of intentionally public website assets; bucket tagged data_classification=public; no write, no list, no sensitive objects."}
+  - {id: "arn:aws:cloudfront::310000000001:distribution/E8511C148B355", class: "NZ01", expected_paths: 0, why: "CDN for public static content; read-only origin access."}
+  - {id: "arn:aws:s3:::halyard-status-page", class: "NZ01", expected_paths: 0, findings: ["N005", "N006"], why: "Public read of intentionally public website assets; bucket tagged data_classification=public; no write, no list, no sensitive objects."}
+  - {id: "arn:aws:cloudfront::310000000001:distribution/EBA18676AF366", class: "NZ01", expected_paths: 0, why: "CDN for public static content; read-only origin access."}
+  - {id: "arn:aws:s3:::halyard-careers-site", class: "NZ01", expected_paths: 0, findings: ["N007"], why: "Public read of intentionally public website assets; bucket tagged data_classification=public; no write, no list, no sensitive objects."}
+  - {id: "arn:aws:s3:::halyard-brand-kit", class: "NZ01", expected_paths: 0, findings: ["N008"], why: "Public read of intentionally public website assets; bucket tagged data_classification=public; no write, no list, no sensitive objects."}
+  - {id: "arn:aws:s3:::halyard-press-images", class: "NZ01", expected_paths: 0, findings: ["N009", "N010"], why: "Public read of intentionally public website assets; bucket tagged data_classification=public; no write, no list, no sensitive objects."}
+  - {id: "arn:aws:s3:::halyard-downloads-public", class: "NZ01", expected_paths: 0, findings: ["N011"], why: "Public read of intentionally public website assets; bucket tagged data_classification=public; no write, no list, no sensitive objects."}
+  - {id: "arn:aws:s3:::halyard-customer-profiles", class: "NZ16", expected_paths: 0, why: "Sensitive but private (BPA on, KMS, TLS-only); only reachable from principals that are themselves unexposed."}
+  - {id: "arn:aws:s3:::halyard-billing-exports", class: "NZ16", expected_paths: 0, why: "Sensitive but private (BPA on, KMS, TLS-only); only reachable from principals that are themselves unexposed."}
+  - {id: "arn:aws:s3:::halyard-app-uploads", class: "NZ16", expected_paths: 0, why: "Sensitive but private (BPA on, KMS, TLS-only); only reachable from principals that are themselves unexposed."}
+  - {id: "arn:aws:s3:::halyard-analytics-raw", class: "NZ16", expected_paths: 0, why: "Sensitive but private (BPA on, KMS, TLS-only); only reachable from principals that are themselves unexposed."}
+  - {id: "arn:aws:rds:us-east-1:310000000001:db:halyard-orders-db", class: "NZ16", expected_paths: 0, findings: ["N012", "N013"], why: "Private RDS in private subnets, encrypted, no public endpoint."}
+  - {id: "arn:aws:rds:us-east-1:310000000003:db:halyard-ledger-db", class: "NZ16", expected_paths: 0, why: "Private RDS in private subnets, encrypted, no public endpoint."}
+  - {id: "arn:aws:dynamodb:us-east-1:310000000001:table/halyard-sessions", class: "NZ16", expected_paths: 0, why: "Private DynamoDB table; no resource policy; reachable only through IAM from private workloads."}
+  - {id: "arn:aws:dynamodb:us-east-1:310000000001:table/halyard-feature-flags", class: "NZ16", expected_paths: 0, why: "Private DynamoDB table; no resource policy; reachable only through IAM from private workloads."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-00c3e4fa813b1dae3", class: "NZ02", expected_paths: 0, findings: ["N014"], why: "Open on 443 by design; attached only to the ALB, which terminates TLS."}
+  - {id: "arn:aws:elasticloadbalancing:us-east-1:310000000001:loadbalancer/app/storefront-alb/87c638ee0ec740bb", class: "NZ02", expected_paths: 0, findings: ["N015"], why: "Internet-facing by design; forwards only HTTP/8080 application traffic to targets; no admin port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-05bdfb69adf964560", class: "NZ02", expected_paths: 0, why: "Ingress only from the ALB security group; no CIDR rule."}
+  - {id: "arn:aws:iam::310000000001:role/storefront-instance-role", class: "NZ02", expected_paths: 0, why: "Workload role scoped to its own app data; only reachable by code running on private, IMDSv2-only instances."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0b2b26e97b3fe4788", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-003ad15eed2e41061", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0b3f19e64eb003a8b", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-081cc4845f3308498", class: "NZ02", expected_paths: 0, findings: ["N016"], why: "Open on 443 by design; attached only to the ALB, which terminates TLS."}
+  - {id: "arn:aws:elasticloadbalancing:us-east-1:310000000001:loadbalancer/app/checkout-alb/e29ba0485bfd7ec9", class: "NZ02", expected_paths: 0, findings: ["N017"], why: "Internet-facing by design; forwards only HTTP/8080 application traffic to targets; no admin port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-0255faeb7766c2eaf", class: "NZ02", expected_paths: 0, why: "Ingress only from the ALB security group; no CIDR rule."}
+  - {id: "arn:aws:iam::310000000001:role/checkout-instance-role", class: "NZ02", expected_paths: 0, why: "Workload role scoped to its own app data; only reachable by code running on private, IMDSv2-only instances."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-05d8df6450faae151", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-05757e47663dcbc9f", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0e68dd0a219c3c4ef", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-08b2149a59d00151b", class: "NZ02", expected_paths: 0, findings: ["N018"], why: "Open on 443 by design; attached only to the ALB, which terminates TLS."}
+  - {id: "arn:aws:elasticloadbalancing:us-east-1:310000000001:loadbalancer/app/account-portal-alb/3f6da2c2ea3ea346", class: "NZ02", expected_paths: 0, findings: ["N019"], why: "Internet-facing by design; forwards only HTTP/8080 application traffic to targets; no admin port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-01090ff5e8f09a375", class: "NZ02", expected_paths: 0, why: "Ingress only from the ALB security group; no CIDR rule."}
+  - {id: "arn:aws:iam::310000000001:role/account-portal-instance-role", class: "NZ02", expected_paths: 0, why: "Workload role scoped to its own app data; only reachable by code running on private, IMDSv2-only instances."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0f60cfd96f738bc7a", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-037446cf40f5c5fc8", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0b1bd74eb60cb9585", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-0ee0b26c2aeb22eb7", class: "NZ02", expected_paths: 0, findings: ["N020"], why: "Open on 443 by design; attached only to the ALB, which terminates TLS."}
+  - {id: "arn:aws:elasticloadbalancing:us-east-1:310000000001:loadbalancer/app/search-alb/405e64b3c03eb9ad", class: "NZ02", expected_paths: 0, findings: ["N021"], why: "Internet-facing by design; forwards only HTTP/8080 application traffic to targets; no admin port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-0c6260f71bc1a9d1b", class: "NZ02", expected_paths: 0, why: "Ingress only from the ALB security group; no CIDR rule."}
+  - {id: "arn:aws:iam::310000000001:role/search-instance-role", class: "NZ02", expected_paths: 0, why: "Workload role scoped to its own app data; only reachable by code running on private, IMDSv2-only instances."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-046c3688fec17fdb1", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0bdd7dd47c42ebf2e", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-05c7c3001ab578c60", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-00e1c0936c439d5da", class: "NZ02", expected_paths: 0, findings: ["N022"], why: "Open on 443 by design; attached only to the ALB, which terminates TLS."}
+  - {id: "arn:aws:elasticloadbalancing:us-east-1:310000000001:loadbalancer/app/partner-api-alb/8d2cb849c33f8cbc", class: "NZ02", expected_paths: 0, findings: ["N023"], why: "Internet-facing by design; forwards only HTTP/8080 application traffic to targets; no admin port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-0fe6f256b03ac3d71", class: "NZ02", expected_paths: 0, why: "Ingress only from the ALB security group; no CIDR rule."}
+  - {id: "arn:aws:iam::310000000001:role/partner-api-instance-role", class: "NZ02", expected_paths: 0, why: "Workload role scoped to its own app data; only reachable by code running on private, IMDSv2-only instances."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0f40b0196a34dce1d", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-027861ef62a98caf5", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0e492692674ea6566", class: "NZ02", expected_paths: 0, why: "No public IP, IMDSv2 required (hop limit 1), patched, reachable only via ALB application port."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-0ebc08638c58e809e", class: "NZ03", expected_paths: 0, findings: ["N024"], why: "443 to an ALB only."}
+  - {id: "arn:aws:elasticloadbalancing:us-east-1:310000000001:loadbalancer/app/notifications-api-lb/47f55f7d1a95d4a3", class: "NZ03", expected_paths: 0, why: "Public API front door; app-level auth; forwards to Fargate tasks in private subnets."}
+  - {id: "arn:aws:ecs:us-east-1:310000000001:service/halyard-prod/notifications-api", class: "NZ03", expected_paths: 0, why: "Fargate in private subnets; no host access; no public IP."}
+  - {id: "arn:aws:iam::310000000001:role/notifications-api-task-role", class: "NZ03", expected_paths: 0, why: "Task role limited to its own queue and logs."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-02594332f6ea5f987", class: "NZ03", expected_paths: 0, findings: ["N025"], why: "443 to an ALB only."}
+  - {id: "arn:aws:elasticloadbalancing:us-east-1:310000000001:loadbalancer/app/pricing-api-lb/48a340fa450f90fc", class: "NZ03", expected_paths: 0, why: "Public API front door; app-level auth; forwards to Fargate tasks in private subnets."}
+  - {id: "arn:aws:ecs:us-east-1:310000000001:service/halyard-prod/pricing-api", class: "NZ03", expected_paths: 0, why: "Fargate in private subnets; no host access; no public IP."}
+  - {id: "arn:aws:iam::310000000001:role/pricing-api-task-role", class: "NZ03", expected_paths: 0, why: "Task role limited to its own queue and logs."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-0a35e5b101ebe8356", class: "NZ03", expected_paths: 0, findings: ["N026"], why: "443 to an ALB only."}
+  - {id: "arn:aws:elasticloadbalancing:us-east-1:310000000001:loadbalancer/app/webhooks-ingest-lb/63b669584672086a", class: "NZ03", expected_paths: 0, why: "Public API front door; app-level auth; forwards to Fargate tasks in private subnets."}
+  - {id: "arn:aws:ecs:us-east-1:310000000001:service/halyard-prod/webhooks-ingest", class: "NZ03", expected_paths: 0, why: "Fargate in private subnets; no host access; no public IP."}
+  - {id: "arn:aws:iam::310000000001:role/webhooks-ingest-task-role", class: "NZ03", expected_paths: 0, why: "Task role limited to its own queue and logs."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-00ffffb0b80bbf3ac", class: "NZ03", expected_paths: 0, why: "443 to an ALB only."}
+  - {id: "arn:aws:elasticloadbalancing:us-east-1:310000000001:loadbalancer/app/media-resizer-lb/aa0c446e97a41b3f", class: "NZ03", expected_paths: 0, why: "Public API front door; app-level auth; forwards to Fargate tasks in private subnets."}
+  - {id: "arn:aws:ecs:us-east-1:310000000001:service/halyard-prod/media-resizer", class: "NZ03", expected_paths: 0, why: "Fargate in private subnets; no host access; no public IP."}
+  - {id: "arn:aws:iam::310000000001:role/media-resizer-task-role", class: "NZ03", expected_paths: 0, why: "Task role limited to its own queue and logs."}
+  - {id: "arn:aws:iam::310000000001:role/finops-cost-reader", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000001:role/observability-reader", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000001:role/security-hub-reader", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000001:role/config-auditor", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000001:role/support-viewonly", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000003:role/analytics-reader", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000003:role/billing-export-reader", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000001:role/catalog-browser", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000001:role/ecr-pull-only", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000001:role/route53-reader", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000001:role/trail-log-reader", class: "NZ04", expected_paths: 0, why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000001:role/inventory-collector", class: "NZ04", expected_paths: 0, findings: ["N027"], why: "Read-only, scoped; assumable only via SSO with MFA or by an AWS service; no workload exposure."}
+  - {id: "arn:aws:iam::310000000001:role/org-admin-sso", class: "NZ05", expected_paths: 0, findings: ["N028"], why: "Admin by design; only reachable through Okta SSO with MFA; no instance profile, no service or external trust."}
+  - {id: "arn:aws:iam::310000000003:role/data-admin-sso", class: "NZ05", expected_paths: 0, findings: ["N029"], why: "Admin by design; only reachable through Okta SSO with MFA; no instance profile, no service or external trust."}
+  - {id: "arn:aws:iam::310000000002:role/network-admin-sso", class: "NZ05", expected_paths: 0, findings: ["N030"], why: "Admin by design; only reachable through Okta SSO with MFA; no instance profile, no service or external trust."}
+  - {id: "arn:aws:iam::310000000006:role/security-admin-sso", class: "NZ05", expected_paths: 0, findings: ["N031"], why: "Admin by design; only reachable through Okta SSO with MFA; no instance profile, no service or external trust."}
+  - {id: "arn:aws:iam::310000000002:role/ci-deployer", class: "NZ06", expected_paths: 0, why: "CodeBuild service role in shared-services; assumes only org deploy-target roles."}
+  - {id: "arn:aws:iam::310000000006:role/security-scanner", class: "NZ06", expected_paths: 0, why: "Security account scanner task role (private ECS)."}
+  - {id: "arn:aws:iam::310000000002:role/backup-operator", class: "NZ06", expected_paths: 0, why: "AWS Backup service role."}
+  - {id: "arn:aws:iam::310000000001:role/audit-readonly", class: "NZ06", expected_paths: 0, findings: ["N032"], why: "Trusts a role in the organisation's own security account, with PrincipalOrgID condition; source role is unexposed."}
+  - {id: "arn:aws:iam::310000000003:role/audit-readonly", class: "NZ06", expected_paths: 0, findings: ["N033"], why: "Trusts a role in the organisation's own security account, with PrincipalOrgID condition; source role is unexposed."}
+  - {id: "arn:aws:iam::310000000002:role/audit-readonly", class: "NZ06", expected_paths: 0, findings: ["N034"], why: "Trusts a role in the organisation's own security account, with PrincipalOrgID condition; source role is unexposed."}
+  - {id: "arn:aws:iam::310000000004:role/audit-readonly", class: "NZ06", expected_paths: 0, findings: ["N035"], why: "Trusts a role in the organisation's own security account, with PrincipalOrgID condition; source role is unexposed."}
+  - {id: "arn:aws:iam::310000000001:role/deploy-target", class: "NZ06", expected_paths: 0, why: "Trusts a role in the organisation's own shared-services account, with PrincipalOrgID condition; source role is unexposed."}
+  - {id: "arn:aws:iam::310000000003:role/deploy-target", class: "NZ06", expected_paths: 0, why: "Trusts a role in the organisation's own shared-services account, with PrincipalOrgID condition; source role is unexposed."}
+  - {id: "arn:aws:iam::310000000004:role/deploy-target", class: "NZ06", expected_paths: 0, why: "Trusts a role in the organisation's own shared-services account, with PrincipalOrgID condition; source role is unexposed."}
+  - {id: "arn:aws:iam::310000000001:role/backup-target", class: "NZ06", expected_paths: 0, why: "Trusts a role in the organisation's own shared-services account, with PrincipalOrgID condition; source role is unexposed."}
+  - {id: "arn:aws:iam::310000000003:role/backup-target", class: "NZ06", expected_paths: 0, why: "Trusts a role in the organisation's own shared-services account, with PrincipalOrgID condition; source role is unexposed."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:report-renderer", class: "NZ07", expected_paths: 0, why: "Function URL requires SigV4 (AWS_IAM); resource policy (where present) is limited to the org."}
+  - {id: "arn:aws:iam::310000000001:role/report-renderer-fn-role", class: "NZ07", expected_paths: 0, why: "Function execution role scoped to its own resources."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:thumbnail-signer", class: "NZ07", expected_paths: 0, why: "Function URL requires SigV4 (AWS_IAM); resource policy (where present) is limited to the org."}
+  - {id: "arn:aws:iam::310000000001:role/thumbnail-signer-fn-role", class: "NZ07", expected_paths: 0, why: "Function execution role scoped to its own resources."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:invoice-pdf", class: "NZ07", expected_paths: 0, findings: ["N036"], why: "Function URL requires SigV4 (AWS_IAM); resource policy (where present) is limited to the org."}
+  - {id: "arn:aws:iam::310000000001:role/invoice-pdf-fn-role", class: "NZ07", expected_paths: 0, why: "Function execution role scoped to its own resources."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:usage-aggregator", class: "NZ07", expected_paths: 0, why: "Function URL requires SigV4 (AWS_IAM); resource policy (where present) is limited to the org."}
+  - {id: "arn:aws:iam::310000000001:role/usage-aggregator-fn-role", class: "NZ07", expected_paths: 0, why: "Function execution role scoped to its own resources."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:feature-flag-reader", class: "NZ07", expected_paths: 0, findings: ["N037"], why: "Function URL requires SigV4 (AWS_IAM); resource policy (where present) is limited to the org."}
+  - {id: "arn:aws:iam::310000000001:role/feature-flag-reader-fn-role", class: "NZ07", expected_paths: 0, why: "Function execution role scoped to its own resources."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:audit-forwarder", class: "NZ07", expected_paths: 0, why: "Function URL requires SigV4 (AWS_IAM); resource policy (where present) is limited to the org."}
+  - {id: "arn:aws:iam::310000000001:role/audit-forwarder-fn-role", class: "NZ07", expected_paths: 0, why: "Function execution role scoped to its own resources."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:slack-notifier", class: "NZ07", expected_paths: 0, why: "Function URL requires SigV4 (AWS_IAM); resource policy (where present) is limited to the org."}
+  - {id: "arn:aws:iam::310000000001:role/slack-notifier-fn-role", class: "NZ07", expected_paths: 0, why: "Function execution role scoped to its own resources."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:tenant-provisioner", class: "NZ07", expected_paths: 0, findings: ["N038"], why: "Function URL requires SigV4 (AWS_IAM); resource policy (where present) is limited to the org."}
+  - {id: "arn:aws:iam::310000000001:role/tenant-provisioner-fn-role", class: "NZ07", expected_paths: 0, why: "Function execution role scoped to its own resources."}
+  - {id: "storefront-web/role/storefront-web-read", class: "NZ09", expected_paths: 0, why: "Namespaced Role: read configmaps/endpoints in its own namespace only; no secrets, no pods/exec."}
+  - {id: "storefront-web/rolebinding/storefront-web-app-read", class: "NZ09", expected_paths: 0, why: "Binds the app SA to the namespaced read Role."}
+  - {id: "storefront-web/serviceaccount/storefront-web-app", class: "NZ09", expected_paths: 0, why: "No cloud role (no IRSA annotation); token not automounted."}
+  - {id: "storefront-web/pod/storefront-web-29394", class: "NZ09", expected_paths: 0, findings: ["N039"], why: "Internet-reachable web tier, but SA only reads configmaps in its namespace and has no cloud role; no exploitable CVE."}
+  - {id: "storefront-web/pod/storefront-web-acd8e", class: "NZ09", expected_paths: 0, findings: ["N040"], why: "Internet-reachable web tier, but SA only reads configmaps in its namespace and has no cloud role; no exploitable CVE."}
+  - {id: "catalog/role/catalog-read", class: "NZ09", expected_paths: 0, why: "Namespaced Role: read configmaps/endpoints in its own namespace only; no secrets, no pods/exec."}
+  - {id: "catalog/rolebinding/catalog-app-read", class: "NZ09", expected_paths: 0, why: "Binds the app SA to the namespaced read Role."}
+  - {id: "catalog/serviceaccount/catalog-app", class: "NZ09", expected_paths: 0, why: "No cloud role (no IRSA annotation); token not automounted."}
+  - {id: "catalog/pod/catalog-91c2d", class: "NZ09", expected_paths: 0, why: "Cluster-internal pod; SA only reads configmaps in its namespace."}
+  - {id: "catalog/pod/catalog-7b322", class: "NZ09", expected_paths: 0, why: "Cluster-internal pod; SA only reads configmaps in its namespace."}
+  - {id: "orders-worker/role/orders-worker-read", class: "NZ09", expected_paths: 0, why: "Namespaced Role: read configmaps/endpoints in its own namespace only; no secrets, no pods/exec."}
+  - {id: "orders-worker/rolebinding/orders-worker-app-read", class: "NZ09", expected_paths: 0, why: "Binds the app SA to the namespaced read Role."}
+  - {id: "orders-worker/serviceaccount/orders-worker-app", class: "NZ09", expected_paths: 0, why: "No cloud role (no IRSA annotation); token not automounted."}
+  - {id: "orders-worker/pod/orders-worker-c9dbb", class: "NZ09", expected_paths: 0, why: "Cluster-internal pod; SA only reads configmaps in its namespace."}
+  - {id: "orders-worker/pod/orders-worker-b0af8", class: "NZ09", expected_paths: 0, findings: ["N041"], why: "Cluster-internal pod; SA only reads configmaps in its namespace."}
+  - {id: "reporting/role/reporting-read", class: "NZ09", expected_paths: 0, why: "Namespaced Role: read configmaps/endpoints in its own namespace only; no secrets, no pods/exec."}
+  - {id: "reporting/rolebinding/reporting-app-read", class: "NZ09", expected_paths: 0, why: "Binds the app SA to the namespaced read Role."}
+  - {id: "reporting/serviceaccount/reporting-app", class: "NZ09", expected_paths: 0, why: "No cloud role (no IRSA annotation); token not automounted."}
+  - {id: "reporting/pod/reporting-0623c", class: "NZ09", expected_paths: 0, findings: ["N042"], why: "Cluster-internal pod; SA only reads configmaps in its namespace."}
+  - {id: "reporting/pod/reporting-dddde", class: "NZ09", expected_paths: 0, why: "Cluster-internal pod; SA only reads configmaps in its namespace."}
+  - {id: "observability/role/observability-read", class: "NZ09", expected_paths: 0, why: "Namespaced Role: read configmaps/endpoints in its own namespace only; no secrets, no pods/exec."}
+  - {id: "observability/rolebinding/observability-app-read", class: "NZ09", expected_paths: 0, why: "Binds the app SA to the namespaced read Role."}
+  - {id: "observability/serviceaccount/observability-app", class: "NZ09", expected_paths: 0, why: "No cloud role (no IRSA annotation); token not automounted."}
+  - {id: "observability/pod/observability-402b0", class: "NZ09", expected_paths: 0, findings: ["N043"], why: "Cluster-internal pod; SA only reads configmaps in its namespace."}
+  - {id: "observability/pod/observability-dcd52", class: "NZ09", expected_paths: 0, why: "Cluster-internal pod; SA only reads configmaps in its namespace."}
+  - {id: "feature-svc/role/feature-svc-read", class: "NZ09", expected_paths: 0, why: "Namespaced Role: read configmaps/endpoints in its own namespace only; no secrets, no pods/exec."}
+  - {id: "feature-svc/rolebinding/feature-svc-app-read", class: "NZ09", expected_paths: 0, why: "Binds the app SA to the namespaced read Role."}
+  - {id: "feature-svc/serviceaccount/feature-svc-app", class: "NZ09", expected_paths: 0, why: "No cloud role (no IRSA annotation); token not automounted."}
+  - {id: "feature-svc/pod/feature-svc-0ee6f", class: "NZ09", expected_paths: 0, why: "Cluster-internal pod; SA only reads configmaps in its namespace."}
+  - {id: "feature-svc/pod/feature-svc-db87a", class: "NZ09", expected_paths: 0, why: "Cluster-internal pod; SA only reads configmaps in its namespace."}
+  - {id: "arn:aws:eks:us-east-1:310000000001:cluster/halyard-eks-prod", class: "NZ08", expected_paths: 0, why: "Private-only API endpoint; access via VPN + SSO-mapped access entries."}
+  - {id: "arn:aws:eks:us-east-1:310000000003:cluster/halyard-eks-data", class: "NZ08", expected_paths: 0, why: "Private-only API endpoint."}
+  - {id: "//iam.googleapis.com/projects/halyard-prod-gcp/serviceAccounts/web-frontend-sa@halyard-prod-gcp.iam.gserviceaccount.com", class: "NZ10", expected_paths: 0, why: "Custom SA with log/metric writer and narrowly scoped custom roles; no keys."}
+  - {id: "//iam.googleapis.com/projects/halyard-prod-gcp/serviceAccounts/api-sa@halyard-prod-gcp.iam.gserviceaccount.com", class: "NZ10", expected_paths: 0, why: "Custom SA with log/metric writer and narrowly scoped custom roles; no keys."}
+  - {id: "//iam.googleapis.com/projects/halyard-prod-gcp/serviceAccounts/batch-sa@halyard-prod-gcp.iam.gserviceaccount.com", class: "NZ10", expected_paths: 0, why: "Custom SA with log/metric writer and narrowly scoped custom roles; no keys."}
+  - {id: "//iam.googleapis.com/projects/halyard-prod-gcp/serviceAccounts/cache-sa@halyard-prod-gcp.iam.gserviceaccount.com", class: "NZ10", expected_paths: 0, why: "Custom SA with log/metric writer and narrowly scoped custom roles; no keys."}
+  - {id: "//iam.googleapis.com/projects/halyard-prod-gcp/serviceAccounts/ingest-sa@halyard-prod-gcp.iam.gserviceaccount.com", class: "NZ10", expected_paths: 0, why: "Custom SA with log/metric writer and narrowly scoped custom roles; no keys."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/global/firewalls/allow-https-lb", class: "NZ10", expected_paths: 0, why: "Allows only 443 to web-tagged instances."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/global/firewalls/allow-gfe-healthchecks", class: "NZ10", expected_paths: 0, why: "Google front-end health-check ranges only."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/global/firewalls/allow-iap-ssh", class: "NZ10", expected_paths: 0, why: "SSH only from Identity-Aware Proxy range (IAP enforces SSO)."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/zones/us-central1-a/instances/web-fe-1", class: "NZ10", expected_paths: 0, findings: ["N044"], why: "External IP but only 443 allowed; runs as custom SA limited to log/metric writer."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/zones/us-central1-a/instances/web-fe-2", class: "NZ10", expected_paths: 0, findings: ["N045"], why: "External IP but only 443 allowed; runs as custom SA limited to log/metric writer."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/zones/us-central1-a/instances/api-1", class: "NZ10", expected_paths: 0, findings: ["N046"], why: "External IP but only 443 allowed; runs as custom SA limited to log/metric writer."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/zones/us-central1-a/instances/api-2", class: "NZ10", expected_paths: 0, findings: ["N047"], why: "External IP but only 443 allowed; runs as custom SA limited to log/metric writer."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/zones/us-central1-a/instances/batch-1", class: "NZ10", expected_paths: 0, why: "No external IP; SSH via IAP only; custom least-privilege SA."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/zones/us-central1-a/instances/batch-2", class: "NZ10", expected_paths: 0, why: "No external IP; SSH via IAP only; custom least-privilege SA."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/zones/us-central1-a/instances/cache-1", class: "NZ10", expected_paths: 0, why: "No external IP; SSH via IAP only; custom least-privilege SA."}
+  - {id: "//compute.googleapis.com/projects/halyard-prod-gcp/zones/us-central1-a/instances/ingest-1", class: "NZ10", expected_paths: 0, why: "No external IP; SSH via IAP only; custom least-privilege SA."}
+  - {id: "//storage.googleapis.com/projects/_/buckets/halyard-gcp-web-assets", class: "NZ10", expected_paths: 0, findings: ["N048"], why: "Public website assets only"}
+  - {id: "//storage.googleapis.com/projects/_/buckets/halyard-gcp-batch-staging", class: "NZ10", expected_paths: 0, why: "Private bucket, public access prevention enforced."}
+  - {id: "//storage.googleapis.com/projects/_/buckets/halyard-gcp-logs-archive", class: "NZ10", expected_paths: 0, why: "Private bucket, public access prevention enforced."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-net-rg/providers/Microsoft.Network/virtualNetworks/halyard-hub-vnet", class: "NZ11", expected_paths: 0, why: "Private hub network."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Network/privateEndpoints/halyardinvoices-blob-pe", class: "NZ11", expected_paths: 0, why: "Private link endpoint inside the hub VNet."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Storage/storageAccounts/halyardinvoices", class: "NZ11", expected_paths: 0, why: "No public blob, public network access disabled, reachable only through its private endpoint."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Network/privateEndpoints/halyardmlfeatures-blob-pe", class: "NZ11", expected_paths: 0, why: "Private link endpoint inside the hub VNet."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Storage/storageAccounts/halyardmlfeatures", class: "NZ11", expected_paths: 0, why: "No public blob, public network access disabled, reachable only through its private endpoint."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Network/privateEndpoints/halyardbackups-blob-pe", class: "NZ11", expected_paths: 0, why: "Private link endpoint inside the hub VNet."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Storage/storageAccounts/halyardbackups", class: "NZ11", expected_paths: 0, findings: ["N049"], why: "No public blob, public network access disabled, reachable only through its private endpoint."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Network/privateEndpoints/halyardaudit-blob-pe", class: "NZ11", expected_paths: 0, why: "Private link endpoint inside the hub VNet."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Storage/storageAccounts/halyardaudit", class: "NZ11", expected_paths: 0, why: "No public blob, public network access disabled, reachable only through its private endpoint."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Network/privateEndpoints/halyarddocsprivate-blob-pe", class: "NZ11", expected_paths: 0, why: "Private link endpoint inside the hub VNet."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Storage/storageAccounts/halyarddocsprivate", class: "NZ11", expected_paths: 0, why: "No public blob, public network access disabled, reachable only through its private endpoint."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Network/privateEndpoints/halyardetlstage-blob-pe", class: "NZ11", expected_paths: 0, why: "Private link endpoint inside the hub VNet."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Storage/storageAccounts/halyardetlstage", class: "NZ11", expected_paths: 0, why: "No public blob, public network access disabled, reachable only through its private endpoint."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Network/privateEndpoints/halyardcrmexports-blob-pe", class: "NZ11", expected_paths: 0, why: "Private link endpoint inside the hub VNet."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Storage/storageAccounts/halyardcrmexports", class: "NZ11", expected_paths: 0, findings: ["N050"], why: "No public blob, public network access disabled, reachable only through its private endpoint."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Network/privateEndpoints/halyardtelemetry-blob-pe", class: "NZ11", expected_paths: 0, why: "Private link endpoint inside the hub VNet."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Storage/storageAccounts/halyardtelemetry", class: "NZ11", expected_paths: 0, why: "No public blob, public network access disabled, reachable only through its private endpoint."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-app-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/app-reader-mi", class: "NZ11", expected_paths: 0, why: "Data-plane reader / monitoring reader on a single scope."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-app-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ops-monitor-mi", class: "NZ11", expected_paths: 0, why: "Data-plane reader / monitoring reader on a single scope."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-app-rg/providers/Microsoft.Network/networkSecurityGroups/app-frontdoor-nsg", class: "NZ11", expected_paths: 0, why: "443 only from the Front Door service tag; Front Door has WAF."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-app-rg/providers/Microsoft.Network/networkSecurityGroups/app-internal-nsg", class: "NZ11", expected_paths: 0, why: "VNet-internal traffic only."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-app-rg/providers/Microsoft.Compute/virtualMachines/app-web-01", class: "NZ11", expected_paths: 0, why: "No public IP; reachable only via Front Door or the VNet; identity is a single-scope reader."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-app-rg/providers/Microsoft.Compute/virtualMachines/app-web-02", class: "NZ11", expected_paths: 0, why: "No public IP; reachable only via Front Door or the VNet; identity is a single-scope reader."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-app-rg/providers/Microsoft.Compute/virtualMachines/ops-agent-01", class: "NZ11", expected_paths: 0, why: "No public IP; reachable only via Front Door or the VNet; identity is a single-scope reader."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-app-rg/providers/Microsoft.Compute/virtualMachines/ops-agent-02", class: "NZ11", expected_paths: 0, why: "No public IP; reachable only via Front Door or the VNet; identity is a single-scope reader."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-sec-rg/providers/Microsoft.KeyVault/vaults/halyard-app-kv", class: "NZ11", expected_paths: 0, why: "Private key vault with RBAC, purge protection."}
+  - {id: "arn:aws:iam::310000000001:role/gha-storefront-deploy", class: "NZ12", expected_paths: 0, why: "OIDC trust pinned to the repo's protected 'production' environment (required reviewers), not to any branch."}
+  - {id: "arn:aws:iam::310000000001:role/gha-checkout-deploy", class: "NZ12", expected_paths: 0, why: "OIDC trust pinned to the repo's protected 'production' environment (required reviewers), not to any branch."}
+  - {id: "arn:aws:iam::310000000003:role/gha-data-pipelines-deploy", class: "NZ12", expected_paths: 0, why: "OIDC trust pinned to the repo's protected 'production' environment (required reviewers), not to any branch."}
+  - {id: "arn:aws:iam::310000000001:role/gha-terraform-live-deploy", class: "NZ12", expected_paths: 0, why: "OIDC trust pinned to the repo's protected 'production' environment (required reviewers), not to any branch."}
+  - {id: "arn:aws:iam::310000000001:role/gha-eks-platform-deploy", class: "NZ12", expected_paths: 0, why: "OIDC trust pinned to the repo's protected 'production' environment (required reviewers), not to any branch."}
+  - {id: "github.com/halyard/storefront", class: "NZ12", expected_paths: 0, why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/checkout", class: "NZ12", expected_paths: 0, why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/account-portal", class: "NZ12", expected_paths: 0, why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/search", class: "NZ12", expected_paths: 0, findings: ["N051"], why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/partner-api", class: "NZ12", expected_paths: 0, why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/notifications-api", class: "NZ12", expected_paths: 0, why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/pricing-api", class: "NZ12", expected_paths: 0, why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/data-pipelines", class: "NZ12", expected_paths: 0, why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/terraform-live", class: "NZ12", expected_paths: 0, why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/terraform-modules", class: "NZ12", expected_paths: 0, why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/eks-platform", class: "NZ12", expected_paths: 0, why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/observability", class: "NZ12", expected_paths: 0, findings: ["N052"], why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/design-system", class: "NZ12", expected_paths: 0, findings: ["N053"], why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/public-sdk", class: "NZ12", expected_paths: 0, findings: ["N054"], why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "github.com/halyard/docs-site", class: "NZ12", expected_paths: 0, findings: ["N055"], why: "Branch protection with 2 reviews, CODEOWNERS, admins enforced; deploys gated by a protected environment."}
+  - {id: "arn:aws:iam::310000000001:group/engineers", class: "NZ13", expected_paths: 0, why: "View-only group; anything more requires MFA-conditioned role assumption."}
+  - {id: "arn:aws:iam::310000000001:group/service-agents", class: "NZ13", expected_paths: 0, why: "Write-only metrics/backup drop, source-IP restricted to the VPC."}
+  - {id: "arn:aws:iam::310000000001:user/alice.ng", class: "NZ13", expected_paths: 0, why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/bruno.costa", class: "NZ13", expected_paths: 0, findings: ["N056"], why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/chen.wei", class: "NZ13", expected_paths: 0, why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/dana.okafor", class: "NZ13", expected_paths: 0, why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/eli.schwartz", class: "NZ13", expected_paths: 0, findings: ["N057"], why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/farah.haddad", class: "NZ13", expected_paths: 0, why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/gus.lindqvist", class: "NZ13", expected_paths: 0, why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/hana.sato", class: "NZ13", expected_paths: 0, findings: ["N058"], why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/ivan.petrov", class: "NZ13", expected_paths: 0, why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/jo.mensah", class: "NZ13", expected_paths: 0, why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/kai.andersen", class: "NZ13", expected_paths: 0, why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/lena.morel", class: "NZ13", expected_paths: 0, why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/svc-backup-agent", class: "NZ13", expected_paths: 0, why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/svc-metrics-pusher", class: "NZ13", expected_paths: 0, findings: ["N059"], why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:iam::310000000001:user/ops-admin-mfa", class: "NZ13", expected_paths: 0, findings: ["N060"], why: "MFA on (or no console for service users), keys under 90 days, view-only or IP-restricted write."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-0c6db55848071728f", class: "NZ14", expected_paths: 0, why: "RFC1918 ingress only."}
+  - {id: "arn:aws:ec2:us-east-1:310000000003:security-group/sg-0696f2cd802fedbe9", class: "NZ14", expected_paths: 0, why: "No ingress at all (SSM only)."}
+  - {id: "arn:aws:iam::310000000001:role/workers-instance-role", class: "NZ14", expected_paths: 0, why: "Queue consumer role."}
+  - {id: "arn:aws:iam::310000000003:role/etl-instance-role", class: "NZ14", expected_paths: 0, why: "ETL role reading analytics data; hosts have no ingress at all."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0cb4b425ed607e4e3", class: "NZ14", expected_paths: 0, findings: ["N061", "N062"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0661470b6d2fef706", class: "NZ14", expected_paths: 0, findings: ["N063"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0206a29edd5c9af90", class: "NZ14", expected_paths: 0, findings: ["N064"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-08de6a8fbc2c8472b", class: "NZ14", expected_paths: 0, findings: ["N065", "N066"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0a5cbfb8938e2f5bc", class: "NZ14", expected_paths: 0, findings: ["N067"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0ee5ee704391ab686", class: "NZ14", expected_paths: 0, findings: ["N068"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-09080ab2514cacccf", class: "NZ14", expected_paths: 0, findings: ["N069", "N070"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000003:instance/i-070fb41086a9561f4", class: "NZ14", expected_paths: 0, findings: ["N071"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000003:instance/i-06d2bbb1a16b98867", class: "NZ14", expected_paths: 0, findings: ["N072"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000003:instance/i-06edf58ba28efedee", class: "NZ14", expected_paths: 0, findings: ["N073", "N074"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000003:instance/i-064a29c324335561a", class: "NZ14", expected_paths: 0, findings: ["N075"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000003:instance/i-0aea4f41ac39722ca", class: "NZ14", expected_paths: 0, findings: ["N076"], why: "Private host (no public IP, RFC1918/no ingress), IMDSv2; CVEs are local/low-impact, not in KEV, EPSS < 1%."}
+  - {id: "arn:aws:ec2:us-east-1:310000000004:security-group/sg-00c6e589820e74882", class: "NZ15", expected_paths: 0, why: "VPN-only."}
+  - {id: "arn:aws:ec2:us-east-1:310000000004:security-group/sg-0aee8a0c87c643078", class: "NZ15", expected_paths: 0, findings: ["N077"], why: "Open SSH rule but attached to nothing (0 ENIs)."}
+  - {id: "arn:aws:iam::310000000004:role/dev-app-role", class: "NZ15", expected_paths: 0, why: "Dev-only data, synthetic."}
+  - {id: "arn:aws:ec2:us-east-1:310000000004:instance/i-00846ba7189069cf7", class: "NZ15", expected_paths: 0, findings: ["N078"], why: "IMDSv1 but private, VPN-only, dev role touches only synthetic dev buckets."}
+  - {id: "arn:aws:ec2:us-east-1:310000000004:instance/i-0d8920611e2fdf21e", class: "NZ15", expected_paths: 0, findings: ["N079"], why: "IMDSv1 but private, VPN-only, dev role touches only synthetic dev buckets."}
+  - {id: "arn:aws:ec2:us-east-1:310000000004:instance/i-088f49e358facddcf", class: "NZ15", expected_paths: 0, findings: ["N080"], why: "IMDSv1 but private, VPN-only, dev role touches only synthetic dev buckets."}
+  - {id: "arn:aws:s3:::halyard-dev-fixtures", class: "NZ15", expected_paths: 0, findings: ["N081"], why: "Private dev bucket with synthetic data."}
+  - {id: "arn:aws:s3:::halyard-dev-build-cache", class: "NZ15", expected_paths: 0, findings: ["N082"], why: "Private dev bucket with synthetic data."}
+  - {id: "arn:aws:s3:::halyard-dev-scratch", class: "NZ15", expected_paths: 0, findings: ["N083"], why: "Private dev bucket with synthetic data."}
+  - {id: "arn:aws:rds:us-east-1:310000000004:db:dev-orders-db", class: "NZ15", expected_paths: 0, findings: ["N084", "N085"], why: "Private dev database with synthetic data."}
+  - {id: "arn:aws:ec2:us-east-1:310000000005:security-group/sg-019b5a94c31e8add7", class: "NZ15", expected_paths: 0, findings: ["N086"], why: "Sandbox SSH test; host has nothing behind it."}
+  - {id: "arn:aws:iam::310000000005:role/sandbox-ssm-only", class: "NZ15", expected_paths: 0, why: "SSM core only; no data access."}
+  - {id: "arn:aws:ec2:us-east-1:310000000005:instance/i-06d3a80c5e5ae20a0", class: "NZ15", expected_paths: 0, findings: ["N087", "N088"], why: "Public SSH in sandbox, key-only auth with no key pair installed, IMDSv2, role is SSM-only: no impact reachable."}
+  - {id: "arn:aws:iam::310000000005:role/sandbox-poweruser", class: "NZ15", expected_paths: 0, findings: ["N089"], why: "Sandbox power user via SSO+MFA; SCP blocks pivoting out of sandbox."}
+  - {id: "arn:aws:s3:::halyard-sandbox-public-fixtures", class: "NZ15", expected_paths: 0, findings: ["N090"], why: "Public sandbox fixtures; lorem-ipsum data."}
+  - {id: "arn:aws:eks:us-east-1:310000000004:cluster/halyard-eks-dev", class: "NZ15", expected_paths: 0, findings: ["N091"], why: "Public endpoint restricted to the corporate egress /24; dev cluster; auth via SSO access entries."}
+  - {id: "dev-tools/pod/devbox-0", class: "NZ15", expected_paths: 0, findings: ["N092"], why: "Dev cluster pod running as root, no exposure, default SA with no bindings."}
+  - {id: "//iam.googleapis.com/projects/halyard-dev-gcp/serviceAccounts/dev-runner-sa@halyard-dev-gcp.iam.gserviceaccount.com", class: "NZ15", expected_paths: 0, findings: ["N093"], why: "Editor on a dev project with synthetic data; project has no shared VPC or IAM bindings into prod."}
+  - {id: "//compute.googleapis.com/projects/halyard-dev-gcp/zones/us-central1-b/instances/dev-runner-1", class: "NZ15", expected_paths: 0, why: "No external IP; IAP-only; dev project."}
+  - {id: "arn:aws:s3:::prod-admin-backup", class: "NZ90", expected_paths: 0, near_miss: true, why: "Private, KMS, object-locked; contains UI build artefacts, not credentials."}
+  - {id: "arn:aws:s3:::pii-export-test", class: "NZ90", expected_paths: 0, near_miss: true, why: "Dev bucket of Faker-generated records used to test the PII export job; private."}
+  - {id: "arn:aws:s3:::public-pii-redacted-reports", class: "NZ90", expected_paths: 0, near_miss: true, findings: ["N094"], why: "Public by design: published transparency reports, tagged public, no row-level data."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:prod-admin-api", class: "NZ90", expected_paths: 0, near_miss: true, why: "Admin API URL requires SigV4; role is read-only."}
+  - {id: "arn:aws:iam::310000000001:role/prod-admin-api-role", class: "NZ90", expected_paths: 0, near_miss: true, why: "Despite the name, view-only."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-03c45372568aef802", class: "NZ90", expected_paths: 0, near_miss: true, findings: ["N095"], why: "443 to the portal ALB, by design."}
+  - {id: "arn:aws:elasticloadbalancing:us-east-1:310000000001:loadbalancer/app/customer-portal-lb/abfc0863b14abbb3", class: "NZ90", expected_paths: 0, near_miss: true, why: "Customer portal front door; OIDC authenticated at the ALB."}
+  - {id: "arn:aws:ecs:us-east-1:310000000001:service/halyard-prod/customer-portal", class: "NZ90", expected_paths: 0, near_miss: true, why: "Fargate private; task role reads only the portal's own session table."}
+  - {id: "arn:aws:iam::310000000001:role/customer-portal-task-role", class: "NZ90", expected_paths: 0, near_miss: true, why: "Tenant-scoped session access only."}
+  - {id: "arn:aws:iam::310000000006:role/root-access-audit", class: "NZ90", expected_paths: 0, near_miss: true, why: "Audits root usage; read-only; SSO+MFA."}
+  - {id: "arn:aws:iam::310000000001:role/breakglass-admin", class: "NZ90", expected_paths: 0, near_miss: true, findings: ["N096"], why: "Break-glass admin reachable only via SSO+MFA with two-person approval and paging."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:secrets-rotation-lambda", class: "NZ90", expected_paths: 0, near_miss: true, why: "No URL, invoked only by Secrets Manager rotation."}
+  - {id: "arn:aws:iam::310000000001:role/secrets-rotation-lambda-role", class: "NZ90", expected_paths: 0, near_miss: true, why: "Rotation rights on one secret family; function is not externally invocable."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-0bd093ab335c92073", class: "NZ90", expected_paths: 0, near_miss: true, why: "No public IP, no SSH, SSM with SSO only; no instance role beyond SSM core."}
+  - {id: "arn:aws:iam::310000000001:user/svc-prod-admin-legacy", class: "NZ90", expected_paths: 0, near_miss: true, findings: ["N097"], why: "Orphaned user with no credentials and no policies: cannot authenticate or do anything."}
+  - {id: "arn:aws:iam::310000000001:role/wildcard-trust-role", class: "NZ90", expected_paths: 0, near_miss: true, why: "Name is historical; trust is service-only with SourceArn pin; logs only."}
+  - {id: "arn:aws:kms:us-east-1:310000000001:key/mrk-c2b95c0ac48bb115ab35e4d96e3703a8", class: "NZ90", expected_paths: 0, near_miss: true, why: "Key administered by the SSO-only admin role; rotation on."}
+  - {id: "arn:aws:ssm:us-east-1:310000000001:parameter/prod/db/master-password", class: "NZ90", expected_paths: 0, near_miss: true, why: "Encrypted parameter readable only by a private, IMDSv2-only workload role."}
+  - {id: "cluster/clusterrolebinding/cluster-admin-viewer", class: "NZ90", expected_paths: 0, near_miss: true, why: "Binds the built-in read-only 'view' ClusterRole (not cluster-admin) to an SSO group."}
+  - {id: "cluster/clusterrole/view", class: "NZ90", expected_paths: 0, near_miss: true, why: "Built-in read-only role; no secrets."}
+  - {id: "sandbox/serviceaccount/root-deployer", class: "NZ90", expected_paths: 0, near_miss: true, why: "Namespaced deploy rights in a dev sandbox namespace; no cluster scope."}
+  - {id: "//iam.googleapis.com/projects/halyard-prod-gcp/serviceAccounts/owner-sa-legacy@halyard-prod-gcp.iam.gserviceaccount.com", class: "NZ90", expected_paths: 0, near_miss: true, why: "Disabled, no roles, no keys."}
+  - {id: "//iam.googleapis.com/projects/halyard-prod-gcp/serviceAccounts/pii-warehouse-reader@halyard-prod-gcp.iam.gserviceaccount.com", class: "NZ90", expected_paths: 0, near_miss: true, why: "Reads an aggregate (non-PII) dataset; no keys; not attached to any exposed workload."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-sec-rg/providers/Microsoft.KeyVault/vaults/prodadminsecrets", class: "NZ90", expected_paths: 0, near_miss: true, why: "Private key vault, RBAC-only, no public network."}
+  - {id: "/subscriptions/7a1e0000-0000-4000-8000-000000000010/resourceGroups/halyard-data-rg/providers/Microsoft.Storage/storageAccounts/customerpiiarchive", class: "NZ90", expected_paths: 0, near_miss: true, why: "Sensitive but locked down: no public blob, no public network, no shared keys; no principal in the estate is granted access."}
+  - {id: "github.com/halyard/infra-prod-admin", class: "NZ90", expected_paths: 0, near_miss: true, why: "Protected, private, no cloud trust."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:security-group/sg-0572f176bd9ef97ee", class: "NZT1", expected_paths: 1, true_positive: "TP1", findings: ["N098"], why: "TRUE POSITIVE TP1 entry."}
+  - {id: "arn:aws:ec2:us-east-1:310000000001:instance/i-02fc787a0e4afdcc7", class: "NZT1", expected_paths: 1, true_positive: "TP1", findings: ["N099", "N100"], why: "TRUE POSITIVE TP1 foothold."}
+  - {id: "arn:aws:iam::310000000001:role/legacy-reports-role", class: "NZT1", expected_paths: 1, true_positive: "TP1", why: "TRUE POSITIVE TP1 credential."}
+  - {id: "arn:aws:s3:::halyard-finance-ledger", class: "NZT1", expected_paths: 1, true_positive: "TP1", why: "TRUE POSITIVE TP1 target."}
+  - {id: "github.com/halyard/release-tools", class: "NZT1", expected_paths: 1, true_positive: "TP2", findings: ["N101"], why: "TRUE POSITIVE TP2 entry."}
+  - {id: "arn:aws:iam::310000000001:role/gha-release-tools", class: "NZT1", expected_paths: 1, true_positive: "TP2", findings: ["N102"], why: "TRUE POSITIVE TP2 target."}
+  - {id: "arn:aws:lambda:us-east-1:310000000001:function:partner-webhook-debug", class: "NZT1", expected_paths: 1, true_positive: "TP3", findings: ["N103"], why: "TRUE POSITIVE TP3 entry."}
+  - {id: "arn:aws:iam::310000000001:role/partner-webhook-debug-role", class: "NZT1", expected_paths: 1, true_positive: "TP3", why: "TRUE POSITIVE TP3 credential."}
+  - {id: "arn:aws:dynamodb:us-east-1:310000000001:table/halyard-customer-contacts", class: "NZT1", expected_paths: 1, true_positive: "TP3", why: "TRUE POSITIVE TP3 target."}

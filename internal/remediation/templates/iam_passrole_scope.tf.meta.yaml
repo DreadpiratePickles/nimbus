@@ -1,0 +1,20 @@
+# Remediation plan metadata for iam_passrole_scope.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "iam:GetUserPolicy"
+  - "iam:PutUserPolicy"
+  - "iam:GetRolePolicy"
+  - "iam:PutRolePolicy"
+  - "iam:GetPolicyVersion"
+  - "iam:CreatePolicyVersion"
+  - "iam:SetDefaultPolicyVersion"
+validation:
+  sql: "SELECT from_id, to_id FROM graph_edges WHERE from_id = {{ sqlstr .F.Resource.ID }} AND to_id = {{ sqlstr .F.Resource.Attributes.escalation_role }} AND kind = 'can_assume' AND attr LIKE '%technique%'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>` on the path Issue (`cloud-posture issues` lists the id): it re-reads the principal and the role, re-traverses and closes the Issue only once the path is gone. Quick check after a re-scan: zero rows means the IAM evaluator no longer derives the PassRole escalation edge."
+mitigation: "Add an explicit Deny on iam:PassRole for the escalation role (the DenyEscalationPassRole statement alone) or a permissions boundary that denies it, while the passable-role list is confirmed."
+effort: S
+confidence: high
+rollback: "Restore the saved policy document (aws iam put-user-policy / put-role-policy with the saved JSON, or set-default-policy-version to the previous version)."
+breaks_function:
+  value: true
+  note: "Launching instances with the escalation role's instance profile fails with AccessDenied; workloads that need it must use a non-admin role listed in passable_roles."

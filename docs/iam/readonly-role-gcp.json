@@ -1,0 +1,17 @@
+{
+  "title": "Cloud Posture Reader",
+  "description": "Least-privilege read-only access for nimbus native GCP collection (generated from collector source).",
+  "stage": "GA",
+  "includedPermissions": [
+    "cloudsql.instances.list",
+    "compute.addresses.list",
+    "compute.disks.list",
+    "compute.firewalls.list",
+    "compute.instances.list",
+    "iam.serviceAccounts.list",
+    "resourcemanager.projects.get",
+    "resourcemanager.projects.getIamPolicy",
+    "storage.buckets.getIamPolicy",
+    "storage.buckets.list"
+  ]
+}

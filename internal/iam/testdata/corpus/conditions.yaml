@@ -1,0 +1,277 @@
+category: conditions
+cases:
+  - name: MFA Bool true with MFA present
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-multifactorauthpresent
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:StopInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1", context: {"aws:MultiFactorAuthPresent": "true"}}
+    identity:
+      - id: mfa
+        document: {Version: "2012-10-17", Statement: [{Sid: WithMFA, Effect: Allow, Action: "ec2:*", Resource: "*", Condition: {Bool: {"aws:MultiFactorAuthPresent": "true"}}}]}
+    expect: {decision: allow, matched: [mfa#WithMFA]}
+
+  - name: MFA Bool true with key absent is unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-multifactorauthpresent
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:StopInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1"}
+    identity:
+      - id: mfa
+        document: {Version: "2012-10-17", Statement: [{Sid: WithMFA, Effect: Allow, Action: "ec2:*", Resource: "*", Condition: {Bool: {"aws:MultiFactorAuthPresent": "true"}}}]}
+    expect: {decision: unknown, matched: ["mfa#WithMFA?"], unknown_keys: ["aws:MultiFactorAuthPresent"]}
+
+  - name: MFA Bool true with key absent and complete context is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-multifactorauthpresent
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:StopInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1", context_complete: true}
+    identity:
+      - id: mfa
+        document: {Version: "2012-10-17", Statement: [{Sid: WithMFA, Effect: Allow, Action: "ec2:*", Resource: "*", Condition: {Bool: {"aws:MultiFactorAuthPresent": "true"}}}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: BoolIfExists MFA true with key absent allows (long-term keys)
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_IfExists
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:StopInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1"}
+    identity:
+      - id: mfa
+        document: {Version: "2012-10-17", Statement: [{Sid: WithMFA, Effect: Allow, Action: "ec2:*", Resource: "*", Condition: {BoolIfExists: {"aws:MultiFactorAuthPresent": "true"}}}]}
+    expect: {decision: allow, matched: [mfa#WithMFA]}
+
+  - name: BoolIfExists MFA true with MFA false denies implicitly
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_IfExists
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:StopInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1", context: {"aws:MultiFactorAuthPresent": "false"}}
+    identity:
+      - id: mfa
+        document: {Version: "2012-10-17", Statement: [{Sid: WithMFA, Effect: Allow, Action: "ec2:*", Resource: "*", Condition: {BoolIfExists: {"aws:MultiFactorAuthPresent": "true"}}}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: Null deny for long-term credentials without MFA
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_Null
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: NeedMFA, Effect: Deny, Action: "*", Resource: "*", Condition: {"Null": {"aws:MultiFactorAuthAge": "true"}}}
+    expect: {decision: explicit_deny, matched: [p#All, p#NeedMFA]}
+
+  - name: Null deny does not apply when MFA age present
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_Null
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111", context: {"aws:MultiFactorAuthAge": "300"}}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: NeedMFA, Effect: Deny, Action: "*", Resource: "*", Condition: {"Null": {"aws:MultiFactorAuthAge": "true"}}}
+    expect: {decision: allow, matched: [p#All]}
+
+  - name: NumericLessThan MFA age within an hour
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_Numeric
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: iam:DeleteUser, resource: "arn:aws:iam::111111111111:user/bob", context: {"aws:MultiFactorAuthAge": "7200"}}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Fresh, Effect: Allow, Action: "iam:DeleteUser", Resource: "*", Condition: {NumericLessThan: {"aws:MultiFactorAuthAge": "3600"}}}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: SourceIp inside allowed CIDR
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_deny-ip.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111", context: {"aws:SourceIp": "192.0.2.17"}}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: CorpOnly, Effect: Deny, Action: "*", Resource: "*", Condition: {NotIpAddress: {"aws:SourceIp": ["192.0.2.0/24", "203.0.113.0/24"]}}}
+    expect: {decision: allow, matched: [p#All]}
+
+  - name: SourceIp outside allowed CIDR is denied
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_deny-ip.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111", context: {"aws:SourceIp": "198.51.100.4"}}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: CorpOnly, Effect: Deny, Action: "*", Resource: "*", Condition: {NotIpAddress: {"aws:SourceIp": ["192.0.2.0/24", "203.0.113.0/24"]}}}
+    expect: {decision: explicit_deny, matched: [p#All, p#CorpOnly]}
+
+  - name: IpAddress allow grants from inside range
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_IPAddress
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: iam:ListUsers, resource: "*", context: {"aws:SourceIp": "203.0.113.200"}}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: FromOffice, Effect: Allow, Action: "iam:*", Resource: "*", Condition: {IpAddress: {"aws:SourceIp": "203.0.113.0/24"}}}]}
+    expect: {decision: allow, matched: [p#FromOffice]}
+
+  - name: SourceVpc matches
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-sourcevpc
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::internal/k", resource_account: "111111111111", context: {"aws:SourceVpc": vpc-111bbb22}}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: VpcOnly, Effect: Deny, Principal: "*", Action: "s3:*", Resource: ["arn:aws:s3:::internal", "arn:aws:s3:::internal/*"], Condition: {StringNotEquals: {"aws:SourceVpc": vpc-111bbb22}}}]}
+    expect: {decision: allow, matched: [id#Read]}
+
+  - name: SourceVpc different is denied
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-sourcevpc
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::internal/k", resource_account: "111111111111", context: {"aws:SourceVpc": vpc-999}}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: VpcOnly, Effect: Deny, Principal: "*", Action: "s3:*", Resource: ["arn:aws:s3:::internal", "arn:aws:s3:::internal/*"], Condition: {StringNotEquals: {"aws:SourceVpc": vpc-111bbb22}}}]}
+    expect: {decision: explicit_deny, matched: [id#Read, bucket#VpcOnly]}
+
+  - name: SourceVpc absent makes the deny possible so decision is unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-sourcevpc
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::internal/k", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: VpcOnly, Effect: Deny, Principal: "*", Action: "s3:*", Resource: ["arn:aws:s3:::internal", "arn:aws:s3:::internal/*"], Condition: {StringNotEquals: {"aws:SourceVpc": vpc-111bbb22}}}]}
+    expect: {decision: unknown, matched: [id#Read, "bucket#VpcOnly?"], unknown_keys: ["aws:SourceVpc"]}
+
+  - name: SourceVpc absent with complete context the negated deny applies
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::internal/k", resource_account: "111111111111", context_complete: true}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: VpcOnly, Effect: Deny, Principal: "*", Action: "s3:*", Resource: ["arn:aws:s3:::internal", "arn:aws:s3:::internal/*"], Condition: {StringNotEquals: {"aws:SourceVpc": vpc-111bbb22}}}]}
+    expect: {decision: explicit_deny, matched: [id#Read, bucket#VpcOnly]}
+
+  - name: SourceVpce on bucket policy allow
+    source: https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies-vpc-endpoint.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::internal/k", resource_account: "111111111111", context: {"aws:SourceVpce": vpce-1a2b3c4d}}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: ViaEndpoint, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:user/alice"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::internal/*", Condition: {StringEquals: {"aws:SourceVpce": vpce-1a2b3c4d}}}]}
+    expect: {decision: allow, matched: [bucket#ViaEndpoint]}
+
+  - name: PrincipalOrgID same org allowed by bucket policy
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-principalorgid
+    request: {principal: "arn:aws:iam::222222222222:user/carol", action: s3:GetObject, resource: "arn:aws:s3:::shared/k", resource_account: "111111111111", context: {"aws:PrincipalOrgID": o-abc123}}
+    identity:
+      - id: carol
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Org, Effect: Allow, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::shared/*", Condition: {StringEquals: {"aws:PrincipalOrgID": o-abc123}}}]}
+    expect: {decision: allow, matched: [carol#Read, bucket#Org]}
+
+  - name: PrincipalOrgID other org is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-principalorgid
+    request: {principal: "arn:aws:iam::999999999999:user/mallory", action: s3:GetObject, resource: "arn:aws:s3:::shared/k", resource_account: "111111111111", context: {"aws:PrincipalOrgID": o-evil}}
+    identity:
+      - id: mallory
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Org, Effect: Allow, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::shared/*", Condition: {StringEquals: {"aws:PrincipalOrgID": o-abc123}}}]}
+    expect: {decision: implicit_deny, matched: [mallory#Read]}
+
+  - name: PrincipalOrgID unknown for cross-account caller is unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-principalorgid
+    request: {principal: "arn:aws:iam::222222222222:user/carol", action: s3:GetObject, resource: "arn:aws:s3:::shared/k", resource_account: "111111111111"}
+    identity:
+      - id: carol
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Org, Effect: Allow, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::shared/*", Condition: {StringEquals: {"aws:PrincipalOrgID": o-abc123}}}]}
+    expect: {decision: unknown, matched: [carol#Read, "bucket#Org?"], unknown_keys: ["aws:PrincipalOrgID"]}
+
+  - name: SecureTransport false deny on bucket
+    source: https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111", context: {"aws:SecureTransport": "false"}}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: TLS, Effect: Deny, Principal: "*", Action: "s3:*", Resource: ["arn:aws:s3:::b", "arn:aws:s3:::b/*"], Condition: {Bool: {"aws:SecureTransport": "false"}}}]}
+    expect: {decision: explicit_deny, matched: [id#Read, bucket#TLS]}
+
+  - name: ArnLike on aws:PrincipalArn derived from the session
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-principalarn
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/ci-deploy/run-42", action: s3:PutObject, resource: "arn:aws:s3:::artifacts/x", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Put, Effect: Allow, Action: "s3:PutObject", Resource: "*", Condition: {ArnLike: {"aws:PrincipalArn": "arn:aws:iam::111111111111:role/ci-*"}}}]}
+    expect: {decision: allow, matched: [id#Put]}
+
+  - name: ForAllValues tag keys subset allows
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-single-vs-multi-valued-context-keys.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:CreateTags, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1", context: {"aws:TagKeys": [env, costcenter]}}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Tags, Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAllValues:StringEquals": {"aws:TagKeys": [env, costcenter, team]}}}]}
+    expect: {decision: allow, matched: [p#Tags]}
+
+  - name: ForAllValues tag keys outside set is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-single-vs-multi-valued-context-keys.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:CreateTags, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1", context: {"aws:TagKeys": [env, owner]}}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Tags, Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAllValues:StringEquals": {"aws:TagKeys": [env, costcenter, team]}}}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: ForAnyValue deny on sensitive tag key
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-single-vs-multi-valued-context-keys.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:CreateTags, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1", context: {"aws:TagKeys": [env, Owner]}}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: Tags, Effect: Allow, Action: "ec2:CreateTags", Resource: "*"}
+            - {Sid: NoOwner, Effect: Deny, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAnyValue:StringEqualsIgnoreCase": {"aws:TagKeys": [owner]}}}
+    expect: {decision: explicit_deny, matched: [p#Tags, p#NoOwner]}
+
+  - name: DateLessThan grant expired
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_Date
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111", context: {"aws:CurrentTime": "2026-10-09T12:00:00Z"}}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Temp, Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {DateLessThan: {"aws:CurrentTime": "2026-06-30T00:00:00Z"}, DateGreaterThan: {"aws:CurrentTime": "2026-01-01T00:00:00Z"}}}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: DateGreaterThan and DateLessThan window open
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_Date
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111", context: {"aws:CurrentTime": "2026-03-09T12:00:00Z"}}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Temp, Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {DateLessThan: {"aws:CurrentTime": "2026-06-30T00:00:00Z"}, DateGreaterThan: {"aws:CurrentTime": "2026-01-01T00:00:00Z"}}}]}
+    expect: {decision: allow, matched: [p#Temp]}
+
+  - name: StringLike s3 prefix multiple values ORed
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html#Conditions_String
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:ListBucket, resource: "arn:aws:s3:::home", resource_account: "111111111111", context: {"s3:prefix": "alice/docs/"}}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: List, Effect: Allow, Action: "s3:ListBucket", Resource: "arn:aws:s3:::home", Condition: {StringLike: {"s3:prefix": ["", "home/", "${aws:username}/*"]}}}]}
+    expect: {decision: allow, matched: [p#List]}
+
+  - name: GitHub OIDC sub and aud on a web identity trust
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html
+    request: {principal: "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com", action: sts:AssumeRoleWithWebIdentity, resource: "arn:aws:iam::111111111111:role/gh-deploy", context: {"token.actions.githubusercontent.com:sub": "repo:acme/app:ref:refs/heads/main", "token.actions.githubusercontent.com:aud": sts.amazonaws.com}}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Sid: GH, Effect: Allow, Principal: {Federated: "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com"}, Action: sts:AssumeRoleWithWebIdentity, Condition: {StringEquals: {"token.actions.githubusercontent.com:aud": sts.amazonaws.com}, StringLike: {"token.actions.githubusercontent.com:sub": "repo:acme/app:*"}}}]}
+    expect: {decision: allow, matched: [trust#GH]}
+
+  - name: GitHub OIDC sub from another repo is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html
+    request: {principal: "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com", action: sts:AssumeRoleWithWebIdentity, resource: "arn:aws:iam::111111111111:role/gh-deploy", context: {"token.actions.githubusercontent.com:sub": "repo:evil/fork:ref:refs/heads/main", "token.actions.githubusercontent.com:aud": sts.amazonaws.com}}
+    resource_policy:
+      id: trust
+      document: {Version: "2012-10-17", Statement: [{Sid: GH, Effect: Allow, Principal: {Federated: "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com"}, Action: sts:AssumeRoleWithWebIdentity, Condition: {StringEquals: {"token.actions.githubusercontent.com:aud": sts.amazonaws.com}, StringLike: {"token.actions.githubusercontent.com:sub": "repo:acme/app:*"}}}]}
+    expect: {decision: implicit_deny, matched: []}

@@ -1,0 +1,234 @@
+{
+  "$defs": {
+    "finding": {
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "canonical_id"
+          ]
+        },
+        {
+          "required": [
+            "source",
+            "check_id"
+          ]
+        }
+      ],
+      "properties": {
+        "account": {
+          "description": "Account, subscription, project, cluster or org id the resource lives in. Part of the fingerprint.",
+          "type": "string"
+        },
+        "canonical_id": {
+          "description": "nimbus catalog id (S3_PUBLIC_BUCKET). Optional on ingest: the catalog maps source+check_id onto it, else it becomes UPPER(source):check_id.",
+          "type": "string"
+        },
+        "check_id": {
+          "description": "The tool's native check id (s3_bucket_public_access, CKV_AWS_20, CVE-2024-3094). Part of the fingerprint.",
+          "type": "string"
+        },
+        "compliance": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Framework key → control ids (cis_aws: [\"2.1.4\"]). Merged with the catalog's mappings.",
+          "type": "object"
+        },
+        "description": {
+          "description": "Longer explanation or the tool's status detail.",
+          "type": "string"
+        },
+        "file": {
+          "description": "IaC file path relative to the scanned root (IaC findings only). Part of the fingerprint.",
+          "type": "string"
+        },
+        "first_seen": {
+          "description": "RFC 3339 time the finding was first observed (set by nimbus when absent).",
+          "format": "date-time",
+          "type": "string"
+        },
+        "id": {
+          "description": "Stable fingerprint. Optional on ingest: when empty nimbus computes it as hex(sha256(source|check_id|provider|account|region|resource.id|file))[:32].",
+          "type": "string"
+        },
+        "last_seen": {
+          "description": "RFC 3339 time of the latest observation (set by nimbus on ingest).",
+          "format": "date-time",
+          "type": "string"
+        },
+        "line_end": {
+          "description": "Last line of the offending block.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "line_start": {
+          "description": "First line of the offending block (1-based).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "provider": {
+          "description": "aws | azure | gcp | oci | kubernetes | github | m365 | okta | iac | unknown (aliases such as k8s, azurerm, terraform are normalised).",
+          "minLength": 1,
+          "type": "string"
+        },
+        "raw": {
+          "description": "The tool's original record, kept verbatim for evidence. Never rendered as HTML."
+        },
+        "region": {
+          "description": "Cloud region or location, when the resource is regional. Part of the fingerprint.",
+          "type": "string"
+        },
+        "remediation": {
+          "description": "Fix guidance text.",
+          "type": "string"
+        },
+        "resource": {
+          "$ref": "#/$defs/resource",
+          "description": "The affected resource (for IaC: the Terraform address)."
+        },
+        "scan_id": {
+          "description": "Id of the scan that produced the finding (set by nimbus).",
+          "type": "string"
+        },
+        "severity": {
+          "description": "Upper-case severity. Native ingest does not normalise other spellings (adapters do); empty means INFO, and an INFO finding takes the catalog severity.",
+          "enum": [
+            "CRITICAL",
+            "HIGH",
+            "MEDIUM",
+            "LOW",
+            "INFO"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "description": "Producing tool in lower case (prowler, checkov, trivy, steampipe, scoutsuite, cloud-posture, or a plugin name). Part of the fingerprint.",
+          "type": "string"
+        },
+        "status": {
+          "description": "FAIL = open misconfiguration, PASS = checked and fine, SKIP = muted/manual/not applicable, ERROR = could not be evaluated (scan gaps carry tags.scan_gap and fail closed).",
+          "enum": [
+            "FAIL",
+            "PASS",
+            "SKIP",
+            "ERROR"
+          ],
+          "type": "string"
+        },
+        "tags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Free-form string labels. Reserved: account_label, scan_gap, service, cvss, primary_url.",
+          "type": "object"
+        },
+        "title": {
+          "description": "One-line human title. Filled from the catalog when empty.",
+          "type": "string"
+        },
+        "weaknesses": {
+          "description": "Weakness vocabulary consumed by the attack-path engine (PUBLIC_DATA_STORE, IMDSV1_ENABLED, ...). Filled from the catalog.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "relation": {
+      "additionalProperties": false,
+      "properties": {
+        "attr": {
+          "description": "Edge attributes copied onto the graph edge; attr.because (string) becomes the hop's explanation.",
+          "type": "object"
+        },
+        "id": {
+          "description": "Target resource id.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "description": "Edge kind: attached_to, runs_as, bound_to, member_of, trusts, has_policy, grants_access_to, runs_on, allows_traffic_to, can_assume, exposes, contains, stores_data_in, or an alias (policy → has_policy, resource → grants_access_to, sts_assume_role_allows → can_assume reversed, exposed_to_internet → exposes from the internet). Unknown kinds are kept as unverified attached_to hints.",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "resource": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "description": "Collector or tool attributes used by rules and the graph (public, versioning, ...).",
+          "type": "object"
+        },
+        "id": {
+          "description": "Provider-native resource id (ARN, Azure resource id, GCP self link, Kubernetes <namespace>/<kind>/<name>, Terraform address). Part of the fingerprint and the graph node id.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Display name (defaults to id).",
+          "type": "string"
+        },
+        "related": {
+          "description": "Related resource ids. On ingest an entry is either a string (an untyped hint, becomes an attached_to edge) or a typed relation object {id, kind, attr}. nimbus writes strings here and the typed entries again under relations.",
+          "items": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/relation"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "relations": {
+          "description": "Typed relationships from this resource (the form nimbus writes). Each id is also listed in related.",
+          "items": {
+            "$ref": "#/$defs/relation"
+          },
+          "type": "array"
+        },
+        "type": {
+          "description": "Resource type in Terraform naming where one exists (aws_s3_bucket, kubernetes_pod).",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/DreadpiratePickles/nimbus/blob/main/docs/spec/finding-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Native ingest and output format of nimbus (cloud-posture), spec version 1.0.0. A document is either this envelope, a JSON array of findings, or JSON lines of findings. Generated from internal/model by `go generate ./internal/output`; do not edit by hand. Human-readable spec: docs/spec/finding-v1.md.",
+  "properties": {
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/finding"
+      },
+      "type": "array"
+    },
+    "spec_version": {
+      "description": "Contract version (semver). Readers accept any 1.x.",
+      "pattern": "^1\\.\\d+\\.\\d+$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "findings"
+  ],
+  "title": "nimbus finding contract v1",
+  "type": "object"
+}

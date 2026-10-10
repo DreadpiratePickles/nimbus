@@ -7,7 +7,43 @@ import sys
 from pathlib import Path
 from typing import Any, List, Optional
 
-import typer
+
+# Flipped to True by the release that publishes the package to PyPI. Until then (r5 #12: no
+# "nimbus-cspm" package is published) install hints are the from-source command.
+PYPI_PUBLISHED = False
+_REPO_URL = "https://github.com/DreadpiratePickles/nimbus"
+
+
+def _install_target(checkout: Optional[Path]) -> str:
+    """pip's argument for installing this layer: ``-e "<checkout>"`` in a source checkout, the
+    published package once PYPI_PUBLISHED, otherwise the git+https form (subdirectory python).
+    The ``[ai]`` extra (the anthropic SDK) only when ANTHROPIC_API_KEY is set: the offline copilot
+    runs on the base package (W7-POLISH, r5 #12)."""
+    import os
+
+    extra = "[ai]" if os.environ.get("ANTHROPIC_API_KEY", "").strip() else ""
+    if checkout is not None:
+        return f'-e "{checkout}{extra}"'
+    if PYPI_PUBLISHED:
+        return f'"nimbus-cspm{extra}"'
+    return f'"nimbus-cspm{extra} @ git+{_REPO_URL}@main#subdirectory=python"'
+
+
+def _missing_dependency(exc: ImportError) -> None:
+    """A fresh clone without `pip install`: one actionable line, never a traceback (r4 #6 / N2)."""
+    name = getattr(exc, "name", None) or str(exc)
+    src = Path(__file__).resolve().parents[1]
+    target = _install_target(src if (src / "pyproject.toml").exists() else None)
+    sys.stderr.write(f"nimbus: the Python layer is missing the dependency {name!r}. Install the copilot's dependencies with:\n"
+                     f"  {sys.executable} -m pip install {target}\n"
+                     "(scanning, scoring and paths are Go-native and need none of this; `cloud-posture ask` is the only command that does)\n")
+    raise SystemExit(3)
+
+
+try:
+    import typer
+except ImportError as _exc:  # pragma: no cover - exercised by a subprocess test
+    _missing_dependency(_exc)
 
 from . import __version__
 
@@ -33,9 +69,45 @@ def _dump(obj: Any) -> None:
     typer.echo(json.dumps(obj, indent=2, default=str))
 
 
+ASK_MAX_ROWS = 20
+ASK_MAX_BYTES = 2048
+_CELL = 60
+
+
+def _ask_table(cols: list[str], rows: list[list[Any]], full: bool = False) -> str:
+    """The rows behind an answer as plain aligned text: at most ASK_MAX_ROWS rows and
+    ASK_MAX_BYTES bytes with cells cut at 60 characters, unless ``full`` (r4 #6 / N3: the
+    who-can answer was a 40 KB wrapped table at non-TTY width)."""
+    def cell(v: Any) -> str:
+        t = "" if v is None else " ".join(str(v).split())
+        return t if full or len(t) <= _CELL else t[:_CELL - 1] + "…"
+
+    body = [[cell(v) for v in r] for r in rows]
+    shown = body if full else body[:ASK_MAX_ROWS]
+    widths = [len(str(c)) for c in cols]
+    for r in shown:
+        widths = [max(w, len(v)) for w, v in zip(widths, r)] + widths[len(r):]
+    fmt = lambda r: "  ".join(v.ljust(w) for v, w in zip(r, widths)).rstrip()  # noqa: E731
+    lines = [fmt([str(c) for c in cols]), fmt(["-" * w for w in widths])]
+    size, n = sum(len(x.encode()) + 1 for x in lines), 0
+    for r in shown:
+        ln = fmt(r)
+        if not full and size + len(ln.encode()) + 1 > ASK_MAX_BYTES:
+            break
+        lines.append(ln)
+        size += len(ln.encode()) + 1
+        n += 1
+    if n < len(rows):
+        lines.append(f"… showing {n} of {len(rows)} rows (--full prints every row and whole cells; --json for machine output)")
+    return "\n".join(lines)
+
+
 def _table(cols: list[str], rows: list[list[Any]], max_rows: int = 200) -> None:
-    from rich.console import Console
-    from rich.table import Table
+    try:
+        from rich.console import Console
+        from rich.table import Table
+    except ImportError as exc:  # pragma: no cover
+        _missing_dependency(exc)
 
     t = Table(show_lines=False)
     for c in cols:
@@ -55,19 +127,20 @@ def version() -> None:
 
 @app.command()
 def ask(question: str = typer.Argument(..., help="natural-language question"), db: Optional[str] = DB_OPT,
-        as_json: bool = typer.Option(False, "--json")) -> None:
-    """Ask the security copilot (NL -> SQL -> answer)."""
+        as_json: bool = typer.Option(False, "--json"),
+        show_sql: bool = typer.Option(False, "--show-sql", help="print the SQL that ran (once, under Sources:)"),
+        full: bool = typer.Option(False, "--full", help="print every row of the answer's table (default: 20 rows, 2 KB)")) -> None:
+    """Ask the security copilot (NL -> SQL -> answer). The answer ends with a Sources: block; the
+    SQL itself is printed only with --show-sql (it is always in --json)."""
     from .ai.copilot import SecurityCopilot
 
-    res = SecurityCopilot(_store(db)).ask(question)
+    res = SecurityCopilot(_store(db), show_sql=show_sql).ask(question)
     if as_json:
         _dump(res)
         return
     typer.secho(res.get("answer", ""), bold=True)
-    if res.get("sql"):
-        typer.secho(f"\n-- {res['intent']} ({res['mode']})\n{res['sql']}\n", fg="cyan")
     if res.get("columns"):
-        _table(res["columns"], res["rows"], 50)
+        typer.echo(_ask_table(res["columns"], res["rows"], full=full))
 
 
 @app.command()
@@ -205,18 +278,37 @@ def frameworks() -> None:
 
 
 @app.command()
-def report(framework: str = typer.Option(..., "--framework", help="framework key, alias, or 'all' for the executive summary"),
+def report(framework: str = typer.Option("all", "--framework", help="framework key, alias, or 'all' for the executive summary"),
+           framework_set_spec: Optional[str] = typer.Option(
+               None, "--framework-set",
+               help="with --framework all: default (CIS for the providers in scope + NIST 800-53, PCI DSS, SOC 2, HIPAA, "
+                    "ISO 27001, GDPR) | all | comma list of keys"),
            fmt: str = typer.Option("html", "--format", help="html|pdf|md|json"),
            out: Optional[Path] = typer.Option(None, "--out", help="output file (stdout for html/md/json when omitted)"),
            custom: Optional[Path] = typer.Option(None, "--custom", help="custom framework YAML"), db: Optional[str] = DB_OPT) -> None:
     """Build an audit-ready compliance report."""
-    from .compliance import build_report, load_frameworks
+    from .compliance import build_report, framework_set, load_frameworks
     from .reports import build_from_store, executive_summary_html, render
 
+    multi = framework == "all" and not custom
+    if framework_set_spec is not None and not multi:
+        typer.secho(f"--framework-set selects several frameworks; use it with --framework all, not --framework {framework}",
+                    fg="red", err=True)
+        raise typer.Exit(2)
     s = _store(db)
-    if framework == "all" and not custom:
+    if multi:
         fs, paths, scan = s.findings(), s.attack_paths(), s.last_scan()
-        reps = [build_report(k, fs, attack_paths=paths, scan=scan) for k in sorted(load_frameworks())]
+        try:
+            keys = framework_set(framework_set_spec, [f.provider for f in fs])
+        except ValueError as exc:
+            typer.secho(str(exc), fg="red", err=True)
+            raise typer.Exit(2)
+        total = len(load_frameworks())
+        if framework_set_spec is None:
+            typer.echo(f"{len(keys)} of {total} frameworks (framework-set default); use --framework-set all for every framework", err=True)
+        else:
+            typer.echo(f"{len(keys)} of {total} frameworks (framework-set {framework_set_spec})", err=True)
+        reps = [build_report(k, fs, attack_paths=paths, scan=scan) for k in keys]
         if fmt == "json":
             text = json.dumps([r.to_dict() for r in reps], indent=2, default=str)
         else:
@@ -277,11 +369,12 @@ def ingest(path: Path, db: Optional[str] = DB_OPT) -> None:
 
 
 @app.command()
-def serve(host: str = typer.Option("127.0.0.1", "--host"), port: int = typer.Option(8765, "--port"), db: Optional[str] = DB_OPT) -> None:
+def serve(host: str = typer.Option("127.0.0.1", "--host"), port: int = typer.Option(8765, "--port"), db: Optional[str] = DB_OPT,
+          allowed_host: List[str] = typer.Option([], "--allowed-host", help="Extra Host header values to accept (repeatable); also $NIMBUS_ALLOWED_HOSTS")) -> None:
     """Run the dashboard API (FastAPI + WebSocket)."""
     from .server import serve as _serve
 
-    _serve(host, port, db)
+    _serve(host, port, db, allowed_hosts=allowed_host)
 
 
 @plugin_app.command("run")

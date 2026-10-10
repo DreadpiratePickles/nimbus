@@ -1,0 +1,12 @@
+# Default owner for everything.
+*                         @DreadpiratePickles
+
+# Release and supply-chain surface: changes here need the maintainer's review.
+/.goreleaser.yaml         @DreadpiratePickles
+/.github/                 @DreadpiratePickles
+/install.sh               @DreadpiratePickles
+/action.yml               @DreadpiratePickles
+/Dockerfile               @DreadpiratePickles
+/SECURITY.md              @DreadpiratePickles
+/go.mod                   @DreadpiratePickles
+/go.sum                   @DreadpiratePickles

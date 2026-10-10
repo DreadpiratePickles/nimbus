@@ -1,0 +1,179 @@
+/* nimbus dashboard: the cwm(1) look, not a window manager (docs/design/cwm-dashboard-spec.md v2).
+   Values from docs/research/cwm-reference.md §1-3 (xenocara app/cwm conf.c / menu.c / client.c). */
+:root {
+  --cwm-active: #CCCCCC;     /* color activeborder: the focused panel */
+  --cwm-inactive: #666666;   /* color inactiveborder: every other panel */
+  --cwm-urgent: #FC8814;     /* color urgencyborder: live data arrived while unfocused */
+  --cwm-menu-fg: #000000;    /* color menufg: menu border and selection bar */
+  --cwm-menu-bg: #FFFFFF;    /* color menubg */
+  --cwm-font-c: #000000;     /* color font */
+  --cwm-selfont: #FFFFFF;    /* color selfont = menubg ^ menufg ^ font */
+  --cwm-font: bold 14px sans-serif; /* fontname sans-serif:pixelsize=14:bold */
+  --cwm-line: 17px;          /* ascent + descent */
+  --panel-bg: #FFFFFF;       /* xterm background */
+  --panel-fg: #000000;       /* xterm foreground */
+  --body-font: 14px/18px sans-serif;
+  --mono-font: 13px/15px "Menlo", "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --gap: 8px;
+  /* xterm's 16 ANSI defaults; the views use 1 (red3), 2 (green3), 4 (blue2) and 8 (gray50) */
+  --ansi-0: #000000; --ansi-1: #CD0000; --ansi-2: #00CD00; --ansi-3: #CDCD00;
+  --ansi-4: #0000EE; --ansi-5: #CD00CD; --ansi-6: #00CDCD; --ansi-7: #E5E5E5;
+  --ansi-8: #7F7F7F; --ansi-9: #FF0000; --ansi-10: #00FF00; --ansi-11: #FFFF00;
+  --ansi-12: #5C5CFF; --ansi-13: #FF00FF; --ansi-14: #00FFFF; --ansi-15: #FFFFFF;
+}
+/* xterm -rv: panels only; the page and the navigation menu keep cwm's colours. */
+html.cwm-rv { --panel-bg: #000000; --panel-fg: #FFFFFF; }
+
+/* Nothing cwm does not draw: no radius, shadow, gradient, image, animation. */
+*, *::before, *::after {
+  box-sizing: border-box;
+  border-radius: 0;
+  box-shadow: none;
+  text-shadow: none;
+  background-image: none;
+  animation: none;
+  transition: none;
+}
+
+/* The X root: black, nothing drawn on it. */
+html, body { margin: 0; padding: 0; height: 100%; background: #000000; }
+body { overflow: hidden; color: #FFFFFF; font: var(--body-font); cursor: default; }
+body > script { display: none; }
+
+.app {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--gap);
+  padding: var(--gap);
+  height: 100vh;
+}
+.app.has-pane { grid-template-columns: max-content minmax(0, 1fr) clamp(380px, 38vw, 640px); }
+
+/* Navigation: a cwm menu (menu.c) — white box, 1px menufg border, no padding, bold 14px rows. */
+nav.nav {
+  align-self: start;
+  min-width: 128px;
+  max-height: 100%;
+  overflow: auto;
+  scrollbar-width: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--cwm-menu-fg);
+  background: var(--cwm-menu-bg);
+  color: var(--cwm-font-c);
+  font: var(--cwm-font);
+  line-height: var(--cwm-line);
+  user-select: none;
+  -webkit-user-select: none;
+}
+nav.nav::-webkit-scrollbar { display: none; }
+.nav .r { background: var(--cwm-menu-bg); color: var(--cwm-font-c); height: var(--cwm-line); line-height: var(--cwm-line); white-space: pre; padding: 0; margin: 0; overflow: hidden; }
+.nav .item { cursor: pointer; }
+.nav .item:hover, .nav .item.sel, .nav .item.hit { background: var(--cwm-menu-fg); color: var(--cwm-selfont); }
+.nav.filtering .item.sel:not(.hit):not(:hover) { background: var(--cwm-menu-bg); color: var(--cwm-font-c); }
+.nav .item.gone { display: none; }
+.nav .prompt { position: relative; cursor: text; }
+.nav .prompt input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; padding: 0; border: 0; outline: none; opacity: 0;
+  background: transparent; color: transparent; caret-color: transparent;
+  font: inherit; cursor: text;
+}
+.nav .keys { font-weight: normal; }
+.nav .keys .r:first-child { font-weight: bold; }
+.nav .keys .k { display: inline-block; width: 44px; font-weight: bold; }
+
+/* Panels: the client window look — white box, 1px border coloured by focus, nothing else. */
+main.main { min-width: 0; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--cwm-inactive) #000000; }
+main.multi > .board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  grid-auto-flow: row dense;
+  gap: var(--gap);
+  align-content: start;
+  align-items: start;
+}
+main.multi > .board > .panel.wide { grid-column: 1 / -1; }
+main.single { display: flex; flex-direction: column; }
+main.single > .panel { flex: 1 1 auto; min-height: 0; }
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 6px 6px;
+  border: 1px solid var(--cwm-inactive);
+  background: var(--panel-bg);
+  color: var(--panel-fg);
+}
+.panel.focus { border-color: var(--cwm-active); }
+.panel.urgent { border-color: var(--cwm-urgent); }
+.panel-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 4px;
+  padding: 0;
+  font: var(--cwm-font);
+  line-height: var(--cwm-line);
+  color: inherit;
+  background: transparent;
+}
+.panel-h .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pane .panel-h .t { white-space: normal; overflow-wrap: anywhere; }
+.panel-h .close { flex: none; cursor: pointer; }
+.panel-h .close:hover { text-decoration: underline; }
+.panel-b { min-height: 0; min-width: 0; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--cwm-inactive) transparent; }
+main.single .panel-b, .pane .panel-b { flex: 1 1 auto; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--cwm-inactive) transparent; }
+aside.pane { min-width: 0; min-height: 0; }
+
+/* View output (clients.js): terminal-style, column-aligned, so fixed-width. */
+.view { font: var(--mono-font); color: inherit; }
+.view .ln { white-space: pre-wrap; word-break: break-all; min-height: 15px; }
+.view .nw { white-space: pre; }
+.view .prose { font: var(--body-font); white-space: normal; word-break: normal; overflow-wrap: anywhere; margin: 0 0 4px 16px; }
+.view b, .view .b { font-weight: bold; }
+.view .row { cursor: pointer; }
+.view .row:hover { text-decoration: underline; }
+.view .kbsel, .view .kbsel * { background: var(--panel-fg); color: var(--panel-bg) !important; }
+.view .sel { font-weight: bold; }
+.view .act { cursor: pointer; }
+.view .act:hover { text-decoration: underline; }
+.view .gone { display: none; }
+.view .wrap, .view .because { word-break: normal; overflow-wrap: anywhere; }
+.view .because { padding-left: 6ch; }
+.view .split { display: grid; align-items: start; }
+.view .pane-l { overflow: auto; scrollbar-width: none; }
+.view .pane-l::-webkit-scrollbar { display: none; }
+.view .cy { position: relative; }
+.view .sticky { position: sticky; top: 0; background: var(--panel-bg); z-index: 1; }
+.view .prompt { display: flex; white-space: pre; min-height: 15px; }
+.view input.term {
+  flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; outline: 0;
+  background: transparent; color: inherit; font: inherit; caret-color: currentColor;
+  -webkit-appearance: none; appearance: none;
+}
+
+/* Text colour only, ANSI palette only (spec v2.1). */
+.view .sev-CRITICAL { color: var(--ansi-1); font-weight: bold; }
+.view .sev-HIGH { color: var(--ansi-1); }
+.view .sev-MEDIUM { font-weight: bold; }
+.view .sev-LOW { color: var(--ansi-4); }
+.view .sev-INFO { color: var(--ansi-8); }
+.view .sev-PASS, .view .ok { color: var(--ansi-2); }
+.view .red { color: var(--ansi-1); }
+.view .dim { color: var(--ansi-8); }
+.view .band-Critical { color: var(--ansi-1); font-weight: bold; }
+.view .band-High { color: var(--ansi-1); }
+.view .band-Medium { font-weight: bold; }
+.view .band-Low { color: var(--ansi-4); }
+
+@media (max-width: 900px) {
+  body { overflow: auto; }
+  .app, .app.has-pane { grid-template-columns: minmax(0, 1fr); height: auto; }
+  nav.nav { width: 100%; }
+  main.main { overflow: visible; }
+  main.multi > .board { grid-template-columns: minmax(0, 1fr); }
+  main.single > .panel, aside.pane { height: 80vh; }
+}

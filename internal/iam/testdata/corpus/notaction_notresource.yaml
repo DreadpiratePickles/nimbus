@@ -1,0 +1,157 @@
+category: notaction_notresource
+cases:
+  - name: allow NotAction iam grants s3
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: poweruser
+        document: {Version: "2012-10-17", Statement: [{Sid: NotIAM, Effect: Allow, NotAction: "iam:*", Resource: "*"}]}
+    expect: {decision: allow, matched: [poweruser#NotIAM]}
+
+  - name: allow NotAction iam does not grant iam
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: iam:AttachUserPolicy, resource: "arn:aws:iam::111111111111:user/alice"}
+    identity:
+      - id: poweruser
+        document: {Version: "2012-10-17", Statement: [{Sid: NotIAM, Effect: Allow, NotAction: "iam:*", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: NotAction is case insensitive
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_action.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: iam:CreateAccessKey, resource: "arn:aws:iam::111111111111:user/alice"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: NotIAM, Effect: Allow, NotAction: "IAM:*", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: NotAction admin shape leaving PassRole is still allowed PassRole
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: iam:PassRole, resource: "arn:aws:iam::111111111111:role/admin"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: AlmostAll, Effect: Allow, NotAction: ["iam:Put*", "iam:Create*"], Resource: "*"}]}
+    expect: {decision: allow, matched: [p#AlmostAll]}
+
+  - name: deny NotAction denies everything except listed
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:DescribeInstances, resource: "*", context: {"aws:MultiFactorAuthPresent": "false"}}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: All, Effect: Allow, Action: "*", Resource: "*"}
+            - {Sid: MFAOrIAMOnly, Effect: Deny, NotAction: ["iam:*"], Resource: "*", Condition: {BoolIfExists: {"aws:MultiFactorAuthPresent": "false"}}}
+    expect: {decision: explicit_deny, matched: [p#All, p#MFAOrIAMOnly]}
+
+  - name: deny NotAction exempts listed action
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: iam:ChangePassword, resource: "arn:aws:iam::111111111111:user/alice", context: {"aws:MultiFactorAuthPresent": "false"}}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: All, Effect: Allow, Action: "*", Resource: "*"}
+            - {Sid: MFAOrIAMOnly, Effect: Deny, NotAction: ["iam:*"], Resource: "*", Condition: {BoolIfExists: {"aws:MultiFactorAuthPresent": "false"}}}
+    expect: {decision: allow, matched: [p#All]}
+
+  - name: allow NotResource grants other resources
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::public/a", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: NotHR, Effect: Allow, Action: "s3:*", NotResource: ["arn:aws:s3:::hr", "arn:aws:s3:::hr/*"]}]}
+    expect: {decision: allow, matched: [p#NotHR]}
+
+  - name: allow NotResource excludes listed resource
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::hr/salaries.csv", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: NotHR, Effect: Allow, Action: "s3:*", NotResource: ["arn:aws:s3:::hr", "arn:aws:s3:::hr/*"]}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: deny NotResource denies everything outside the bucket
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::other/a", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: OnlyMine, Effect: Deny, Action: "s3:*", NotResource: ["arn:aws:s3:::mine", "arn:aws:s3:::mine/*"]}
+    expect: {decision: explicit_deny, matched: [p#All, p#OnlyMine]}
+
+  - name: deny NotResource leaves the listed bucket
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::mine/a", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: OnlyMine, Effect: Deny, Action: "s3:*", NotResource: ["arn:aws:s3:::mine", "arn:aws:s3:::mine/*"]}
+    expect: {decision: allow, matched: [p#All]}
+
+  - name: NotAction plus NotResource on allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:StartInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, NotAction: "iam:*", NotResource: "arn:aws:s3:::*"}]}
+    expect: {decision: allow, matched: [p#S]}
+
+  - name: NotResource star grants nothing
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:StartInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, Action: "*", NotResource: "*"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: Deny NotPrincipal exempts listed user and account
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::vault/a", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: OnlyAlice, Effect: Deny, NotPrincipal: {AWS: ["arn:aws:iam::111111111111:user/alice", "arn:aws:iam::111111111111:root"]}, Action: "s3:*", Resource: ["arn:aws:s3:::vault", "arn:aws:s3:::vault/*"]}]}
+    expect: {decision: allow, matched: [id#Read]}
+
+  - name: Deny NotPrincipal denies another user
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html
+    request: {principal: "arn:aws:iam::111111111111:user/bob", action: s3:GetObject, resource: "arn:aws:s3:::vault/a", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: OnlyAlice, Effect: Deny, NotPrincipal: {AWS: ["arn:aws:iam::111111111111:user/alice", "arn:aws:iam::111111111111:root"]}, Action: "s3:*", Resource: ["arn:aws:s3:::vault", "arn:aws:s3:::vault/*"]}]}
+    expect: {decision: explicit_deny, matched: [id#Read, bucket#OnlyAlice]}
+
+  - name: Deny NotPrincipal listing only the role ARN still denies its session
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s1", action: s3:GetObject, resource: "arn:aws:s3:::vault/a", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: OnlyApp, Effect: Deny, NotPrincipal: {AWS: ["arn:aws:iam::111111111111:role/app", "arn:aws:iam::111111111111:root"]}, Action: "s3:*", Resource: "arn:aws:s3:::vault/*"}]}
+    expect: {decision: explicit_deny, matched: [id#Read, bucket#OnlyApp]}
+
+  - name: Deny NotPrincipal listing role, session and account exempts the session
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s1", action: s3:GetObject, resource: "arn:aws:s3:::vault/a", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: OnlyApp, Effect: Deny, NotPrincipal: {AWS: ["arn:aws:iam::111111111111:role/app", "arn:aws:sts::111111111111:assumed-role/app/s1", "111111111111"]}, Action: "s3:*", Resource: "arn:aws:s3:::vault/*"}]}
+    expect: {decision: allow, matched: [id#Read]}

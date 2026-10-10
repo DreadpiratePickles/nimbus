@@ -1,0 +1,17 @@
+# Remediation plan metadata for az_storage_public_blob.bicep (schema: internal/remediation/metadata.go).
+actions_required:
+  - "Microsoft.Storage/storageAccounts/read"
+  - "Microsoft.Storage/storageAccounts/write"
+  - "Microsoft.Resources/deployments/write"
+  - "Microsoft.Resources/deployments/whatIf/action"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Prefer the in-place CLI: az storage account update --allow-blob-public-access false."
+effort: S
+confidence: low
+rollback: "az storage account update -n <name> --allow-blob-public-access true, or redeploy the previous template."
+breaks_function:
+  value: true
+  note: "Anonymous readers lose access. Full ARM PUT: kind/SKU must match the current values and other unset properties are reset. Not validated with the bicep CLI."

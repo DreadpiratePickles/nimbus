@@ -1,0 +1,15 @@
+# Remediation plan metadata for az_storage_https.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "Microsoft.Storage/storageAccounts/read"
+  - "Microsoft.Storage/storageAccounts/write"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Check storage logs for HTTP / old-TLS callers and move them first; nothing else mitigates plaintext transport."
+effort: S
+confidence: medium
+rollback: "az storage account update -n <name> --https-only false --min-tls-version <previous>, or revert the file and plan."
+breaks_function:
+  value: true
+  note: "Clients using plain HTTP or TLS below 1.2 are refused (min_tls_version is set to TLS1_2)."

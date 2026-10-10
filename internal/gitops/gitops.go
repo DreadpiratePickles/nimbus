@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,12 +35,12 @@ type PROptions struct {
 }
 
 type PRResult struct {
-	Branch   string `json:"branch"`
-	Commit   string `json:"commit,omitempty"`
-	URL      string `json:"url,omitempty"`
-	Body     string `json:"body"`
-	DryRun   bool   `json:"dry_run"`
-	Files    []string `json:"files"`
+	Branch string   `json:"branch"`
+	Commit string   `json:"commit,omitempty"`
+	URL    string   `json:"url,omitempty"`
+	Body   string   `json:"body"`
+	DryRun bool     `json:"dry_run"`
+	Files  []string `json:"files"`
 }
 
 func git(dir string, args ...string) (string, error) {
@@ -95,6 +96,23 @@ func OpenFixPR(ctx context.Context, patches []iac.Patch, findings []model.Findin
 	if err != nil {
 		return nil, err
 	}
+	// Every patch path is relative to RepoDir (the --iac root the patch was read from) and
+	// must stay inside both it and the repository (inventory defect 5).
+	targets := make([]string, len(patches))
+	for i, p := range patches {
+		full, err := SafeJoin(opts.RepoDir, p.File)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := SafeJoin(root, full); err != nil {
+			return nil, err
+		}
+		rel, err := filepath.Rel(root, full)
+		if err != nil {
+			return nil, &PathEscapeError{Root: root, Path: p.File}
+		}
+		targets[i] = rel
+	}
 	base := opts.BaseBranch
 	if base == "" {
 		base, _ = git(root, "rev-parse", "--abbrev-ref", "HEAD")
@@ -117,15 +135,11 @@ func OpenFixPR(ctx context.Context, patches []iac.Patch, findings []model.Findin
 	if _, err := git(root, "checkout", "-b", branch); err != nil {
 		return nil, err
 	}
-	for _, p := range patches {
-		full := p.File
-		if !filepath.IsAbs(full) {
-			full = filepath.Join(root, p.File)
-		}
-		if err := os.WriteFile(full, []byte(p.After), 0o644); err != nil {
+	for i, p := range patches {
+		if err := os.WriteFile(filepath.Join(root, targets[i]), []byte(p.After), 0o644); err != nil {
 			return nil, err
 		}
-		if _, err := git(root, "add", p.File); err != nil {
+		if _, err := git(root, "add", "--", targets[i]); err != nil {
 			return nil, err
 		}
 	}
@@ -161,7 +175,7 @@ func OpenFixPR(ctx context.Context, patches []iac.Patch, findings []model.Findin
 		res.URL = url
 		return res, err
 	}
-	return res, fmt.Errorf("pushed %s; open the pull request manually (unknown host)", branch)
+	return res, fmt.Errorf("pushed %s; open the pull request manually: %w", branch, ErrUnknownHost)
 }
 
 func summaryTitle(ps []iac.Patch) string {
@@ -216,6 +230,8 @@ func PRBody(patches []iac.Patch, findings []model.Finding, paths []model.AttackP
 		fmt.Fprintf(&b, "```diff\n%s\n```\n", p.Diff)
 	}
 	b.WriteString("\n</details>\n\n🤖 Generated with [cloud-posture](https://github.com/DreadpiratePickles/nimbus)\n")
+	// North-star footer (plan v3 §8): N is the number of attack paths this change closes.
+	fmt.Fprintf(&b, "\nnimbus-closes-paths: %d\n", len(paths))
 	return b.String()
 }
 
@@ -292,52 +308,10 @@ func createGitLabMR(ctx context.Context, project, token, title, body, source, ta
 	return mr.WebURL, nil
 }
 
-// PostPRComment posts (or updates) a sticky comment on a GitHub PR, used by the GitHub Action.
+// PostPRComment posts (or updates) the scan's sticky comment on a GitHub PR (the GitHub Action).
 func PostPRComment(ctx context.Context, ownerRepo string, prNumber int, token, body string) error {
-	if token == "" {
-		token = os.Getenv("GITHUB_TOKEN")
-	}
-	marker := "<!-- cloud-posture-sticky -->"
-	body = marker + "\n" + body
-	hdr := func(r *http.Request) {
-		r.Header.Set("Authorization", "Bearer "+token)
-		r.Header.Set("Accept", "application/vnd.github+json")
-	}
-	// find existing
-	lreq, _ := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/issues/%d/comments?per_page=100", ownerRepo, prNumber), nil)
-	hdr(lreq)
-	if resp, err := http.DefaultClient.Do(lreq); err == nil {
-		var comments []struct {
-			ID   int64  `json:"id"`
-			Body string `json:"body"`
-		}
-		json.NewDecoder(resp.Body).Decode(&comments)
-		resp.Body.Close()
-		for _, c := range comments {
-			if strings.Contains(c.Body, marker) {
-				p, _ := json.Marshal(map[string]string{"body": body})
-				ureq, _ := http.NewRequestWithContext(ctx, http.MethodPatch, fmt.Sprintf("https://api.github.com/repos/%s/issues/comments/%d", ownerRepo, c.ID), bytes.NewReader(p))
-				hdr(ureq)
-				r, err := http.DefaultClient.Do(ureq)
-				if err == nil {
-					r.Body.Close()
-				}
-				return err
-			}
-		}
-	}
-	p, _ := json.Marshal(map[string]string{"body": body})
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("https://api.github.com/repos/%s/issues/%d/comments", ownerRepo, prNumber), bytes.NewReader(p))
-	hdr(req)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("comment API %d", resp.StatusCode)
-	}
-	return nil
+	_, err := StickyComment(ctx, StickyOptions{OwnerRepo: ownerRepo, PR: prNumber, Token: token, Marker: ScanMarker}, body)
+	return err
 }
 
 func truncate(s string, n int) string {
@@ -345,4 +319,70 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n]
+}
+
+// ErrUnknownHost: the branch was pushed but the remote is neither GitHub nor GitLab.
+var ErrUnknownHost = errors.New("unknown git host")
+
+// PathEscapeError is returned when a patch or output path resolves outside its root.
+type PathEscapeError struct {
+	Root, Path string
+}
+
+func (e *PathEscapeError) Error() string {
+	return fmt.Sprintf("path %q resolves outside %q; refusing to read or write it", e.Path, e.Root)
+}
+
+// SafeJoin resolves p (relative to root, or absolute) and returns the real path, failing with
+// *PathEscapeError when it is empty or lands outside root after filepath.Clean and symlink
+// resolution (of the path itself or, for a file not yet created, its nearest existing parent).
+func SafeJoin(root, p string) (string, error) {
+	if strings.TrimSpace(p) == "" {
+		return "", &PathEscapeError{Root: root, Path: p}
+	}
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	rootReal, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		return "", fmt.Errorf("root %s: %w", root, err)
+	}
+	full := filepath.Clean(p)
+	if !filepath.IsAbs(full) {
+		full = filepath.Join(rootAbs, full)
+	}
+	real, err := evalExisting(full)
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(rootReal, real)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", &PathEscapeError{Root: root, Path: p}
+	}
+	return real, nil
+}
+
+// evalExisting resolves symlinks in the longest existing prefix of path and re-appends the rest.
+func evalExisting(path string) (string, error) {
+	var rest []string
+	cur := path
+	for {
+		real, err := filepath.EvalSymlinks(cur)
+		if err == nil {
+			for i := len(rest) - 1; i >= 0; i-- {
+				real = filepath.Join(real, rest[i])
+			}
+			return real, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return "", err
+		}
+		rest = append(rest, filepath.Base(cur))
+		cur = parent
+	}
 }

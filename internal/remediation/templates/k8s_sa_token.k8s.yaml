@@ -1,3 +1,5 @@
+# Strategic merge patch for {{ .Kind }}/{{ .Name }}: stop mounting the API token.
+# Workloads that call the Kubernetes API (operators, controllers) need it; confirm before applying.
 spec:
   template:
     spec:

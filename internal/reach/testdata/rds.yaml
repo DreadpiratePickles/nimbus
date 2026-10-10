@@ -1,0 +1,82 @@
+# RDS: "PubliclyAccessible" gives the endpoint a public IP, but the DB subnet group's subnets must route to an
+# internet gateway (and SG / NACL must allow) for the internet to reach it.
+cases:
+  - name: F04 rds public flag, isolated subnet group
+    source: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html#USER_VPC.Hiding (public access also needs an internet gateway route; lab/ground_truth.yaml F04)
+    port: {protocol: tcp, number: 5432}
+    target: &db
+      id: arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-ledger
+      kind: db_instance
+      publicly_accessible: true
+      subnets:
+        - id: subnet-iso-a
+          route_table: {id: rtb-0a1b2c3d4e5f60001, routes: [{destination: 10.20.0.0/16, target: local}]}
+      security_groups: [{id: sg-db, ingress: [{protocol: tcp, from: 5432, to: 5432, sources: [0.0.0.0/0]}]}]
+    expect:
+      status: blocked
+      blocker: "route table rtb-0a1b2c3d4e5f60001 has no route to an internet gateway"
+      confidence: verified
+
+  - name: F04 as the lab carries it, sg and nacl unknown
+    source: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html#USER_VPC.Hiding
+    target:
+      id: arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-ledger
+      kind: db_instance
+      publicly_accessible: true
+      subnets:
+        - id: nimbus-lab-isolated
+          route_table: {id: rtb-0a1b2c3d4e5f60001, routes: [{destination: 10.20.0.0/16, target: local}]}
+          igw_route: false
+    expect:
+      status: blocked
+      blocker: "route table rtb-0a1b2c3d4e5f60001 has no route to an internet gateway"
+
+  - name: rds not publicly accessible
+    source: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html#USER_VPC.Hiding (private DNS only)
+    port: {protocol: tcp, number: 5432}
+    target:
+      <<: *db
+      publicly_accessible: false
+    expect:
+      status: blocked
+      blocker: "RDS PubliclyAccessible=false"
+
+  - name: rds public flag, public subnets, sg open
+    source: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html#USER_VPC.Hiding
+    port: {protocol: tcp, number: 5432}
+    target:
+      <<: *db
+      subnets:
+        - id: subnet-pub-a
+          route_table: &rt_pub {id: rtb-pub, routes: [{destination: 0.0.0.0/0, target: igw-1}]}
+          nacl: &allow_all {id: acl-default, inbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}], outbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}]}
+        - id: subnet-pub-b
+          route_table: *rt_pub
+          nacl: *allow_all
+    expect:
+      status: reachable
+      width: wide
+      path_kinds: [rds_public_flag, route, nacl_inbound, security_group, nacl_outbound]
+
+  - name: rds subnet group mixes public and isolated subnets
+    source: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html#USER_VPC.Subnets (the instance's AZ picks the subnet)
+    port: {protocol: tcp, number: 5432}
+    target:
+      <<: *db
+      subnets:
+        - {id: subnet-pub-a, route_table: *rt_pub, nacl: *allow_all}
+        - {id: subnet-iso-b, route_table: {id: rtb-iso, routes: [{destination: 10.0.0.0/16, target: local}]}, nacl: *allow_all}
+    expect:
+      status: unknown
+      unknown: "DB subnet group mixes subnets with and without an internet path"
+
+  - name: rds publicly accessible flag unknown
+    source: https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DBInstance.html (PubliclyAccessible)
+    port: {protocol: tcp, number: 5432}
+    target:
+      <<: *db
+      publicly_accessible: null
+      subnets: [{id: subnet-pub-a, route_table: *rt_pub, nacl: *allow_all}]
+    expect:
+      status: unknown
+      unknown: "PubliclyAccessible of"

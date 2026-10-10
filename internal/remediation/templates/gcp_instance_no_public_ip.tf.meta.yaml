@@ -1,0 +1,16 @@
+# Remediation plan metadata for gcp_instance_no_public_ip.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "compute.instances.get"
+  - "compute.instances.deleteAccessConfig"
+  - "compute.firewalls.create"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the instance and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Restrict the firewall rules that target the instance to known source ranges until the external IP can be removed."
+effort: S
+confidence: medium
+rollback: "gcloud compute instances add-access-config <name> --zone <zone> (a new ephemeral IP; a reserved static IP can be re-attached with --address)."
+breaks_function:
+  value: true
+  note: "Anything that reached the instance on its external IP stops working; outbound internet needs Cloud NAT."

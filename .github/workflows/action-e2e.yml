@@ -1,0 +1,113 @@
+# Action e2e for the plan-time attack-path diff (P1-PLANDIFF D4, plan v3 IC4 / AP10).
+#
+# Runs the repository's own action (./action.yml, built from source, no release download) on the
+# fixture module in testdata/action-fixture in two steps against its committed state
+# (`plan -refresh=false`, mock credentials: no AWS call is made):
+#   1. "bad" PR state  (ssh_cidr = 0.0.0.0/0)        → comment says "opens 1 / closes 0"
+#   2. revert          (state = bad, default var)     → comment says "opens 0 / closes 1"
+# and checks that the second run edited the sticky comment instead of posting another.
+# Every third-party action is pinned by full commit SHA.
+name: action-e2e
+on:
+  pull_request:
+    paths:
+      - action.yml
+      - .github/workflows/action-e2e.yml
+      - testdata/action-fixture/**
+      - internal/pathdiff/**
+      - internal/iac/plan.go
+      - internal/cli/prcomment.go
+      - internal/gitops/**
+      - internal/attackpath/**
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: write
+concurrency:
+  group: action-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  plan-diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with: {go-version: '1.26'}
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with: {tofu_version: 1.13.1, tofu_wrapper: false}
+      - name: Build cloud-posture from this commit
+        run: go build -o /usr/local/bin/cloud-posture ./cmd/cloud-posture
+      - name: Go e2e (same scenario, shells out to tofu)
+        env: {NIMBUS_E2E_NETWORK: "1"}
+        run: go test ./internal/cli -run TestActionFixtureE2E -count=1 -v
+      - name: Closes fixture (opens 1 / lowers 1 / closes 1, per-hunk suggestions)
+        run: |
+          set -euo pipefail
+          fx="$RUNNER_TEMP/fx-literal"
+          mkdir -p "$fx" && cp -R testdata/action-fixture/main.tf testdata/action-fixture/modules "$fx/"
+          sed -i 's#\[var.ssh_cidr\]#["0.0.0.0/0"]#' "$fx/modules/web/main.tf"
+          out="$(cloud-posture pr-comment --plan-json testdata/action-fixture/plans/closes.plan.json --live off --trusted-cidr 203.0.113.0/24 --redact off --iac "$fx")"
+          echo "$out"
+          grep -q "opens 1 / escalates 0 / lowers 1 / closes 1" <<<"$out"
+          grep -q "nimbus-closes-paths: 1" <<<"$out"
+          test "$(grep -c '^```suggestion$' <<<"$out")" = "2"
+      - name: Prepare the "bad" PR state
+        run: |
+          set -euo pipefail
+          fx="$RUNNER_TEMP/fx"
+          mkdir -p "$fx" && cp -R testdata/action-fixture/main.tf testdata/action-fixture/.terraform.lock.hcl testdata/action-fixture/modules "$fx/"
+          cp testdata/action-fixture/fixture.tfstate "$fx/terraform.tfstate"
+          printf 'ssh_cidr = "0.0.0.0/0"\n' > "$fx/bad.tfvars"
+      - name: Action — bad PR
+        uses: ./
+        with:
+          install: "false"
+          scan: "false"
+          sarif: "false"
+          terraform-dir: ${{ runner.temp }}/fx
+          terraform-var-file: bad.tfvars
+          terraform-refresh: "false"
+          trusted-cidrs: 203.0.113.0/24
+          redact: "on"
+      - name: Assert "opens 1"
+        run: |
+          set -euo pipefail
+          out="$(cloud-posture pr-comment --plan-json "$RUNNER_TEMP/nimbus-plan.json" --live off --trusted-cidr 203.0.113.0/24 --redact on)"
+          echo "$out"
+          grep -q "opens 1 / closes 0" <<<"$out"
+          grep -q "nimbus-opens-paths: 1" <<<"$out"
+      - name: Prepare the revert (state = bad, default var)
+        run: |
+          set -euo pipefail
+          fx="$RUNNER_TEMP/fx"
+          rm -f "$fx/bad.tfvars"
+          sed 's#"203.0.113.0/24"#"0.0.0.0/0"#' testdata/action-fixture/fixture.tfstate > "$fx/terraform.tfstate"
+      - name: Action — revert
+        uses: ./
+        with:
+          install: "false"
+          scan: "false"
+          sarif: "false"
+          terraform-dir: ${{ runner.temp }}/fx
+          terraform-refresh: "false"
+          trusted-cidrs: 203.0.113.0/24
+          redact: "on"
+      - name: Assert "closes 1" and exactly one sticky comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CP_REPO: ${{ github.repository }}
+          CP_PR: ${{ github.event.pull_request.number }}
+          CP_FORK: ${{ github.event.pull_request.head.repo.fork }}
+        run: |
+          set -euo pipefail
+          out="$(cloud-posture pr-comment --plan-json "$RUNNER_TEMP/nimbus-plan.json" --live off --trusted-cidr 203.0.113.0/24 --redact on)"
+          echo "$out"
+          grep -q "opens 0 / closes 1" <<<"$out"
+          grep -q "nimbus-closes-paths: 1" <<<"$out"
+          if [ -n "${CP_PR:-}" ] && [ "${CP_FORK:-false}" != "true" ]; then
+            n="$(gh api --paginate "repos/$CP_REPO/issues/$CP_PR/comments" --jq '[.[] | select(.body | startswith("<!-- nimbus-plan-diff -->"))] | length' | paste -sd+ | bc)"
+            echo "sticky plan-diff comments: $n"
+            test "$n" = "1"
+          fi

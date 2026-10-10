@@ -1,0 +1,602 @@
+# Golden calibration set for the nimbus risk score (docs/scoring.md).
+# TestCalibration scores every scenario in one run (each on its own graph node) and asserts:
+#   - band:   the expected band for that scenario
+#   - score:  the exact expected score (one decimal) when given — any weight change shows up here
+#   - order:  each list is a chain; earlier entries must rank strictly above later ones
+# Changing an expectation is a scoring change: bump risk.ScoreVersion and add a changelog entry.
+#
+# Scenario fields:
+#   severity, canonical_id, weaknesses, compliance, cves     -> the finding
+#   type, class, exposure, sensitive, labels, criticality,
+#   owner, modified_hours_ago, first_seen_hours_ago          -> the graph node / context
+#   jewel                                                    -> crown-jewel level from config (very_high|high|medium|low)
+#   runs_as_admin                                            -> node runs_as an identity with OVERPRIVILEGED_IDENTITY
+#   path_score                                               -> finding sits on an attack path with this score
+#   scp_denied                                               -> compensating control hook (Track B: SCP-denied path)
+#   no_node                                                  -> no graph node at all (inputs unknown)
+#   tags                                                     -> node attr tags (e.g. data_classification)
+#   analysis                                                 -> "present" (default): path analysis ran and the
+#                                                               scenario paths are its complete paths, so a
+#                                                               scenario without path_score is OFF PATH (2.1.0
+#                                                               off_path factor); "none": findings-only input,
+#                                                               off_path not scored. The 2.0.0 scenarios test
+#                                                               one factor each and run with analysis: none.
+#
+# Scenarios noise_* come from the noise estate classes (lab/noise_truth.yaml, NZxx) and lab_* from
+# the labelled lab (lab/ground_truth.yaml, Pxx); both were added in 2.1.0 as the guard for the
+# off-path cap and the recalibrated weights (docs/scoring.md changelog).
+scenarios:
+  - id: s3_public_pii
+    analysis: none
+    severity: HIGH
+    canonical_id: S3_PUBLIC_BUCKET
+    weaknesses: [PUBLIC_DATA_STORE]
+    compliance: {gdpr: [Art.32], pci_dss: ["1.3.1"]}
+    type: aws_s3_bucket
+    exposure: wide
+    labels: [PII]
+    criticality: production
+    owner: data-team
+    band: Critical
+    score: 9.5
+  - id: s3_private_pii
+    analysis: none
+    severity: HIGH
+    canonical_id: S3_NO_BLOCK_PUBLIC_ACCESS
+    weaknesses: []
+    compliance: {gdpr: [Art.32], pci_dss: ["1.3.1"]}
+    type: aws_s3_bucket
+    exposure: none
+    labels: [PII]
+    criticality: production
+    owner: data-team
+    band: Medium
+    score: 5.4
+  - id: s3_public_unclassified
+    analysis: none
+    severity: HIGH
+    canonical_id: S3_PUBLIC_BUCKET
+    weaknesses: [PUBLIC_DATA_STORE]
+    type: aws_s3_bucket
+    exposure: wide
+    owner: web-team
+    band: High
+    score: 7.4
+  - id: s3_public_marked_public_data
+    analysis: none
+    severity: HIGH
+    canonical_id: S3_PUBLIC_BUCKET
+    weaknesses: [PUBLIC_DATA_STORE]
+    type: aws_s3_bucket
+    exposure: wide
+    labels: [public]
+    owner: web-team
+    band: Medium
+    score: 6.9
+  - id: ec2_imdsv1_open_admin
+    analysis: none
+    severity: HIGH
+    canonical_id: EC2_IMDSV1
+    weaknesses: [IMDSV1_ENABLED]
+    type: aws_instance
+    exposure: wide
+    runs_as_admin: true
+    criticality: production
+    owner: web-team
+    band: Critical
+    score: 9.1
+  - id: ec2_imdsv1_narrow_admin
+    analysis: none
+    severity: HIGH
+    canonical_id: EC2_IMDSV1
+    weaknesses: [IMDSV1_ENABLED]
+    type: aws_instance
+    exposure: narrow
+    runs_as_admin: true
+    criticality: production
+    owner: web-team
+    band: High
+    score: 8.6
+  - id: ec2_imdsv1_trusted_admin
+    analysis: none
+    severity: HIGH
+    canonical_id: EC2_IMDSV1
+    weaknesses: [IMDSV1_ENABLED]
+    type: aws_instance
+    exposure: trusted
+    runs_as_admin: true
+    criticality: production
+    owner: web-team
+    band: High
+    score: 7.1
+  - id: ec2_imdsv1_open_no_admin
+    analysis: none
+    severity: HIGH
+    canonical_id: EC2_IMDSV1
+    weaknesses: [IMDSV1_ENABLED]
+    type: aws_instance
+    exposure: wide
+    criticality: production
+    owner: web-team
+    band: High
+    score: 8.8
+  - id: cve_kev
+    analysis: none
+    severity: CRITICAL
+    canonical_id: CVE_VULNERABILITY
+    cves: [CVE-2021-44228]
+    type: container_image
+    owner: app-team
+    band: High
+    score: 8.6
+  - id: cve_epss_top
+    analysis: none
+    severity: CRITICAL
+    canonical_id: CVE_VULNERABILITY
+    cves: [CVE-2024-6387]
+    type: container_image
+    owner: app-team
+    band: High
+    score: 8.1
+  - id: cve_epss_mid
+    analysis: none
+    severity: CRITICAL
+    canonical_id: CVE_VULNERABILITY
+    cves: [CVE-2024-1234]
+    type: container_image
+    owner: app-team
+    band: High
+    score: 7.0
+  - id: cve_epss_low
+    analysis: none
+    severity: CRITICAL
+    canonical_id: CVE_VULNERABILITY
+    cves: [CVE-2023-0002]
+    type: container_image
+    owner: app-team
+    band: Medium
+    score: 6.0
+  - id: misconfig_no_cve
+    analysis: none
+    severity: CRITICAL
+    canonical_id: K8S_PRIVILEGED_CONTAINER
+    weaknesses: [PRIVILEGED_CONTAINER]
+    type: k8s_pod
+    owner: app-team
+    band: High
+    score: 7.0
+  - id: jewel_very_high
+    analysis: none
+    severity: MEDIUM
+    canonical_id: RDS_NO_BACKUP
+    type: aws_db_instance
+    jewel: very_high
+    labels: [confidential]
+    owner: dba
+    band: Critical
+    score: 9.0
+  - id: jewel_high
+    analysis: none
+    severity: MEDIUM
+    canonical_id: RDS_NO_BACKUP
+    type: aws_db_instance
+    jewel: high
+    labels: [confidential]
+    owner: dba
+    band: High
+    score: 8.3
+  - id: jewel_medium
+    analysis: none
+    severity: MEDIUM
+    canonical_id: RDS_NO_BACKUP
+    type: aws_db_instance
+    jewel: medium
+    labels: [confidential]
+    owner: dba
+    band: High
+    score: 7.1
+  - id: not_jewel_dev
+    analysis: none
+    severity: MEDIUM
+    canonical_id: RDS_NO_BACKUP
+    type: aws_db_instance
+    criticality: dev
+    labels: [confidential]
+    owner: dba
+    band: Low
+    score: 4.8
+  - id: on_attack_path
+    severity: MEDIUM
+    canonical_id: SG_OPEN_SSH
+    weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+    type: aws_instance
+    exposure: narrow
+    path_score: 9.0
+    owner: web-team
+    band: High
+    score: 8.2
+  - id: off_attack_path
+    analysis: none
+    severity: MEDIUM
+    canonical_id: SG_OPEN_SSH
+    weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+    type: aws_instance
+    exposure: narrow
+    owner: web-team
+    band: Low
+    score: 4.6
+  - id: path_scp_denied
+    severity: HIGH
+    canonical_id: EC2_IMDSV1
+    weaknesses: [IMDSV1_ENABLED]
+    type: aws_instance
+    exposure: wide
+    runs_as_admin: true
+    path_score: 9.0
+    scp_denied: true
+    owner: web-team
+    band: High
+    score: 8.3
+  - id: iam_admin_user
+    analysis: none
+    severity: HIGH
+    canonical_id: IAM_ADMIN_POLICY
+    weaknesses: [OVERPRIVILEGED_IDENTITY]
+    type: aws_iam_user
+    owner: platform
+    band: Medium
+    score: 6.9
+  - id: iam_no_mfa_user
+    analysis: none
+    severity: HIGH
+    canonical_id: IAM_USER_NO_MFA
+    weaknesses: [NO_MFA]
+    type: aws_iam_user
+    owner: platform
+    band: Medium
+    score: 6.6
+  - id: secret_in_function_env
+    analysis: none
+    severity: HIGH
+    canonical_id: LAMBDA_SECRET_IN_ENV
+    weaknesses: [SECRET_EXPOSURE]
+    type: aws_lambda_function
+    owner: app-team
+    band: High
+    score: 7.1
+  - id: recently_changed
+    analysis: none
+    severity: MEDIUM
+    canonical_id: SG_OPEN_SSH
+    weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+    type: aws_instance
+    exposure: narrow
+    modified_hours_ago: 2
+    owner: web-team
+    band: Medium
+    score: 5.1
+  - id: orphaned
+    analysis: none
+    severity: MEDIUM
+    canonical_id: SG_OPEN_SSH
+    weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+    type: aws_instance
+    exposure: narrow
+    band: Low
+    score: 4.6
+  - id: pci_scope
+    analysis: none
+    severity: MEDIUM
+    canonical_id: SG_OPEN_SSH
+    weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+    type: aws_instance
+    exposure: narrow
+    compliance: {pci_dss: ["1.3.1"]}
+    owner: web-team
+    band: Low
+    score: 4.6
+  - id: unknown_context_critical
+    analysis: none
+    severity: CRITICAL
+    canonical_id: GENERIC_CRITICAL
+    no_node: true
+    owner: someone
+    band: High
+    score: 7.0
+  - id: low_severity_plain
+    analysis: none
+    severity: LOW
+    canonical_id: NO_LOGGING
+    weaknesses: [NO_LOGGING]
+    type: gcp_storage_bucket
+    exposure: none
+    labels: [internal]
+    criticality: dev
+    owner: ops
+    band: Low
+    score: 0.9
+  - id: info_plain
+    analysis: none
+    severity: INFO
+    canonical_id: INFO_NOTE
+    type: gcp_storage_bucket
+    exposure: none
+    labels: [internal]
+    criticality: dev
+    owner: ops
+    band: Low
+    score: 0.4
+
+  # ---- noise estate classes (analysis present, no path: off_path applies unless an impact target)
+  - id: noise_nz01_public_website_bucket
+    severity: CRITICAL
+    canonical_id: S3_PUBLIC_BUCKET
+    weaknesses: [PUBLIC_DATA_STORE]
+    compliance: {pci_dss: ["1.3.1"]}
+    type: aws_s3_bucket
+    exposure: wide
+    tags: {data_classification: public}
+    criticality: production
+    owner: web-team
+    band: Medium
+    score: 5.7
+  - id: noise_nz01_gcp_web_assets_unclassified
+    severity: HIGH
+    canonical_id: GCP_BUCKET_PUBLIC
+    weaknesses: [PUBLIC_DATA_STORE]
+    type: gcp_storage_bucket
+    exposure: wide
+    criticality: production
+    band: Medium
+    score: 5.0
+  - id: noise_nz90_public_pii_redacted_reports
+    severity: CRITICAL
+    canonical_id: S3_PUBLIC_BUCKET
+    weaknesses: [PUBLIC_DATA_STORE]
+    type: aws_s3_bucket
+    exposure: wide
+    sensitive: true
+    tags: {data_classification: public}
+    criticality: production
+    owner: comms
+    band: Medium
+    score: 5.7
+  - id: noise_nz07_lambda_url_iam_auth
+    severity: HIGH
+    canonical_id: LAMBDA_PUBLIC
+    weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+    type: aws_lambda_function
+    exposure: private
+    criticality: production
+    owner: app-team
+    band: Low
+    score: 1.8
+  - id: noise_nz07_org_conditioned_sensitive_bucket
+    severity: CRITICAL
+    canonical_id: S3_PUBLIC_BUCKET
+    weaknesses: [PUBLIC_DATA_STORE]
+    type: aws_s3_bucket
+    exposure: private
+    labels: [confidential]
+    criticality: production
+    owner: data-team
+    band: Medium
+    score: 6.8
+  - id: noise_nz15_sandbox_public_fixtures
+    severity: HIGH
+    canonical_id: S3_PUBLIC_BUCKET
+    weaknesses: [PUBLIC_DATA_STORE]
+    type: aws_s3_bucket
+    exposure: wide
+    sensitive: true
+    tags: {data_classification: none, environment: sandbox}
+    criticality: sandbox
+    owner: eng-sandbox
+    band: Low
+    score: 2.8
+  - id: noise_nz15_dev_sg_open_ssh
+    severity: HIGH
+    canonical_id: EC2_SG_OPEN_SSH
+    weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+    type: aws_security_group
+    exposure: wide
+    criticality: dev
+    owner: eng-dev
+    band: Low
+    score: 3.1
+  - id: noise_nz05_unreachable_admin_role
+    severity: HIGH
+    canonical_id: IAM_ADMIN_POLICY
+    weaknesses: [OVERPRIVILEGED_IDENTITY]
+    compliance: {pci_dss: ["7.2.1"]}
+    type: aws_iam_role
+    band: Medium
+    score: 6.9
+  - id: noise_nz06_org_cross_account_trust
+    severity: HIGH
+    canonical_id: IAM_CROSS_ACCOUNT_TRUST
+    weaknesses: [CROSS_ACCOUNT_TRUST]
+    type: aws_iam_role
+    owner: security
+    band: Low
+    score: 3.3
+  - id: noise_nz03_sg_443_alb_only
+    severity: MEDIUM
+    canonical_id: EC2_SG_OPEN_HTTPS
+    weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+    type: aws_security_group
+    exposure: wide
+    owner: web-team
+    band: Low
+    score: 2.8
+  - id: noise_nz14_cve_nonkev_private_host
+    severity: CRITICAL
+    canonical_id: CVE_VULNERABILITY
+    cves: [CVE-2023-0002]
+    type: aws_instance
+    exposure: private
+    criticality: production
+    owner: app-team
+    band: Low
+    score: 1.9
+  - id: noise_nz16_private_sensitive_store
+    severity: MEDIUM
+    canonical_id: RDS_NO_BACKUP
+    type: aws_db_instance
+    exposure: private
+    labels: [confidential]
+    criticality: production
+    owner: dba
+    band: Low
+    score: 3.9
+  - id: noise_exposed_kev_host_no_impact_target
+    severity: CRITICAL
+    canonical_id: CVE_VULNERABILITY
+    cves: [CVE-2021-44228]
+    type: aws_instance
+    exposure: wide
+    criticality: production
+    owner: app-team
+    band: Medium
+    score: 6.9
+
+  # ---- labelled lab (analysis present, on a complete path with the lab's path score)
+  - id: lab_p01_public_pii_bucket
+    severity: CRITICAL
+    canonical_id: S3_PUBLIC_BUCKET
+    weaknesses: [PUBLIC_DATA_STORE]
+    type: aws_s3_bucket
+    exposure: wide
+    labels: [PII]
+    criticality: production
+    path_score: 10.0
+    band: Critical
+    score: 10.0
+  - id: lab_p02_imdsv1_admin_wide
+    severity: HIGH
+    canonical_id: EC2_IMDSV1
+    weaknesses: [IMDSV1_ENABLED]
+    type: aws_instance
+    exposure: wide
+    runs_as_admin: true
+    criticality: production
+    path_score: 7.6
+    band: Critical
+    score: 9.9
+  - id: lab_p19_kev_exposed_host
+    severity: CRITICAL
+    canonical_id: CVE_VULNERABILITY
+    cves: [CVE-2021-44228]
+    type: aws_instance
+    exposure: wide
+    criticality: production
+    path_score: 7.0
+    owner: app-team
+    band: Critical
+    score: 10.0
+  - id: lab_p04_external_trust_admin_role
+    severity: HIGH
+    canonical_id: IAM_CROSS_ACCOUNT_TRUST
+    weaknesses: [CROSS_ACCOUNT_TRUST, OVERPRIVILEGED_IDENTITY]
+    type: aws_iam_role
+    criticality: dev
+    path_score: 7.0
+    band: High
+    score: 8.5
+  - id: lab_p20_chained_external_trust
+    severity: HIGH
+    canonical_id: IAM_CROSS_ACCOUNT_TRUST
+    weaknesses: [CROSS_ACCOUNT_TRUST, OVERPRIVILEGED_IDENTITY]
+    type: aws_iam_role
+    criticality: dev
+    path_score: 5.99
+    band: High
+    score: 8.3
+  - id: lab_p07_eks_public_endpoint
+    severity: HIGH
+    canonical_id: EKS_PUBLIC_ENDPOINT
+    weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+    type: aws_eks_cluster
+    exposure: wide
+    criticality: dev
+    path_score: 5.15
+    band: High
+    score: 8.4
+  - id: lab_p12_oidc_admin_role
+    severity: HIGH
+    canonical_id: IAM_ADMIN_POLICY
+    weaknesses: [OVERPRIVILEGED_IDENTITY]
+    type: aws_iam_role
+    criticality: dev
+    path_score: 3.8
+    band: High
+    score: 7.6
+  - id: lab_p05_stale_keys_admin_user
+    severity: MEDIUM
+    canonical_id: IAM_STALE_KEYS
+    weaknesses: [STALE_CREDENTIALS, OVERPRIVILEGED_IDENTITY]
+    type: aws_iam_user
+    criticality: dev
+    path_score: 7.0
+    band: High
+    score: 7.2
+
+  # 2.2.0 tie-breaking scenarios: under 2.1.0 the first four all capped at 10.0 (and the fifth was
+  # 9.6); the bounded combination keeps them distinct and in raw-product order.
+  - id: tie_public_pii_path10
+    severity: CRITICAL
+    canonical_id: S3_PUBLIC_BUCKET
+    weaknesses: [PUBLIC_DATA_STORE]
+    type: aws_s3_bucket
+    exposure: wide
+    labels: [PII]
+    criticality: production
+    owner: data-team
+    path_score: 10.0
+    band: Critical
+    score: 10.0
+  - id: tie_imds_admin_prod_path
+    severity: HIGH
+    canonical_id: EC2_IMDSV1
+    weaknesses: [IMDSV1_ENABLED]
+    type: aws_instance
+    exposure: wide
+    runs_as_admin: true
+    criticality: production
+    owner: web-team
+    path_score: 7.6
+    band: Critical
+    score: 9.9
+  - id: tie_imds_admin_staging
+    analysis: none
+    severity: HIGH
+    canonical_id: EC2_IMDSV1
+    weaknesses: [IMDSV1_ENABLED]
+    type: aws_instance
+    exposure: wide
+    runs_as_admin: true
+    criticality: staging
+    owner: web-team
+    band: High
+    score: 8.3
+
+order:
+  - [s3_public_pii, s3_private_pii]
+  - [s3_public_pii, s3_public_unclassified, s3_public_marked_public_data]
+  - [ec2_imdsv1_open_admin, ec2_imdsv1_narrow_admin, ec2_imdsv1_trusted_admin]
+  - [ec2_imdsv1_open_admin, ec2_imdsv1_open_no_admin]
+  - [cve_kev, cve_epss_top, cve_epss_mid, cve_epss_low]
+  - [cve_kev, misconfig_no_cve]
+  - [jewel_very_high, jewel_high, jewel_medium, not_jewel_dev]
+  - [on_attack_path, off_attack_path]
+  - [ec2_imdsv1_open_admin, path_scp_denied]
+  - [iam_admin_user, iam_no_mfa_user]
+  - [recently_changed, off_attack_path]
+  - [low_severity_plain, info_plain]
+  # 2.1.0: the same finding on a complete path outranks it off path
+  - [lab_p19_kev_exposed_host, noise_exposed_kev_host_no_impact_target]
+  - [lab_p12_oidc_admin_role, noise_nz05_unreachable_admin_role]
+  - [lab_p01_public_pii_bucket, noise_nz07_org_conditioned_sensitive_bucket, noise_nz01_public_website_bucket]
+  - [noise_nz07_org_conditioned_sensitive_bucket, noise_nz07_lambda_url_iam_auth]
+  # 2.2.0: findings that all tied at 10.0 under the flat cap rank by their raw product, with distinct scores
+  - [tie_public_pii_path10, tie_imds_admin_prod_path, s3_public_pii, ec2_imdsv1_open_admin, tie_imds_admin_staging]

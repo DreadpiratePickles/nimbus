@@ -1,0 +1,100 @@
+{
+  "_fixture_note": "SYNTHETIC fixture shaped after `kubescape scan --format json` v3 output (summaryDetails / resources[] / results[]; https://kubescape.io/docs/ and https://github.com/kubescape/opa-utils reporthandling/v2 PostureReport). Cluster, resource names and scores are fake.",
+  "clusterName": "synthetic-kind",
+  "customerGUID": "",
+  "generationTime": "2026-01-14T09:40:00Z",
+  "summaryDetails": {
+    "score": 61.5,
+    "complianceScore": 60.0,
+    "status": "failed",
+    "frameworks": [
+      {"name": "NSA", "status": "failed", "score": 58.2, "complianceScore": 57.0, "version": "v1.0.0"}
+    ],
+    "controls": {
+      "C-0016": {"controlID": "C-0016", "name": "Allow privilege escalation", "status": "passed", "statusInfo": {"status": "passed"}, "score": 100, "complianceScore": 100, "scoreFactor": 6, "ResourceCounters": {"passedResources": 1, "failedResources": 0, "skippedResources": 0}},
+      "C-0017": {"controlID": "C-0017", "name": "Immutable container filesystem", "status": "failed", "statusInfo": {"status": "failed"}, "score": 0, "complianceScore": 0, "scoreFactor": 3, "ResourceCounters": {"passedResources": 0, "failedResources": 1, "skippedResources": 0}},
+      "C-0034": {"controlID": "C-0034", "name": "Automatic mapping of service account", "status": "failed", "statusInfo": {"status": "failed"}, "score": 0, "complianceScore": 0, "scoreFactor": 6, "ResourceCounters": {"passedResources": 0, "failedResources": 1, "skippedResources": 0}},
+      "C-0035": {"controlID": "C-0035", "name": "Administrative Roles", "status": "failed", "statusInfo": {"status": "failed"}, "score": 0, "complianceScore": 0, "scoreFactor": 9, "ResourceCounters": {"passedResources": 0, "failedResources": 1, "skippedResources": 0}},
+      "C-0057": {"controlID": "C-0057", "name": "Privileged container", "status": "failed", "statusInfo": {"status": "failed"}, "score": 0, "complianceScore": 0, "scoreFactor": 8, "ResourceCounters": {"passedResources": 0, "failedResources": 1, "skippedResources": 0}},
+      "C-0270": {"controlID": "C-0270", "name": "Ensure CPU limits are set", "status": "skipped", "statusInfo": {"status": "skipped", "subStatus": "configuration", "info": "Control configurations are empty"}, "score": 0, "complianceScore": 0, "scoreFactor": 8, "ResourceCounters": {"passedResources": 0, "failedResources": 0, "skippedResources": 1}}
+    },
+    "ResourceCounters": {"passedResources": 0, "failedResources": 3, "skippedResources": 0},
+    "controlsSeverityCounters": {"criticalSeverity": 1, "highSeverity": 1, "mediumSeverity": 1, "lowSeverity": 1}
+  },
+  "resources": [
+    {
+      "resourceID": "apps/v1/shop/Deployment/storefront",
+      "object": {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "storefront", "namespace": "shop"}},
+      "source": {"path": "", "relativePath": ""}
+    },
+    {
+      "resourceID": "/v1/shop/ServiceAccount/default",
+      "object": {"apiVersion": "v1", "kind": "ServiceAccount", "metadata": {"name": "default", "namespace": "shop"}}
+    },
+    {
+      "resourceID": "rbac.authorization.k8s.io/v1//ClusterRole/ops-admin",
+      "object": {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "ClusterRole", "metadata": {"name": "ops-admin"}}
+    }
+  ],
+  "results": [
+    {
+      "resourceID": "apps/v1/shop/Deployment/storefront",
+      "controls": [
+        {
+          "controlID": "C-0017",
+          "name": "Immutable container filesystem",
+          "status": {"status": "failed"},
+          "rules": [
+            {"name": "immutable-container-filesystem", "status": "failed", "paths": [{"failedPath": "", "fixPath": {"path": "spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem", "value": "true"}}]}
+          ]
+        },
+        {
+          "controlID": "C-0057",
+          "name": "Privileged container",
+          "status": {"status": "failed"},
+          "rules": [
+            {"name": "rule-privilege-escalation", "status": "failed", "paths": [{"failedPath": "spec.template.spec.containers[0].securityContext.privileged", "fixPath": {"path": "", "value": ""}}]}
+          ]
+        },
+        {
+          "controlID": "C-0016",
+          "name": "Allow privilege escalation",
+          "status": {"status": "passed"},
+          "rules": [{"name": "rule-allow-privilege-escalation", "status": "passed"}]
+        },
+        {
+          "controlID": "C-0270",
+          "name": "Ensure CPU limits are set",
+          "status": {"status": "skipped", "subStatus": "configuration"},
+          "rules": [{"name": "resources-cpu-limits", "status": "skipped"}]
+        }
+      ]
+    },
+    {
+      "resourceID": "/v1/shop/ServiceAccount/default",
+      "controls": [
+        {
+          "controlID": "C-0034",
+          "name": "Automatic mapping of service account",
+          "status": {"status": "failed"},
+          "rules": [
+            {"name": "automount-service-account", "status": "failed", "paths": [{"failedPath": "automountServiceAccountToken", "fixPath": {"path": "", "value": ""}}]}
+          ]
+        }
+      ]
+    },
+    {
+      "resourceID": "rbac.authorization.k8s.io/v1//ClusterRole/ops-admin",
+      "controls": [
+        {
+          "controlID": "C-0035",
+          "name": "Administrative Roles",
+          "status": {"status": "failed"},
+          "rules": [
+            {"name": "rule-list-all-cluster-admins-v1", "status": "failed", "paths": [{"failedPath": "rules[0].verbs[0]", "fixPath": {"path": "", "value": ""}}]}
+          ]
+        }
+      ]
+    }
+  ]
+}

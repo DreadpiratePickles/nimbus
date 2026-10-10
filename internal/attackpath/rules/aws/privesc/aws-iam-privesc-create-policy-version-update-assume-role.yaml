@@ -1,0 +1,72 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-iam-privesc-create-policy-version-update-assume-role
+title: Policy Version Override with Trust Policy Hijacking for Privilege Escalation (IAM-020)
+description: >-
+  The principal may publish a new default version of a customer-managed policy attached to another
+  role, granting it any permission, and rewrite that role's trust policy to admit itself, then assume
+  the role. Remove iam:CreatePolicyVersion and iam:UpdateAssumeRolePolicy on roles and policies the
+  principal does not own.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-iam-privesc-create-policy-version-update-assume-role
+  upstream: pathfinding.cloud - IAM-020 - iam:CreatePolicyVersion + iam:UpdateAssumeRolePolicy
+  upstream_url: https://pathfinding.cloud/paths/iam-020
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator; the target is a customer-managed policy (12-digit account in its ARN, as Prowler's provider_uid test) attached to a role (has_policy edge) with iam:CreatePolicyVersion allowed on it; the schema scopes permissions to the target only, so iam:UpdateAssumeRolePolicy must be allowed on every role in the account (arn:aws:iam::{account}:role/*), stricter than Prowler's per-role resource test (a grant scoped to a few roles is missed, never over-reported); nimbus does not anchor on principals already allowed * on *
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+  include_admin: true
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:CreatePolicyVersion", resource: target}
+    - {action: "iam:UpdateAssumeRolePolicy", resource: "arn:aws:iam::{account}:role/*"}
+  target:
+    types: [aws_iam_policy]
+    id_like: ["arn:aws:iam::????????????:policy/*"]
+    has_edge: {edge: has_policy, direction: in, to_types: [aws_iam_role]}
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/priv
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["iam:CreatePolicyVersion", "iam:UpdateAssumeRolePolicy"], Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/partial
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:CreatePolicyVersion", Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/target
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com]}
+      - id: arn:aws:iam::123456789012:policy/role-managed
+        type: aws_iam_policy
+        account: "123456789012"
+        attributes: {policy_document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "logs:*", Resource: "*"}]}}
+      - id: arn:aws:iam::123456789012:policy/unattached
+        type: aws_iam_policy
+        account: "123456789012"
+        attributes: {policy_document: {Version: "2012-10-17", Statement: [{Effect: Allow, Action: "logs:*", Resource: "*"}]}}
+      - id: arn:aws:iam::aws:policy/ReadOnlyAccess
+        type: aws_iam_policy
+        account: "123456789012"
+    edges:
+      - {from: arn:aws:iam::123456789012:role/target, to: arn:aws:iam::123456789012:policy/role-managed, kind: has_policy}
+      - {from: arn:aws:iam::123456789012:role/target, to: arn:aws:iam::aws:policy/ReadOnlyAccess, kind: has_policy}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:policy/role-managed", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:policy/unattached", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::aws:policy/ReadOnlyAccess", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/partial", target: "arn:aws:iam::123456789012:policy/role-managed", match: false}

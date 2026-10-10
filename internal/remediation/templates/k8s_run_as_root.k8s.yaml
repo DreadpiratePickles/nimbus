@@ -1,15 +1,12 @@
+# Strategic merge patch for {{ .Kind }}/{{ .Name }}: refuse to start containers as root.
+# If the image's USER is root (or non-numeric) new pods will not start; the old ReplicaSet keeps
+# serving during a rolling update. TODO: set runAsUser to the image's non-root UID if needed.
 spec:
   template:
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
-        seccompProfile:
-          type: RuntimeDefault
       containers:
         - name: {{ default "app" .Attr.container }}
           securityContext:
             runAsNonRoot: true
-            readOnlyRootFilesystem: true

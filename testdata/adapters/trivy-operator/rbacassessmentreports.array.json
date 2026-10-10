@@ -1,0 +1,72 @@
+[
+  {
+    "apiVersion": "aquasecurity.github.io/v1alpha1",
+    "kind": "RbacAssessmentReport",
+    "metadata": {
+      "name": "role-pod-manager",
+      "namespace": "ci",
+      "labels": {
+        "plugin-config-hash": "659b7b9c46",
+        "resource-spec-hash": "6f5d9c7b8c",
+        "trivy-operator.resource.kind": "Role",
+        "trivy-operator.resource.name": "pod-manager",
+        "trivy-operator.resource.namespace": "ci"
+      }
+    },
+    "report": {
+      "scanner": {"name": "Trivy", "vendor": "Aqua Security", "version": "0.50.1"},
+      "summary": {"criticalCount": 1, "highCount": 0, "mediumCount": 0, "lowCount": 0},
+      "checks": [
+        {
+          "checkID": "KSV041",
+          "title": "Manage secrets",
+          "description": "Viewing secrets at the cluster-scope is akin to cluster-admin in most clusters as there are typically at least one service accounts (their token stored in a secret) bound to cluster-admin directly or a role/clusterrole that gives similar permissions.",
+          "severity": "CRITICAL",
+          "category": "Kubernetes Security Check",
+          "success": false,
+          "messages": ["Role permits management of secret(s)"],
+          "remediation": "Manage secrets are not allowed. Remove resource 'secrets' from cluster role"
+        },
+        {
+          "checkID": "KSV049",
+          "title": "Manage configmaps",
+          "description": "Some workloads leverage configmaps to store sensitive data or configuration parameters that affect runtime behavior.",
+          "severity": "MEDIUM",
+          "category": "Kubernetes Security Check",
+          "success": true,
+          "remediation": "Remove write permission verbs for resource 'configmaps'"
+        }
+      ]
+    }
+  },
+  {
+    "apiVersion": "aquasecurity.github.io/v1alpha1",
+    "kind": "ClusterRbacAssessmentReport",
+    "metadata": {
+      "name": "clusterrole-ops-admin",
+      "labels": {
+        "plugin-config-hash": "659b7b9c46",
+        "resource-spec-hash": "84f6c5d7c9",
+        "trivy-operator.resource.kind": "ClusterRole",
+        "trivy-operator.resource.name": "ops-admin",
+        "trivy-operator.resource.namespace": ""
+      }
+    },
+    "report": {
+      "scanner": {"name": "Trivy", "vendor": "Aqua Security", "version": "0.50.1"},
+      "summary": {"criticalCount": 1, "highCount": 0, "mediumCount": 0, "lowCount": 0},
+      "checks": [
+        {
+          "checkID": "KSV046",
+          "title": "Manage all resources",
+          "description": "Full control of the cluster resources, and therefore also root on all nodes where workloads can run and has access to all pods, secrets, and data.",
+          "severity": "CRITICAL",
+          "category": "Kubernetes Security Check",
+          "success": false,
+          "messages": ["ClusterRole permits wildcard verb on wildcard resource"],
+          "remediation": "Remove '*' from 'rules.resources'. Provide specific list of resources to be managed by cluster role"
+        }
+      ]
+    }
+  }
+]

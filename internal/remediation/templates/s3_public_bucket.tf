@@ -1,8 +1,3 @@
-import {
-  to = aws_s3_bucket_public_access_block.{{ .Slug }}
-  id = "{{ .Name }}"
-}
-
 resource "aws_s3_bucket_public_access_block" "{{ .Slug }}" {
   bucket                  = "{{ .Name }}"
   block_public_acls       = true

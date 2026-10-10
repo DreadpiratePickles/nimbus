@@ -67,8 +67,40 @@ type oktaPolicy struct {
 }
 
 type oktaRule struct {
-	Name    string `json:"name"`
-	Status  string `json:"status"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	Priority   int    `json:"priority"`
+	System     bool   `json:"system"`
+	Conditions *struct {
+		People *struct {
+			Users *struct {
+				Include []string `json:"include"`
+				Exclude []string `json:"exclude"`
+			} `json:"users"`
+			Groups *struct {
+				Include []string `json:"include"`
+				Exclude []string `json:"exclude"`
+			} `json:"groups"`
+		} `json:"people"`
+		Network *struct {
+			Connection string   `json:"connection"`
+			Include    []string `json:"include"`
+			Exclude    []string `json:"exclude"`
+		} `json:"network"`
+		AuthContext *struct {
+			AuthType string `json:"authType"`
+		} `json:"authContext"`
+		RiskScore *struct {
+			Level string `json:"level"`
+		} `json:"riskScore"`
+		Risk *struct {
+			Behaviors []string `json:"behaviors"`
+		} `json:"risk"`
+		IdentityProvider *struct {
+			Provider string   `json:"provider"`
+			IdpIDs   []string `json:"idpIds"`
+		} `json:"identityProvider"`
+	} `json:"conditions"`
 	Actions struct {
 		Signon struct {
 			Access        string `json:"access"`
@@ -218,10 +250,10 @@ func (c *Okta) Collect(ctx context.Context, spec core.AccountSpec, g *graph.Grap
 			acc.Error("okta: policy rules "+p.Name, err)
 			continue
 		}
-		pass := signOnRequiresMFA(rules)
-		detail := fmt.Sprintf("Sign-on policy %q has an active rule requiring MFA.", p.Name)
+		pass, why := signOnRequiresMFA(rules)
+		detail := fmt.Sprintf("Sign-on policy %q requires MFA: %s.", p.Name, why)
 		if !pass {
-			detail = fmt.Sprintf("Sign-on policy %q has no active allow rule that requires MFA.", p.Name)
+			detail = fmt.Sprintf("Sign-on policy %q does not enforce MFA: %s.", p.Name, why)
 		}
 		emit(acc, g, now, core.Check{CheckID: "okta_sign_on_policy_require_mfa", AliasSource: "steampipe", Provider: model.ProviderOkta, Account: account,
 			AccountLabel: spec.Name, Resource: res, Pass: pass, Detail: detail})
@@ -229,12 +261,81 @@ func (c *Okta) Collect(ctx context.Context, spec core.AccountSpec, g *graph.Grap
 	return acc.Result(), nil
 }
 
-// signOnRequiresMFA reports whether any ACTIVE rule allows sign-on only with a factor.
-func signOnRequiresMFA(rules []oktaRule) bool {
-	for _, r := range rules {
-		if strings.EqualFold(r.Status, "ACTIVE") && strings.EqualFold(r.Actions.Signon.Access, "ALLOW") && r.Actions.Signon.RequireFactor {
-			return true
+// catchAll reports a rule that matches every sign-on (Okta's system Default Rule, or
+// any rule with no people / network / auth-context restriction).
+func (r oktaRule) catchAll() bool {
+	if r.System {
+		return true
+	}
+	c := r.Conditions
+	if c == nil {
+		return true
+	}
+	if p := c.People; p != nil {
+		if u := p.Users; u != nil && (len(u.Include) > 0 || len(u.Exclude) > 0) {
+			return false
+		}
+		if g := p.Groups; g != nil && (len(g.Include) > 0 || len(g.Exclude) > 0) {
+			return false
 		}
 	}
-	return false
+	if n := c.Network; n != nil && n.Connection != "" && !strings.EqualFold(n.Connection, "ANYWHERE") {
+		return false
+	}
+	if a := c.AuthContext; a != nil && a.AuthType != "" && !strings.EqualFold(a.AuthType, "ANY") {
+		return false
+	}
+	if rs := c.RiskScore; rs != nil && rs.Level != "" && !strings.EqualFold(rs.Level, "ANY") {
+		return false
+	}
+	if rk := c.Risk; rk != nil && len(rk.Behaviors) > 0 {
+		return false
+	}
+	if idp := c.IdentityProvider; idp != nil && ((idp.Provider != "" && !strings.EqualFold(idp.Provider, "ANY")) || len(idp.IdpIDs) > 0) {
+		return false
+	}
+	return true
+}
+
+// signOnRequiresMFA evaluates a sign-on policy's rules the way Okta does: ACTIVE
+// rules in priority order (lowest first), first match wins. The policy enforces MFA
+// only if no reachable rule allows sign-on without a factor and the first catch-all
+// rule requires a factor or denies. Rules after the catch-all are unreachable.
+func signOnRequiresMFA(rules []oktaRule) (bool, string) {
+	var active []oktaRule
+	for _, r := range rules {
+		if strings.EqualFold(r.Status, "ACTIVE") {
+			active = append(active, r)
+		}
+	}
+	sort.SliceStable(active, func(i, j int) bool {
+		pi, pj := active[i].Priority, active[j].Priority
+		if active[i].System != active[j].System {
+			return !active[i].System // the system default rule is always last
+		}
+		return pi < pj
+	})
+	anyMFA := false
+	for _, r := range active {
+		allow := strings.EqualFold(r.Actions.Signon.Access, "ALLOW")
+		if allow && !r.Actions.Signon.RequireFactor {
+			if r.catchAll() {
+				return false, fmt.Sprintf("catch-all rule %q (priority %d) allows sign-on without MFA", r.Name, r.Priority)
+			}
+			return false, fmt.Sprintf("rule %q (priority %d) allows sign-on without MFA for the sign-ons it matches", r.Name, r.Priority)
+		}
+		if allow {
+			anyMFA = true
+		}
+		if r.catchAll() {
+			if !anyMFA {
+				return false, fmt.Sprintf("catch-all rule %q denies every sign-on; no rule allows sign-on with MFA", r.Name)
+			}
+			return true, fmt.Sprintf("every reachable allow rule requires MFA up to catch-all rule %q", r.Name)
+		}
+	}
+	if anyMFA {
+		return true, "every active allow rule requires MFA (sign-ons matching no rule are denied)"
+	}
+	return false, "no active allow rule requires MFA"
 }

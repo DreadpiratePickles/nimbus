@@ -1,0 +1,102 @@
+category: unknown_keys
+cases:
+  - name: service key absent from context on allow is unknown never allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:RunInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/*"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Small, Effect: Allow, Action: "ec2:RunInstances", Resource: "*", Condition: {StringEquals: {"ec2:InstanceType": t3.micro}}}]}
+    expect: {decision: unknown, matched: ["p#Small?"], unknown_keys: ["ec2:InstanceType"]}
+
+  - name: key not in the evaluator catalog stays unknown even with complete context
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:RunInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/*", context_complete: true}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Small, Effect: Allow, Action: "ec2:RunInstances", Resource: "*", Condition: {StringEquals: {"ec2:InstanceType": t3.micro}}}]}
+    expect: {decision: unknown, matched: ["p#Small?"], unknown_keys: ["ec2:InstanceType"]}
+
+  - name: unknown key on a deny with no allow stays implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic_policy-eval-denyallow.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:RunInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/*"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: D, Effect: Deny, Action: "ec2:*", Resource: "*", Condition: {StringEquals: {"ec2:InstanceType": p4d.24xlarge}}}]}
+    expect: {decision: implicit_deny, matched: ["p#D?"], unknown_keys: ["ec2:InstanceType"]}
+
+  - name: unknown key on an allow does not matter when a definite deny applies
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:RunInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/*"}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: A, Effect: Allow, Action: "ec2:*", Resource: "*", Condition: {StringEquals: {"ec2:InstanceType": t3.micro}}}
+            - {Sid: D, Effect: Deny, Action: "ec2:RunInstances", Resource: "*"}
+    expect: {decision: explicit_deny, matched: ["p#A?", p#D], unknown_keys: ["ec2:InstanceType"]}
+
+  - name: unconditional allow next to an unknown-key allow is a definite allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:RunInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/*"}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: A, Effect: Allow, Action: "ec2:*", Resource: "*", Condition: {StringEquals: {"ec2:InstanceType": t3.micro}}}
+            - {Sid: B, Effect: Allow, Action: "ec2:RunInstances", Resource: "*"}
+    expect: {decision: allow, matched: ["p#A?", p#B], unknown_keys: ["ec2:InstanceType"]}
+
+  - name: unsupported condition operator is unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111", context: {"aws:SourceIp": "10.0.0.1"}}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Odd, Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {IpAddressish: {"aws:SourceIp": "10.0.0.0/8"}}}]}
+    expect: {decision: unknown, matched: ["p#Odd?"], unknown_keys: ["IpAddressish"]}
+
+  - name: unknown key in SCP allow makes the gate unknown
+    source: https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps_evaluation.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    scps:
+      - - id: scp-region
+          document: {Version: "2012-10-17", Statement: [{Sid: Region, Effect: Allow, Action: "*", Resource: "*", Condition: {StringEquals: {"aws:RequestedRegion": us-east-1}}}]}
+    expect: {decision: unknown, matched: [id#All, "scp-region#Region?"], unknown_keys: ["aws:RequestedRegion"]}
+
+  - name: unknown key in resource policy grant for same-account caller without identity grant
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: sqs:SendMessage, resource: "arn:aws:sqs:us-east-1:111111111111:jobs"}
+    resource_policy:
+      id: queue
+      document: {Version: "2012-10-17", Statement: [{Sid: Send, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:user/alice"}, Action: "sqs:SendMessage", Resource: "*", Condition: {ArnEquals: {"aws:SourceArn": "arn:aws:sns:us-east-1:111111111111:topic"}}}]}
+    expect: {decision: unknown, matched: ["queue#Send?"], unknown_keys: ["aws:SourceArn"]}
+
+  - name: unknown key in permission boundary keeps decision unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}]}
+    boundary:
+      id: pb
+      document: {Version: "2012-10-17", Statement: [{Sid: Tagged, Effect: Allow, Action: "s3:*", Resource: "*", Condition: {StringEquals: {"aws:ResourceTag/data": public}}}]}
+    expect: {decision: unknown, matched: [id#All, "pb#Tagged?"], unknown_keys: ["aws:ResourceTag/data"]}
+
+  - name: deny with unknown key on top of allow is unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: kms:Decrypt, resource: "arn:aws:kms:us-east-1:111111111111:key/k1"}
+    identity:
+      - id: id
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: Use, Effect: Allow, Action: "kms:Decrypt", Resource: "*"}
+            - {Sid: OnlyViaS3, Effect: Deny, Action: "kms:Decrypt", Resource: "*", Condition: {StringNotEquals: {"kms:ViaService": s3.us-east-1.amazonaws.com}}}
+    resource_policy:
+      id: keypol
+      document: {Version: "2012-10-17", Statement: [{Sid: EnableIAM, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:root"}, Action: "kms:*", Resource: "*"}]}
+    expect: {decision: unknown, matched: [id#Use, "id#OnlyViaS3?", keypol#EnableIAM], unknown_keys: ["kms:ViaService"]}

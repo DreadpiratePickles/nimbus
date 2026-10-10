@@ -261,3 +261,54 @@ func TestHelpers(t *testing.T) {
 		t.Errorf("GuessType(pod) = %q", GraphTypeCheck)
 	}
 }
+
+// O10: LoadBalancer exposure carries width from loadBalancerSourceRanges; internal
+// load balancers are not internet exposure.
+func TestLoadBalancerExposureWidth(t *testing.T) {
+	pod := func(ns, name, app string) *corev1.Pod {
+		p := &corev1.Pod{ObjectMeta: meta(ns, name), Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "c", Image: "app:1"}}}}
+		p.Labels = map[string]string{"app": app}
+		return p
+	}
+	lb := func(name, app string, ranges []string, ann map[string]string) *corev1.Service {
+		s := &corev1.Service{ObjectMeta: meta("prod", name), Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer, Selector: map[string]string{"app": app},
+			Ports: []corev1.ServicePort{{Port: 443}}, LoadBalancerSourceRanges: ranges}}
+		s.Annotations = ann
+		return s
+	}
+	objs := append(fixtures(),
+		pod("prod", "api-1", "api"), lb("api-lb", "api", []string{"203.0.113.0/24"}, nil),
+		pod("prod", "corp-1", "corp"), lb("corp-lb", "corp", nil, map[string]string{"service.beta.kubernetes.io/load-balancer-source-ranges": "198.51.100.0/24"}),
+		pod("prod", "int-1", "int"), lb("int-lb", "int", nil, map[string]string{"service.beta.kubernetes.io/aws-load-balancer-internal": "true"}),
+	)
+	c := &Collector{
+		NewClient: func(core.AccountSpec) (kubernetes.Interface, string, error) {
+			return fake.NewSimpleClientset(objs...), "test-cluster", nil
+		},
+		Now: func() time.Time { return time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC) },
+	}
+	g := graph.New()
+	if _, err := c.Collect(context.Background(), core.AccountSpec{Name: "test-cluster", Provider: "kubernetes", TrustedCIDRs: []string{"198.51.100.0/24"}}, g); err != nil {
+		t.Fatal(err)
+	}
+	attrOf := func(to string) map[string]any {
+		for _, e := range g.Out(graph.InternetNodeID) {
+			if e.To == to && e.Kind == graph.EdgeExposes {
+				return e.Attr
+			}
+		}
+		return nil
+	}
+	if a := attrOf("prod/pod/web-7d9f-abc"); a == nil || a[core.AttrExposure] != core.ExposureWide {
+		t.Errorf("unrestricted LB = %v, want wide", a)
+	}
+	if a := attrOf("prod/pod/api-1"); a == nil || a[core.AttrExposure] != core.ExposureNarrow {
+		t.Errorf("sourceRanges LB = %v, want narrow", a)
+	}
+	if a := attrOf("prod/pod/corp-1"); a == nil || a[core.AttrExposure] != core.ExposureTrusted {
+		t.Errorf("annotation sourceRanges in trusted_cidrs = %v, want trusted", a)
+	}
+	if a := attrOf("prod/pod/int-1"); a != nil {
+		t.Errorf("internal LB must not be internet exposure: %v", a)
+	}
+}

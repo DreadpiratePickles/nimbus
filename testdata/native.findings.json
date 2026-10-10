@@ -1,1 +1,82 @@
-[{"source":"okta-plugin","check_id":"okta_admin_user_mfa_enrolled","canonical_id":"OKTA_ADMIN_NO_MFA","title":"Okta admin without MFA","severity":"CRITICAL","status":"FAIL","provider":"okta","account":"acme.okta.com","resource":{"id":"00u1alice","type":"okta_user","name":"alice@acme.com"},"weaknesses":["NO_MFA","OVERPRIVILEGED_IDENTITY"]}]
+[
+  {
+    "source": "okta-plugin",
+    "check_id": "okta_admin_user_mfa_enrolled",
+    "canonical_id": "OKTA_ADMIN_NO_MFA",
+    "title": "Okta admin without MFA",
+    "severity": "CRITICAL",
+    "status": "FAIL",
+    "provider": "okta",
+    "account": "acme.okta.com",
+    "resource": {
+      "id": "00u1alice",
+      "type": "okta_user",
+      "name": "alice@acme.com"
+    },
+    "weaknesses": [
+      "NO_MFA",
+      "OVERPRIVILEGED_IDENTITY"
+    ]
+  },
+  {
+    "source": "export-plugin",
+    "check_id": "awslambda_function_url_public",
+    "canonical_id": "LAMBDA_PUBLIC_URL",
+    "title": "Lambda function URL has AuthType NONE",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "444455556666",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:lambda:us-east-1:444455556666:function:report-export",
+      "type": "aws_lambda_function",
+      "name": "report-export",
+      "attributes": {
+        "function_url_auth_type": "NONE",
+        "exposure_cidrs": [
+          "0.0.0.0/0"
+        ]
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::444455556666:role/report-export-role",
+          "kind": "runs_as",
+          "attr": {
+            "because": "function report-export executes as role report-export-role"
+          }
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ]
+  },
+  {
+    "source": "export-plugin",
+    "check_id": "inventory",
+    "canonical_id": "INVENTORY",
+    "title": "inventory: report-export-role",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "444455556666",
+    "resource": {
+      "id": "arn:aws:iam::444455556666:role/report-export-role",
+      "type": "aws_iam_role",
+      "name": "report-export-role",
+      "related": [
+        "arn:aws:iam::444455556666:instance-profile/legacy-hint",
+        {
+          "id": "arn:aws:s3:::report-archive-pii",
+          "kind": "grants_access_to",
+          "attr": {
+            "actions": "s3:GetObject",
+            "statement": "ExportRead",
+            "because": "inline policy ExportRead allows s3:GetObject on report-archive-pii/*"
+          }
+        }
+      ]
+    }
+  }
+]

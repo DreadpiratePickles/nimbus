@@ -30,27 +30,25 @@ func (t Trivy) Parse(data []byte, opts Options) ([]model.Finding, error) {
 	}
 	artifact := str(doc, "ArtifactName")
 	var out []model.Finding
-	results := list(doc, "Results")
-	// `trivy k8s` wraps per-resource results under Resources[].Results
+	var results []trivyResult
+	for _, r := range list(doc, "Results") {
+		results = append(results, trivyResult{res: r})
+	}
+	// `trivy k8s` wraps per-resource results under Resources[].Results, with the object's
+	// Namespace / Kind / Name on the wrapper.
 	if len(results) == 0 {
-		for _, r := range list(doc, "Resources") {
-			if m, ok := r.(map[string]any); ok {
-				results = append(results, list(m, "Results")...)
-			}
-		}
-		for _, r := range list(doc, "Misconfigurations") {
-			if m, ok := r.(map[string]any); ok {
-				results = append(results, list(m, "Results")...)
-			}
-		}
-		for _, r := range list(doc, "Vulnerabilities") {
-			if m, ok := r.(map[string]any); ok {
-				results = append(results, list(m, "Results")...)
+		for _, key := range []string{"Resources", "Misconfigurations", "Vulnerabilities"} {
+			for _, r := range list(doc, key) {
+				if m, ok := r.(map[string]any); ok {
+					for _, x := range list(m, "Results") {
+						results = append(results, trivyResult{res: x, namespace: str(m, "Namespace"), kind: str(m, "Kind"), name: str(m, "Name")})
+					}
+				}
 			}
 		}
 	}
-	for _, r := range results {
-		res, ok := r.(map[string]any)
+	for _, tr := range results {
+		res, ok := tr.res.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -58,7 +56,17 @@ func (t Trivy) Parse(data []byte, opts Options) ([]model.Finding, error) {
 		class := str(res, "Class")
 		for _, mc := range list(res, "Misconfigurations") {
 			if m, ok := mc.(map[string]any); ok {
-				out = append(out, t.misconfig(m, target, artifact))
+				f := t.misconfig(m, target, artifact)
+				// Trivy gives no CauseMetadata.Resource for Kubernetes objects: use the
+				// <ns>/<kind>/<name> id of the k8s collector, trivy-operator and kubescape.
+				if f.Resource.ID == "" && tr.kind != "" && tr.name != "" {
+					kr := k8sResource(tr.kind, tr.namespace, tr.name)
+					for k, v := range f.Resource.Attributes {
+						kr.Attributes[k] = v
+					}
+					f.Resource = kr
+				}
+				out = append(out, f)
 			}
 		}
 		for _, v := range list(res, "Vulnerabilities") {
@@ -73,6 +81,12 @@ func (t Trivy) Parse(data []byte, opts Options) ([]model.Finding, error) {
 		}
 	}
 	return out, nil
+}
+
+// trivyResult is one Results[] entry, with the Kubernetes object that wraps it in `trivy k8s` output.
+type trivyResult struct {
+	res                   any
+	namespace, kind, name string
 }
 
 func (Trivy) misconfig(m map[string]any, target, artifact string) model.Finding {
@@ -116,12 +130,13 @@ func (Trivy) misconfig(m map[string]any, target, artifact string) model.Finding 
 
 func (Trivy) vuln(m map[string]any, target, artifact, class string) model.Finding {
 	pkg := str(m, "PkgName")
+	pkgPath := str(m, "PkgPath") // the jar / lockfile inside the target (empty for OS packages)
 	id := str(m, "VulnerabilityID")
 	provider := model.ProviderKubernetes
 	if class == "lang-pkgs" {
 		provider = model.ProviderIaC
 	}
-	return model.Finding{
+	f := model.Finding{
 		Source:      "trivy",
 		CheckID:     id,
 		Title:       fmt.Sprintf("%s in %s %s", id, pkg, str(m, "InstalledVersion")),
@@ -137,12 +152,18 @@ func (Trivy) vuln(m map[string]any, target, artifact, class string) model.Findin
 			Name: firstNonEmpty(artifact, target),
 			Type: "container_image",
 			Attributes: map[string]any{
-				"package": pkg, "installed": str(m, "InstalledVersion"), "fixed": str(m, "FixedVersion"), "image": artifact,
+				"package": pkg, "installed": str(m, "InstalledVersion"), "fixed": str(m, "FixedVersion"), "image": artifact, "path": pkgPath,
 			},
 		},
-		Tags: map[string]string{"class": class, "pkg": pkg},
+		Tags: map[string]string{"class": class, "pkg": pkg, "pkg_path": pkgPath},
 		Raw:  rawOf(m),
 	}
+	// One CVE in two packages, or in the same package at two paths (two jars), of one
+	// image is two findings (defect 19b, V2 11a). The installed version is not part of
+	// the identity: a bump that is still vulnerable is the same open finding, keeping its
+	// first_seen, not "resolved + new" (V2 11b).
+	f.ID = f.FingerprintWith("pkg="+pkg, "path="+pkgPath)
+	return f
 }
 
 func (Trivy) secret(m map[string]any, target string) model.Finding {
@@ -166,6 +187,10 @@ func (Trivy) secret(m map[string]any, target string) model.Finding {
 }
 
 func providerFromAVD(id string) string {
+	// Trivy >= 0.6x drops the "AVD-" prefix ("AWS-0028", "KSV-0111").
+	if !strings.HasPrefix(id, "AVD-") {
+		id = "AVD-" + id
+	}
 	switch {
 	case strings.HasPrefix(id, "AVD-AWS"):
 		return model.ProviderAWS

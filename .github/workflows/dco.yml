@@ -1,0 +1,48 @@
+# Developer Certificate of Origin (https://developercertificate.org/): every commit in a pull request
+# must carry a `Signed-off-by: Name <email>` trailer whose email matches the commit author
+# (`git commit -s`). nimbus uses the DCO, never a CLA (OPEN_SOURCE_PROMISE.md).
+#
+# Supply chain: the only action is actions/checkout, pinned by full commit SHA (same pin as the other
+# workflows). The check itself is the inline script below rather than a third-party DCO action, so no
+# unpinned or unreviewed code runs. Runs on `pull_request` (never `pull_request_target`): fork code
+# gets a read-only token and no secrets. PR-controlled values reach the script only through env vars.
+# The GitHub DCO app (owner action O4) can be enabled as well; this workflow does not depend on it.
+name: dco
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    name: DCO sign-off
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Every commit is signed off by its author
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          fail=0
+          count=0
+          for c in $(git rev-list --no-merges "${BASE}..${HEAD}"); do
+            count=$((count + 1))
+            email=$(git show -s --format='%ae' "$c")
+            signoffs=$(git show -s --format='%(trailers:key=Signed-off-by,valueonly,unfold)' "$c")
+            if printf '%s\n' "$signoffs" | grep -qiF -- "<${email}>"; then
+              echo "ok   $c signed off by <${email}>"
+            else
+              echo "::error::commit $c (author <${email}>) has no 'Signed-off-by: ... <${email}>' trailer. Fix: git rebase --signoff ${BASE}"
+              fail=1
+            fi
+          done
+          echo "checked ${count} commit(s)"
+          exit "$fail"

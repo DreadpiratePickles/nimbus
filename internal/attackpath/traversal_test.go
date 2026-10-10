@@ -60,16 +60,20 @@ func TestTraverseFindsMultiHopPaths(t *testing.T) {
 	if an.Paths[0].Score < an.Paths[len(an.Paths)-1].Score {
 		t.Errorf("not sorted")
 	}
-	if len(an.ChokePoints) == 0 || an.ChokePoints[0].NodeID != "i-1" {
-		t.Errorf("choke point should be the exposed instance every internet path crosses: %+v", an.ChokePoints)
+	// Complete paths only (defect 18b): internet→sg→i-1→role→pol→db, internet→i-1→role→pol→db,
+	// internet→bucket, user→pol→db. The admin policy is on 3 of the 4; the instance on 2.
+	if len(an.ChokePoints) == 0 || an.ChokePoints[0].NodeID != "pol" || an.ChokePoints[0].Paths != 3 {
+		t.Errorf("choke point should be the admin policy every path to the database crosses: %+v", an.ChokePoints)
 	}
 	// The admin policy sits on every path to the database (internet and phished-user entries), so it is the top fix.
-	if len(an.BreakFixes) == 0 || an.BreakFixes[0].Weakness != "OVERPRIVILEGED_IDENTITY" || len(an.BreakFixes[0].Breaks) < 6 || an.BreakFixes[0].Command == "" {
+	if len(an.BreakFixes) == 0 || an.BreakFixes[0].Weakness != "OVERPRIVILEGED_IDENTITY" || len(an.BreakFixes[0].Breaks) != 3 || an.BreakFixes[0].Command == "" {
 		t.Errorf("top break fix: %+v (paths %d)", an.BreakFixes[0], len(an.Paths))
 	}
 	hasExposureFix := false
 	for _, f := range an.BreakFixes {
-		if f.NodeID == "i-1" && f.Weakness == "PUBLIC_NETWORK_EXPOSURE" && len(f.Breaks) >= 4 {
+		// Closing the instance's own exposure breaks the direct path; the path through the
+		// open security group survives (verified by re-evaluation), so it is listed as reduced.
+		if f.NodeID == "i-1" && f.Weakness == "PUBLIC_NETWORK_EXPOSURE" && len(f.Breaks) == 1 && len(f.Reduces) == 1 {
 			hasExposureFix = true
 		}
 	}

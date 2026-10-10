@@ -1,0 +1,13 @@
+{
+  "name": "nimbus-ui-smoke",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Playwright smoke test for the cwm-style nimbus dashboard (docs/design/cwm-dashboard-spec.md §9)",
+  "type": "module",
+  "scripts": {
+    "smoke": "node smoke.mjs ../../cloud-posture-report/index.html"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.0"
+  }
+}

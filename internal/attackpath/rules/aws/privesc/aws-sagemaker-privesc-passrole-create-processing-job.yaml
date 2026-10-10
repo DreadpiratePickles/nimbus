@@ -1,0 +1,60 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-sagemaker-privesc-passrole-create-processing-job
+title: SageMaker Processing Job Creation with Privileged Role (SAGEMAKER-003)
+description: >-
+  The principal may pass a role that trusts sagemaker.amazonaws.com and create a SageMaker processing job whose container runs with the role, so it gains that role's
+  permissions. Scope iam:PassRole to the roles the principal genuinely needs (iam:PassedToService).
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-sagemaker-privesc-passrole-create-processing-job
+  upstream: pathfinding.cloud - SAGEMAKER-003 - iam:PassRole + sagemaker:CreateProcessingJob
+  upstream_url: https://pathfinding.cloud/paths/sagemaker-003
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator (Allow per action and resource, Deny and SCPs honoured)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:PassRole", resource: target}
+    - {action: "sagemaker:CreateProcessingJob", resource: "*"}
+  target:
+    types: [aws_iam_role]
+    trusts_service: sagemaker.amazonaws.com
+    exclude_self: true
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/dev
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/*"}
+              - {Effect: Allow, Action: "sagemaker:CreateProcessingJob", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/partial
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/*"}
+              - {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/svc
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [sagemaker.amazonaws.com]}
+      - id: arn:aws:iam::123456789012:role/wrongtrust
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com]}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/svc", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/wrongtrust", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/partial", target: "arn:aws:iam::123456789012:role/svc", match: false}

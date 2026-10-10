@@ -103,7 +103,7 @@ def test_sql_sanitize_accepts_and_limits():
 
 def test_copilot_rejects_unsafe_sql(cp):
     with pytest.raises(UnsafeSQL):
-        cp.run_sql("DROP TABLE findings")
+        cp.run_sql("DROP TABLE findings", origin="llm")
 
 
 def test_investigate_blast_radius(cp, seeded):

@@ -22,6 +22,9 @@ class Control(BaseModel):
     title: str = ""
     canonical_ids: list[str] = Field(default_factory=list)
     weaknesses: list[str] = Field(default_factory=list)
+    # Canonical finding ids that assess this control (frameworks imported from Prowler). Catalog ids
+    # are natively assessable; "PROWLER:<check>" ids only through ingested Prowler output.
+    checks: list[str] = Field(default_factory=list)
 
 
 class Framework(BaseModel):
@@ -30,6 +33,10 @@ class Framework(BaseModel):
     version: str = ""
     controls: dict[str, Control] = Field(default_factory=dict)
     custom: bool = False
+    # Honest denominator: {"native": X, "prowler_ingest": Y, "manual": Z}, summing to len(controls).
+    coverage: dict[str, int] = Field(default_factory=dict)
+    # Imported frameworks: source, upstream_url, license, attribution, text_policy, reference_url...
+    provenance: Optional[dict[str, str]] = None
 
 
 class Evidence(BaseModel):
@@ -86,6 +93,8 @@ class Report(BaseModel):
     failing: int = 0
     not_assessed: int = 0
     score_percent: float = 0.0
+    assessed: int = 0  # passing + failing; "assessed of total_controls"
+    coverage: dict[str, int] = Field(default_factory=dict)
     findings_evaluated: int = 0
     roadmap: list[RoadmapItem] = Field(default_factory=list)
     attack_paths: list[dict[str, Any]] = Field(default_factory=list)
@@ -101,30 +110,57 @@ class Report(BaseModel):
 
 # ---------------------------------------------------------------- loading
 
+def _coverage(controls: dict[str, Control]) -> dict[str, int]:
+    """Coverage classes for frameworks without a declared one (custom frameworks)."""
+    cov = {"native": 0, "prowler_ingest": 0, "manual": 0}
+    for c in controls.values():
+        ids = c.checks + c.canonical_ids
+        if c.weaknesses or any(not i.upper().startswith("PROWLER:") for i in ids):
+            cov["native"] += 1
+        elif ids:
+            cov["prowler_ingest"] += 1
+        else:
+            cov["manual"] += 1
+    return cov
+
+
 def _framework_from_raw(key: str, raw: dict, custom: bool = False) -> Framework:
     controls: dict[str, Control] = {}
     for cid, val in (raw.get("controls") or {}).items():
         cid = str(cid)
         if isinstance(val, dict):
             controls[cid] = Control(
-                id=cid, title=str(val.get("title", "")),
+                id=cid, title=str(val.get("title") or ""),
                 canonical_ids=[str(x).upper() for x in val.get("canonical_ids") or []],
                 weaknesses=[str(x).upper() for x in val.get("weaknesses") or []],
+                checks=[str(x) for x in val.get("checks") or []],
             )
         else:
             controls[cid] = Control(id=cid, title=str(val or ""))
-    return Framework(key=key, name=str(raw.get("name") or key), version=str(raw.get("version") or ""), controls=controls, custom=custom)
+    cov = raw.get("coverage")
+    cov = {str(k): int(v) for k, v in cov.items()} if isinstance(cov, dict) else _coverage(controls)
+    prov = raw.get("provenance")
+    return Framework(key=key, name=str(raw.get("name") or key), version=str(raw.get("version") or ""), controls=controls,
+                     custom=custom, coverage=cov, provenance={str(k): str(v) for k, v in prov.items()} if isinstance(prov, dict) else None)
 
 
 @lru_cache(maxsize=1)
 def _bundled() -> dict[str, Any]:
+    """The bundle generated from the Go loader (internal/compliance/gen). It is JSON (valid YAML)."""
     text = resources.files("nimbus").joinpath("frameworks/frameworks.yaml").read_text(encoding="utf-8")
+    if text.lstrip().startswith("{"):
+        return json.loads(text)
     return yaml.safe_load(text) or {}
 
 
-def load_frameworks() -> dict[str, Framework]:
+@lru_cache(maxsize=1)
+def _bundled_frameworks() -> dict[str, Framework]:
     data = _bundled()
     return {str(k): _framework_from_raw(str(k), v or {}) for k, v in (data.get("frameworks") or {}).items()}
+
+
+def load_frameworks() -> dict[str, Framework]:
+    return {k: fw.model_copy(deep=True) for k, fw in _bundled_frameworks().items()}
 
 
 def weakness_mappings() -> dict[str, dict[str, list[str]]]:
@@ -136,8 +172,9 @@ def frameworks() -> list[dict[str, Any]]:
     """Listing for CLIs/APIs: key, name, version, control count, derived-from-weaknesses flag."""
     derived = {fw for m in weakness_mappings().values() for fw in m}
     return [
-        {"key": k, "name": f.name, "version": f.version, "controls": len(f.controls), "weakness_derived": k in derived}
-        for k, f in sorted(load_frameworks().items())
+        {"key": k, "name": f.name, "version": f.version, "controls": len(f.controls), "weakness_derived": k in derived,
+         "coverage": dict(f.coverage), "imported": f.provenance is not None}
+        for k, f in sorted(_bundled_frameworks().items())
     ]
 
 
@@ -177,6 +214,68 @@ def resolve_key(name: str) -> str:
     return _ALIASES.get(n, n.replace("-", "_"))
 
 
+# Curated headline set `report --framework all` walks unless --framework-set says otherwise; the
+# CIS benchmark of each provider in scope goes in front. Must equal Go's defaultFrameworkSet
+# (internal/cli/report.go; tests/test_framework_set.py checks parity).
+DEFAULT_FRAMEWORK_SET = ("nist_800_53", "pci_dss", "soc2", "hipaa", "iso_27001", "gdpr")
+
+
+def _cis_key(provider: str) -> str:
+    """Go's ResolveKey("cis", provider)."""
+    if provider in ("", "aws"):
+        return "cis_aws"
+    if provider == "kubernetes":
+        return "cis_k8s"
+    return "cis_" + provider
+
+
+def framework_set(spec: Optional[str], providers: Iterable[str] = ()) -> list[str]:
+    """Resolve ``--framework-set`` (default | all | comma list of keys/aliases) to framework keys.
+
+    ``providers`` are the providers in scope (CIS benchmark selection). Unknown names raise ValueError.
+    """
+    all_ = _bundled_frameworks()
+    provs = sorted({p for p in providers if p})
+    keys: list[str] = []
+
+    def add(k: str) -> None:
+        if k not in keys:
+            keys.append(k)
+
+    s = (spec or "").strip().lower()
+    if s in ("", "default"):
+        for p in provs:
+            if _cis_key(p) in all_:
+                add(_cis_key(p))
+        for k in DEFAULT_FRAMEWORK_SET:
+            if k in all_:
+                add(k)
+        return keys
+    if s == "all":
+        return sorted(all_)
+    unknown: list[str] = []
+    for name in (n.strip() for n in s.split(",")):
+        if not name:
+            continue
+        if name == "cis" and provs:
+            found = [_cis_key(p) for p in provs if _cis_key(p) in all_]
+            for k in found:
+                add(k)
+            if not found:
+                unknown.append(name)
+            continue
+        k = resolve_key(name)
+        if k in all_:
+            add(k)
+        else:
+            unknown.append(name)
+    if unknown:
+        raise ValueError(f"--framework-set: unknown framework(s) {', '.join(unknown)} (use --framework-set all for every key)")
+    if not keys:
+        raise ValueError("--framework-set: no frameworks named")
+    return keys
+
+
 # ---------------------------------------------------------------- evaluation
 
 def _control_sort_key(cid: str) -> list:
@@ -191,9 +290,21 @@ def _excerpt(raw: Any) -> str:
     return s if len(s) <= RAW_EXCERPT_LEN else s[: RAW_EXCERPT_LEN - 3] + "..."
 
 
-def _mappings_for(fw: Framework, f: Finding, wmap: dict[str, dict[str, list[str]]]) -> list[tuple[str, str]]:
+def _check_index(fw: Framework) -> dict[str, list[str]]:
+    """upper(canonical id) -> control ids whose ``checks`` list it."""
+    idx: dict[str, list[str]] = defaultdict(list)
+    for cid, ctl in fw.controls.items():
+        for chk in ctl.checks:
+            idx[chk.upper()].append(cid)
+    return dict(idx)
+
+
+def _mappings_for(fw: Framework, f: Finding, wmap: dict[str, dict[str, list[str]]],
+                  check_index: Optional[dict[str, list[str]]] = None) -> list[tuple[str, str]]:
     """(control_id, mapped_by) pairs for a finding."""
     out: list[tuple[str, str]] = []
+    if check_index is None:
+        check_index = _check_index(fw)
     if fw.custom:
         for cid, ctl in fw.controls.items():
             if f.canonical_id.upper() in ctl.canonical_ids:
@@ -210,6 +321,9 @@ def _mappings_for(fw: Framework, f: Finding, wmap: dict[str, dict[str, list[str]
         for w in f.weaknesses:
             for cid in wmap.get(w, {}).get(fw.key, []):
                 out.append((cid, f"weakness:{w}"))
+    if f.canonical_id:
+        for cid in check_index.get(f.canonical_id.upper(), []):
+            out.append((cid, "canonical_id"))
     seen, uniq = set(), []
     for cid, by in out:
         if cid not in seen:
@@ -226,15 +340,16 @@ def build_report(framework: str, findings: Iterable[Finding | dict], custom_path
         fw = load_custom_framework(custom_path)
     else:
         key = resolve_key(framework)
-        fws = load_frameworks()
-        fw = fws.get(key) or Framework(key=key, name=key, controls={})
+        fws = _bundled_frameworks()
+        fw = fws[key].model_copy(deep=True) if key in fws else Framework(key=key, name=key, controls={})
     wmap = weakness_mappings()
     items = [f if isinstance(f, Finding) else Finding.model_validate(f) for f in findings]
+    cindex = _check_index(fw)
 
     results: dict[str, ControlResult] = {cid: ControlResult(id=cid, title=c.title) for cid, c in fw.controls.items()}
     in_scope: list[tuple[Finding, list[str]]] = []
     for f in items:
-        maps = _mappings_for(fw, f, wmap)
+        maps = _mappings_for(fw, f, wmap, cindex)
         if not maps:
             continue
         in_scope.append((f, [c for c, _ in maps]))
@@ -274,7 +389,8 @@ def build_report(framework: str, findings: Iterable[Finding | dict], custom_path
         else:
             rep.not_assessed += 1
     rep.total_controls = len(rep.controls)
-    assessed = rep.passing + rep.failing
+    assessed = rep.assessed = rep.passing + rep.failing
+    rep.coverage = dict(fw.coverage)
     rep.score_percent = round(int(rep.passing / assessed * 1000) / 10, 1) if assessed else 0.0
     rep.findings_evaluated = len(in_scope)
     sev_counts: dict[str, int] = defaultdict(int)

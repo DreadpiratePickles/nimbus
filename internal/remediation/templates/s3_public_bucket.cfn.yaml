@@ -4,7 +4,7 @@ Resources:
   # Existing buckets cannot be adopted by CloudFormation without `import`; run:
   #   aws cloudformation create-change-set --change-set-type IMPORT ...
   # or apply the equivalent CLI command:
-  #   aws s3api put-public-access-block --bucket {{ .Name }} --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+  # CLI: aws s3api put-public-access-block --bucket={{ sh .Raw.Name }} --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
   {{ .Slug }}:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain

@@ -2,6 +2,10 @@
 
 Every scanner's native check IDs map onto these canonical IDs; weaknesses feed the attack-path engine; compliance keys drive the reports.
 
+The section below is generated from `internal/catalog/catalog.yaml` by `go generate ./internal/catalog/...`; `TestChecksDocInSync` fails when it drifts. Edit the catalog, not this list.
+
+<!-- BEGIN GENERATED CATALOG: go generate ./internal/catalog/... (do not edit by hand) -->
+
 ## ACCESS_ANALYZER_DISABLED
 
 **IAM Access Analyzer not enabled in region** — provider `aws`, default severity `LOW`, resource `aws_accessanalyzer_analyzer`
@@ -19,7 +23,7 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: OVERPRIVILEGED_IDENTITY, K8S_API
 - prowler: `aks_cluster_rbac_enabled`, `aks_clusters_public_access_disabled`
 - checkov: `CKV_AZURE_5`, `CKV_AZURE_115`
-- trivy: `AVD-AZU-0042`, `AVD-AZU-0040`
+- trivy: `AVD-AZU-0042`
 - steampipe: `kubernetes_cluster_rbac_enabled`
 - cis_azure: 8.1
 - nist_800_53: AC-3, AC-6
@@ -73,12 +77,22 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: PUBLIC_NETWORK_EXPOSURE
 - prowler: `network_ssh_internet_access_restricted`
 - checkov: `CKV_AZURE_10`
-- trivy: `AVD-AZU-0047`
+- trivy: `AVD-AZU-0050`
 - scoutsuite: `network-security-groups-rule-inbound-ssh`
 - steampipe: `network_security_group_ssh_access_restricted`
 - cis_azure: 6.2
 - nist_800_53: SC-7
 - pci_dss: 1.2.1
+- Fix templates: az_nsg_open_port.tf, az_nsg_open_port.bicep
+
+## AZ_NSG_UNRESTRICTED_SOURCE
+
+**Network security group rule allows inbound traffic from any source address** — provider `azure`, default severity `HIGH`, resource `azure_network_security_group`
+
+- Weaknesses: PUBLIC_NETWORK_EXPOSURE
+- trivy: `AVD-AZU-0047`
+- nist_800_53: SC-7, AC-4
+- pci_dss: 1.3.1
 - Fix templates: az_nsg_open_port.tf, az_nsg_open_port.bicep
 
 ## AZ_SQL_NO_TDE
@@ -102,7 +116,7 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: PUBLIC_NETWORK_EXPOSURE, DATABASE
 - prowler: `sqlserver_firewall_rules_no_ingress_from_internet`
 - checkov: `CKV_AZURE_35`, `CKV_AZURE_112`
-- trivy: `AVD-AZU-0025`, `AVD-AZU-0046`
+- trivy: `AVD-AZU-0022`, `AVD-AZU-0029`
 - scoutsuite: `sqldatabase-firewall-allows-all`
 - steampipe: `sql_server_public_network_access_disabled`
 - cis_azure: 4.1.2
@@ -125,22 +139,83 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - pci_dss: 4.1
 - Fix templates: az_storage_https.tf, az_storage_https.bicep
 
+## AZ_STORAGE_LOGGING_DISABLED
+
+**Storage account service logging (blob / queue) disabled** — provider `azure`, default severity `LOW`, resource `azure_storage_account`
+
+- Weaknesses: NO_LOGGING
+- checkov: `CKV2_AZURE_21`, `CKV_AZURE_33`
+- trivy: `AVD-AZU-0057`
+- nist_800_53: AU-2, AU-12
+
+## AZ_STORAGE_NETWORK_UNRESTRICTED
+
+**Storage account network rules allow access from all networks** — provider `azure`, default severity `MEDIUM`, resource `azure_storage_account`
+
+- checkov: `CKV_AZURE_59`
+- trivy: `AVD-AZU-0012`
+- scoutsuite: `storageaccounts-public-traffic-allowed`
+- steampipe: `storage_account_default_network_access_rule_denied`
+- cis_azure: 3.8
+- nist_800_53: SC-7
+
+## AZ_STORAGE_NO_CMK
+
+**Storage account is not encrypted with a customer-managed key** — provider `azure`, default severity `LOW`, resource `azure_storage_account`
+
+- checkov: `CKV2_AZURE_1`
+- trivy: `AVD-AZU-0060`
+- nist_800_53: SC-12, SC-28
+
+## AZ_STORAGE_NO_PRIVATE_ENDPOINT
+
+**Storage account is not reached through a private endpoint** — provider `azure`, default severity `LOW`, resource `azure_storage_account`
+
+- checkov: `CKV2_AZURE_33`
+- nist_800_53: SC-7
+
 ## AZ_STORAGE_PUBLIC_BLOB
 
 **Storage account allows anonymous blob access** — provider `azure`, default severity `HIGH`, resource `azure_storage_account`
 
 - Weaknesses: PUBLIC_DATA_STORE
-- prowler: `storage_blob_public_access_level_is_disabled`, `storage_ensure_minimum_tls_version_12`
-- checkov: `CKV_AZURE_190`, `CKV_AZURE_59`
-- trivy: `AVD-AZU-0007`, `AVD-AZU-0012`
-- scoutsuite: `storageaccounts-public-blob-access`, `storageaccounts-public-traffic-allowed`
-- steampipe: `storage_account_blob_public_access_disabled`, `storage_account_default_network_access_rule_denied`
+- prowler: `storage_blob_public_access_level_is_disabled`
+- checkov: `CKV_AZURE_190`, `CKV_AZURE_34`, `CKV2_AZURE_47`
+- trivy: `AVD-AZU-0007`
+- scoutsuite: `storageaccounts-public-blob-access`
+- steampipe: `storage_account_blob_public_access_disabled`
 - cis_azure: 3.7
 - nist_800_53: AC-3, SC-7
 - pci_dss: 1.3.1
 - hipaa: 164.312(a)(1)
 - gdpr: Art.32
 - Fix templates: az_storage_public_blob.tf, az_storage_public_blob.bicep
+
+## AZ_STORAGE_SAS_NO_EXPIRATION
+
+**Storage account has no SAS expiration policy** — provider `azure`, default severity `LOW`, resource `azure_storage_account`
+
+- checkov: `CKV2_AZURE_41`
+- nist_800_53: AC-2, IA-5
+
+## AZ_STORAGE_SHARED_KEY_ENABLED
+
+**Storage account allows Shared Key (account key) authorization** — provider `azure`, default severity `MEDIUM`, resource `azure_storage_account`
+
+- checkov: `CKV2_AZURE_40`
+- nist_800_53: IA-2, IA-5
+
+## AZ_STORAGE_TLS_MIN_VERSION
+
+**Storage account allows TLS versions below 1.2** — provider `azure`, default severity `MEDIUM`, resource `azure_storage_account`
+
+- Weaknesses: WEAK_TLS
+- prowler: `storage_ensure_minimum_tls_version_12`
+- checkov: `CKV_AZURE_44`
+- trivy: `AVD-AZU-0011`
+- cis_azure: 3.15
+- nist_800_53: SC-8, SC-13
+- pci_dss: 4.1
 
 ## AZ_VM_DISK_UNENCRYPTED
 
@@ -155,6 +230,15 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - cis_azure: 7.3
 - nist_800_53: SC-28
 - pci_dss: 3.4
+
+## BEDROCK_AGENT_PUBLIC
+
+**Bedrock agent is invoked by an unauthenticated public endpoint** — provider `aws`, default severity `HIGH`, resource `aws_bedrockagent_agent`
+
+- Weaknesses: PUBLIC_NETWORK_EXPOSURE
+- nimbus-lab: `bedrock_agent_publicly_invocable`
+- nist_800_53: AC-3, SC-7
+- Fix templates: bedrock_agent_private.tf
 
 ## CLOUDTRAIL_DISABLED
 
@@ -216,7 +300,7 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 
 - Weaknesses: UNENCRYPTED_AT_REST
 - prowler: `ec2_ebs_volume_encryption`, `ec2_ebs_default_encryption`, `efs_encryption_at_rest_enabled`
-- checkov: `CKV_AWS_3`, `CKV_AWS_189`
+- checkov: `CKV_AWS_3`, `CKV_AWS_189`, `CKV_AWS_8`
 - trivy: `AVD-AWS-0026`, `AVD-AWS-0131`
 - scoutsuite: `ec2-ebs-volume-not-encrypted`
 - steampipe: `ebs_attached_volume_encryption_enabled`, `ebs_volume_encryption_at_rest_enabled`
@@ -241,6 +325,24 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - pci_dss: 2.2
 - Fix templates: ec2_imdsv1.tf, ec2_imdsv1.cfn.yaml
 
+## EC2_INSTANCE_PORT_EXPOSED
+
+**EC2 instance reachable on an administrative or service port from the internet** — provider `aws`, default severity `HIGH`, resource `aws_instance`
+
+- Weaknesses: PUBLIC_NETWORK_EXPOSURE
+- prowler: `ec2_instance_port_ssh_exposed_to_internet`, `ec2_instance_port_rdp_exposed_to_internet`, `ec2_instance_port_https_exposed_to_internet`, `ec2_instance_port_http_exposed_to_internet`, `ec2_instance_port_telnet_exposed_to_internet`, `ec2_instance_port_ftp_exposed_to_internet`
+- nist_800_53: SC-7, AC-4
+- pci_dss: 1.2.1, 1.3.1
+- Fix templates: ec2_instance_port_exposed.tf
+
+## EC2_NO_DETAILED_MONITORING
+
+**EC2 instance detailed (1-minute) CloudWatch monitoring disabled** — provider `aws`, default severity `LOW`, resource `aws_instance`
+
+- prowler: `ec2_instance_detailed_monitoring_enabled`
+- checkov: `CKV_AWS_126`
+- nist_800_53: SI-4
+
 ## EC2_PUBLIC_IP
 
 **EC2 instance has a public IP address** — provider `aws`, default severity `MEDIUM`, resource `aws_instance`
@@ -255,17 +357,44 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - pci_dss: 1.3.2
 - Fix templates: ec2_public_ip.tf
 
+## EC2_SG_NO_DESCRIPTION
+
+**Security group or rule has no description** — provider `aws`, default severity `LOW`, resource `aws_security_group`
+
+- checkov: `CKV_AWS_23`
+- trivy: `AVD-AWS-0099`, `AVD-AWS-0124`
+- nist_800_53: CM-6, CM-8
+
 ## EC2_SG_OPEN_ALL
 
 **Security group allows all traffic from the internet** — provider `aws`, default severity `CRITICAL`, resource `aws_security_group`
 
 - Weaknesses: PUBLIC_NETWORK_EXPOSURE
 - prowler: `ec2_securitygroup_allow_ingress_from_internet_to_any_port`, `ec2_securitygroup_allow_wide_open_public_ipv4`, `ec2_securitygroup_default_restrict_traffic`
-- checkov: `CKV_AWS_277`, `CKV_AWS_260`
+- checkov: `CKV_AWS_277`
 - scoutsuite: `ec2-security-group-opens-all-ports-to-all`
 - steampipe: `vpc_security_group_restrict_ingress_common_ports_all`, `vpc_security_group_restrict_ingress_tcp_udp_all`
 - cis_aws: 5.2, 5.3
 - nist_800_53: SC-7
+- pci_dss: 1.2.1, 1.3.1
+- Fix templates: sg_open_port.tf, sg_open_port.cfn.yaml
+
+## EC2_SG_OPEN_EGRESS
+
+**Security group allows unrestricted egress to the internet** — provider `aws`, default severity `LOW`, resource `aws_security_group`
+
+- checkov: `CKV_AWS_382`
+- trivy: `AVD-AWS-0104`
+- nist_800_53: SC-7, SC-7(5)
+- pci_dss: 1.3.2
+
+## EC2_SG_OPEN_HTTP
+
+**Security group allows HTTP (80) from the internet** — provider `aws`, default severity `MEDIUM`, resource `aws_security_group`
+
+- Weaknesses: PUBLIC_NETWORK_EXPOSURE
+- checkov: `CKV_AWS_260`
+- nist_800_53: SC-7, SC-8
 - pci_dss: 1.2.1, 1.3.1
 - Fix templates: sg_open_port.tf, sg_open_port.cfn.yaml
 
@@ -326,16 +455,26 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 
 - Weaknesses: PUBLIC_DATA_STORE
 - prowler: `cloudstorage_bucket_public_access`
-- checkov: `CKV_GCP_28`, `CKV_GCP_29`
-- trivy: `AVD-GCP-0001`, `AVD-GCP-0002`
+- checkov: `CKV_GCP_28`
+- trivy: `AVD-GCP-0001`
 - scoutsuite: `cloudstorage-bucket-allUsers`, `cloudstorage-bucket-allAuthenticatedUsers`
-- steampipe: `storage_bucket_not_publicly_accessible`, `storage_bucket_uniform_access_enabled`
-- cis_gcp: 5.1, 5.2
+- steampipe: `storage_bucket_not_publicly_accessible`
+- cis_gcp: 5.1
 - nist_800_53: AC-3, SC-7
 - pci_dss: 1.3.1
 - hipaa: 164.312(a)(1)
 - gdpr: Art.32
 - Fix templates: gcp_bucket_public.tf
+
+## GCP_BUCKET_UNIFORM_ACCESS_DISABLED
+
+**Cloud Storage bucket does not use uniform bucket-level access** — provider `gcp`, default severity `MEDIUM`, resource `gcp_storage_bucket`
+
+- checkov: `CKV_GCP_29`
+- trivy: `AVD-GCP-0002`
+- steampipe: `storage_bucket_uniform_access_enabled`
+- cis_gcp: 5.2
+- nist_800_53: AC-3
 
 ## GCP_DEFAULT_SA_FULL_ACCESS
 
@@ -343,14 +482,31 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 
 - Weaknesses: OVERPRIVILEGED_IDENTITY, DEFAULT_SERVICE_ACCOUNT
 - prowler: `compute_instance_default_service_account_in_use`, `compute_instance_default_service_account_in_use_with_full_api_access`
-- checkov: `CKV_GCP_30`, `CKV_GCP_32`
-- trivy: `AVD-GCP-0044`, `AVD-GCP-0045`
+- checkov: `CKV_GCP_30`
+- trivy: `AVD-GCP-0044`
 - scoutsuite: `computeengine-instance-default-service-account`, `computeengine-instance-full-api-access`
 - steampipe: `compute_instance_with_no_default_service_account`, `compute_instance_with_no_default_service_account_with_full_access`
 - cis_gcp: 4.1, 4.2
 - nist_800_53: AC-6
 - pci_dss: 7.1.2
 - Fix templates: gcp_default_sa.tf
+
+## GCP_DEFAULT_SA_PROJECT_ROLE
+
+**Default compute / App Engine service account granted a project-level role** — provider `gcp`, default severity `MEDIUM`, resource `gcp_iam_binding`
+
+- Weaknesses: DEFAULT_SERVICE_ACCOUNT
+- checkov: `CKV_GCP_46`
+- nist_800_53: AC-6
+
+## GCP_DISK_NO_CSEK
+
+**Compute disk is not encrypted with a customer-supplied key (CSEK)** — provider `gcp`, default severity `LOW`, resource `gcp_compute_instance`
+
+- checkov: `CKV_GCP_38`
+- trivy: `AVD-GCP-0033`
+- cis_gcp: 4.7
+- nist_800_53: SC-12, SC-28
 
 ## GCP_FIREWALL_OPEN_RDP
 
@@ -359,7 +515,7 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: PUBLIC_NETWORK_EXPOSURE
 - prowler: `compute_firewall_rdp_access_from_the_internet_allowed`
 - checkov: `CKV_GCP_3`
-- trivy: `AVD-GCP-0028`
+- trivy: `AVD-GCP-0028`, `AVD-GCP-0070`
 - scoutsuite: `computeengine-firewall-rule-allows-internal-traffic-rdp`
 - steampipe: `compute_firewall_rule_rdp_access_restricted`
 - cis_gcp: 3.7
@@ -374,7 +530,7 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: PUBLIC_NETWORK_EXPOSURE
 - prowler: `compute_firewall_ssh_access_from_the_internet_allowed`
 - checkov: `CKV_GCP_2`
-- trivy: `AVD-GCP-0027`
+- trivy: `AVD-GCP-0027`, `AVD-GCP-0071`
 - scoutsuite: `computeengine-firewall-rule-opens-all-ports-to-all`, `computeengine-firewall-rule-allows-internal-traffic-ssh`
 - steampipe: `compute_firewall_rule_ssh_access_restricted`
 - cis_gcp: 3.6
@@ -389,7 +545,7 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: OVERPRIVILEGED_IDENTITY, K8S_API
 - prowler: `gke_cluster_legacy_abac_disabled`, `gke_cluster_no_legacy_abac`
 - checkov: `CKV_GCP_7`, `CKV_GCP_64`
-- trivy: `AVD-GCP-0062`, `AVD-GCP-0053`
+- trivy: `AVD-GCP-0062`
 - scoutsuite: `kubernetesengine-cluster-legacy-abac-enabled`, `kubernetesengine-cluster-legacy-metadata-endpoints-enabled`
 - steampipe: `kubernetes_cluster_legacy_abac_disabled`
 - cis_gcp: 7.3
@@ -401,13 +557,54 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 
 - Weaknesses: OVERPRIVILEGED_IDENTITY
 - prowler: `iam_sa_user_managed_key_rotation`, `iam_no_service_roles_at_project_level`, `iam_role_assigned_to_user_or_sa_primitive`
-- checkov: `CKV_GCP_41`, `CKV_GCP_42`, `CKV_GCP_44`, `CKV_GCP_49`
-- trivy: `AVD-GCP-0004`, `AVD-GCP-0005`, `AVD-GCP-0007`, `AVD-GCP-0011`
+- checkov: `CKV_GCP_42`, `CKV_GCP_117`
+- trivy: `AVD-GCP-0007`
 - scoutsuite: `iam-primitive-role-in-use`, `iam-sa-has-admin-privileges`
 - steampipe: `iam_user_uses_corporate_login_credentials`, `iam_service_account_without_admin_privilege`, `iam_user_not_assigned_service_account_user_role_project_level`
 - cis_gcp: 1.5, 1.6
 - nist_800_53: AC-6
 - pci_dss: 7.1.2
+
+## GCP_INSTANCE_PUBLIC_IP
+
+**Compute instance has an external (public) IP address** — provider `gcp`, default severity `MEDIUM`, resource `gcp_compute_instance`
+
+- Weaknesses: PUBLIC_NETWORK_EXPOSURE
+- prowler: `compute_instance_public_ip`
+- checkov: `CKV_GCP_40`
+- trivy: `AVD-GCP-0031`
+- cis_gcp: 4.9
+- nist_800_53: SC-7
+- pci_dss: 1.3.2
+- Fix templates: gcp_instance_no_public_ip.tf
+
+## GCP_PROJECT_SSH_KEYS_ALLOWED
+
+**Compute instance accepts project-wide SSH keys** — provider `gcp`, default severity `MEDIUM`, resource `gcp_compute_instance`
+
+- checkov: `CKV_GCP_32`
+- trivy: `AVD-GCP-0030`
+- cis_gcp: 4.3
+- nist_800_53: AC-3, IA-5
+
+## GCP_SA_IMPERSONATION_ROLE
+
+**Service Account User / Token Creator (impersonation) role granted at project level** — provider `gcp`, default severity `HIGH`, resource `gcp_iam_binding`
+
+- Weaknesses: OVERPRIVILEGED_IDENTITY
+- checkov: `CKV_GCP_41`, `CKV_GCP_49`
+- cis_gcp: 1.6
+- nist_800_53: AC-6
+- pci_dss: 7.1.2
+
+## GCP_SHIELDED_VM_DISABLED
+
+**Compute instance does not use Shielded VM (secure boot, vTPM, integrity monitoring)** — provider `gcp`, default severity `LOW`, resource `gcp_compute_instance`
+
+- checkov: `CKV_GCP_39`
+- trivy: `AVD-GCP-0041`, `AVD-GCP-0045`, `AVD-GCP-0067`
+- cis_gcp: 4.8
+- nist_800_53: SI-7
 
 ## GCP_SQL_NO_SSL
 
@@ -430,7 +627,7 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: PUBLIC_NETWORK_EXPOSURE, DATABASE
 - prowler: `cloudsql_instance_public_ip`, `cloudsql_instance_public_access`
 - checkov: `CKV_GCP_11`, `CKV_GCP_60`
-- trivy: `AVD-GCP-0017`, `AVD-GCP-0018`
+- trivy: `AVD-GCP-0017`
 - scoutsuite: `cloudsql-instances-public-ip`, `cloudsql-allows-root-login-from-any-host`
 - steampipe: `sql_instance_not_publicly_accessible`, `sql_instance_authorized_networks_restricted`
 - cis_gcp: 6.5, 6.6
@@ -497,14 +694,20 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - cis_github: 1.1.4, 1.5.2
 - nist_800_53: SA-11, RA-5
 
+## IAC_PARSE_LIMIT
+
+**IaC file not scanned: file exceeded parse limits** — provider `iac`, default severity `INFO`, resource `file`
+
+- nimbus-iac: `IAC_PARSE_LIMIT`
+
 ## IAM_ADMIN_POLICY
 
 **IAM policy grants full administrative privileges (*:*)** — provider `aws`, default severity `HIGH`, resource `aws_iam_policy`
 
 - Weaknesses: OVERPRIVILEGED_IDENTITY
 - prowler: `iam_aws_attached_policy_no_administrative_privileges`, `iam_customer_attached_policy_no_administrative_privileges`, `iam_inline_policy_no_administrative_privileges`, `iam_policy_allows_privilege_escalation`
-- checkov: `CKV_AWS_1`, `CKV_AWS_62`, `CKV_AWS_63`, `CKV_AWS_107`, `CKV_AWS_108`, `CKV_AWS_109`, `CKV_AWS_110`, `CKV_AWS_111`
-- trivy: `AVD-AWS-0057`, `AVD-AWS-0342`, `AVD-AWS-0345`
+- checkov: `CKV_AWS_1`, `CKV_AWS_62`, `CKV_AWS_63`, `CKV_AWS_107`, `CKV_AWS_108`, `CKV_AWS_109`, `CKV_AWS_110`, `CKV_AWS_111`, `CKV_AWS_274`
+- trivy: `AVD-AWS-0057`
 - scoutsuite: `iam-managed-policy-allows-full-privileges`, `iam-inline-policy-allows-full-privileges`, `iam-managed-policy-allows-NotActions`, `iam-inline-policy-allows-NotActions`
 - steampipe: `iam_policy_no_star_star`, `iam_policy_custom_no_blocked_kms_actions`, `iam_all_policy_no_service_wild_card`
 - cis_aws: 1.16
@@ -536,6 +739,25 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - cis_aws: 1.17
 - nist_800_53: IR-7
 
+## IAM_OIDC_TRUST_NO_SUBJECT
+
+**Role trusts GitHub Actions OIDC tokens without a subject (repository / branch) condition** — provider `aws`, default severity `CRITICAL`, resource `aws_iam_role`
+
+- Weaknesses: CROSS_ACCOUNT_TRUST
+- nimbus-lab: `iam_role_github_oidc_trust_without_subject_condition`
+- nist_800_53: AC-3, IA-8
+- iso_27001: A.9.4.1
+- Fix templates: iam_github_oidc_subject.tf
+
+## IAM_POLICY_ON_USER
+
+**IAM policy attached directly to a user instead of a group or role** — provider `aws`, default severity `LOW`, resource `aws_iam_user`
+
+- checkov: `CKV_AWS_40`
+- trivy: `AVD-AWS-0143`
+- cis_aws: 1.15
+- nist_800_53: AC-2, AC-6
+
 ## IAM_ROOT_NO_MFA
 
 **Root account has no MFA** — provider `aws`, default severity `CRITICAL`, resource `aws_iam_root`
@@ -562,6 +784,14 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - nist_800_53: IA-5, AC-2(3)
 - pci_dss: 8.1.4
 
+## IAM_USER_NOT_FEDERATED
+
+**Access managed through IAM users instead of SSO / identity federation** — provider `aws`, default severity `LOW`, resource `aws_iam_user`
+
+- checkov: `CKV_AWS_273`
+- cis_aws: 1.21
+- nist_800_53: AC-2, IA-2
+
 ## IAM_USER_NO_MFA
 
 **IAM user with console access has no MFA** — provider `aws`, default severity `HIGH`, resource `aws_iam_user`
@@ -587,13 +817,23 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - pci_dss: 8.3.6, 8.3.7
 - hipaa: 164.308(a)(5)(ii)(D)
 
+## K8S_CAPABILITIES_NOT_DROPPED
+
+**Container does not drop Linux capabilities (keeps NET_RAW or others)** — provider `kubernetes`, default severity `MEDIUM`, resource `k8s_pod`
+
+- checkov: `CKV_K8S_28`, `CKV_K8S_37`
+- trivy: `AVD-KSV-0003`, `AVD-KSV-0004`, `AVD-KSV-0106`
+- nist_800_53: AC-6, CM-7
+
 ## K8S_CLUSTER_ADMIN_BINDING
 
 **Subject bound to cluster-admin or wildcard role** — provider `kubernetes`, default severity `CRITICAL`, resource `k8s_cluster_role_binding`
 
 - Weaknesses: CLUSTER_ADMIN, OVERPRIVILEGED_IDENTITY
 - checkov: `CKV_K8S_1`, `CKV_K8S_156`, `CKV2_K8S_5`
-- trivy: `KSV044`, `KSV045`, `KSV046`, `KSV047`, `AVD-KSV-0044`
+- trivy: `KSV044`, `KSV045`, `KSV046`, `AVD-KSV-0044`, `AVD-KSV-0111`
+- kubescape: `C-0035`, `C-0185`
+- kube-bench: `cis-1.8:5.1.1`, `cis-1.8:5.1.3`
 - steampipe: `cluster_role_binding_cluster_admin_disabled`, `role_with_wildcards_used`, `cluster_role_with_wildcards_used`
 - cis_k8s: 5.1.1, 5.1.3
 - nist_800_53: AC-6, AC-6(1)
@@ -604,8 +844,10 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 **Service account token auto-mounted into pod** — provider `kubernetes`, default severity `MEDIUM`, resource `k8s_pod`
 
 - Weaknesses: SERVICE_ACCOUNT_TOKEN
-- checkov: `CKV_K8S_38`, `CKV_K8S_21`
+- checkov: `CKV_K8S_38`
 - trivy: `KSV036`, `AVD-KSV-0036`
+- kubescape: `C-0034`
+- kube-bench: `cis-1.8:5.1.6`
 - steampipe: `pod_service_account_token_disabled`, `service_account_token_disabled`
 - cis_k8s: 5.1.5, 5.1.6
 - nist_800_53: AC-6, IA-5
@@ -618,6 +860,8 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: HOST_ACCESS
 - checkov: `CKV_K8S_17`, `CKV_K8S_18`, `CKV_K8S_19`
 - trivy: `KSV008`, `KSV009`, `KSV010`, `AVD-KSV-0008`, `AVD-KSV-0009`, `AVD-KSV-0010`
+- kubescape: `C-0038`, `C-0041`
+- kube-bench: `cis-1.8:5.2.3`, `cis-1.8:5.2.4`, `cis-1.8:5.2.5`
 - steampipe: `pod_host_network_access_disabled`, `pod_host_pid_access_disabled`, `pod_host_ipc_access_disabled`
 - cis_k8s: 5.2.3, 5.2.4, 5.2.5
 - nist_800_53: SC-7, AC-6
@@ -630,9 +874,25 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: HOST_ACCESS
 - checkov: `CKV_K8S_27`
 - trivy: `KSV023`, `AVD-KSV-0023`
+- kubescape: `C-0048`
+- kube-bench: `cis-1.8:5.2.12`
 - steampipe: `pod_volume_host_path`
 - cis_k8s: 5.2.1
 - nist_800_53: AC-6
+
+## K8S_IMAGE_NOT_PINNED_BY_DIGEST
+
+**Container image is referenced by tag, not pinned by digest** — provider `kubernetes`, default severity `LOW`, resource `k8s_pod`
+
+- checkov: `CKV_K8S_43`
+- nist_800_53: CM-2, SI-7
+
+## K8S_IMAGE_PULL_POLICY_NOT_ALWAYS
+
+**Container imagePullPolicy is not Always** — provider `kubernetes`, default severity `LOW`, resource `k8s_pod`
+
+- checkov: `CKV_K8S_15`
+- nist_800_53: CM-2
 
 ## K8S_NO_NETWORK_POLICY
 
@@ -641,6 +901,8 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: NO_NETWORK_POLICY
 - checkov: `CKV2_K8S_6`
 - trivy: `KSV038`, `AVD-KSV-0038`
+- kubescape: `C-0260`
+- kube-bench: `cis-1.8:5.3.2`
 - steampipe: `namespace_network_policy_defined`, `network_policy_default_deny_ingress`, `network_policy_default_deny_egress`
 - cis_k8s: 5.3.2
 - nist_800_53: SC-7
@@ -653,9 +915,26 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: NO_RESOURCE_LIMITS
 - checkov: `CKV_K8S_10`, `CKV_K8S_11`, `CKV_K8S_12`, `CKV_K8S_13`
 - trivy: `KSV011`, `KSV015`, `KSV016`, `KSV018`
+- kubescape: `C-0009`, `C-0270`, `C-0271`
 - steampipe: `pod_container_cpu_limit`, `pod_container_memory_limit`
 - nist_800_53: SC-5, SC-6
 - Fix templates: k8s_resource_limits.k8s.yaml
+
+## K8S_NO_SECCOMP
+
+**Container runs without a RuntimeDefault seccomp profile** — provider `kubernetes`, default severity `LOW`, resource `k8s_pod`
+
+- checkov: `CKV_K8S_31`
+- trivy: `AVD-KSV-0030`, `AVD-KSV-0104`
+- nist_800_53: CM-7, SC-39
+
+## K8S_NO_SECURITY_CONTEXT
+
+**Pod or container has no security context** — provider `kubernetes`, default severity `LOW`, resource `k8s_pod`
+
+- checkov: `CKV_K8S_29`, `CKV_K8S_30`
+- trivy: `AVD-KSV-0118`
+- nist_800_53: CM-6, CM-7
 
 ## K8S_PRIVILEGED_CONTAINER
 
@@ -664,6 +943,8 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: PRIVILEGED_CONTAINER
 - checkov: `CKV_K8S_16`
 - trivy: `KSV017`, `AVD-KSV-0017`
+- kubescape: `C-0057`
+- kube-bench: `cis-1.8:5.2.2`
 - prowler: `core_minimize_privileged_containers`, `core_pod_privileged`
 - steampipe: `pod_container_privilege_disabled`, `pod_security_policy_container_privilege_disabled`
 - cis_k8s: 5.2.1, 5.2.2
@@ -678,10 +959,21 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: PRIVILEGED_CONTAINER
 - checkov: `CKV_K8S_20`
 - trivy: `KSV001`, `AVD-KSV-0001`
+- kubescape: `C-0016`
+- kube-bench: `cis-1.8:5.2.6`
 - steampipe: `pod_container_privilege_escalation_disabled`
 - cis_k8s: 5.2.5
 - nist_800_53: AC-6
 - Fix templates: k8s_privilege_escalation.k8s.yaml
+
+## K8S_RBAC_WILDCARD
+
+**Role or ClusterRole grants wildcard verbs or resources** — provider `kubernetes`, default severity `HIGH`, resource `k8s_cluster_role`
+
+- Weaknesses: OVERPRIVILEGED_IDENTITY
+- prowler: `rbac_minimize_wildcard_use_roles`
+- cis_k8s: 5.1.3
+- nist_800_53: AC-6
 
 ## K8S_RUN_AS_ROOT
 
@@ -690,6 +982,8 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: RUNS_AS_ROOT
 - checkov: `CKV_K8S_23`, `CKV_K8S_6`, `CKV_K8S_40`
 - trivy: `KSV012`, `KSV020`, `KSV021`, `AVD-KSV-0012`
+- kubescape: `C-0013`
+- kube-bench: `cis-1.8:5.2.7`
 - steampipe: `pod_non_root_container`, `pod_container_non_root_user`
 - cis_k8s: 5.2.6
 - nist_800_53: AC-6
@@ -701,10 +995,39 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 
 - Weaknesses: SECRET_EXPOSURE
 - checkov: `CKV_K8S_35`
-- trivy: `KSV043`
+- kube-bench: `cis-1.8:5.4.1`
 - steampipe: `pod_container_secrets_not_in_env`
 - cis_k8s: 5.4.1
 - nist_800_53: IA-5
+
+## K8S_SECRETS_RBAC_WIDE
+
+**Subject can get / list secrets in every namespace** — provider `kubernetes`, default severity `HIGH`, resource `k8s_clusterrolebinding`
+
+- Weaknesses: OVERPRIVILEGED_IDENTITY
+- nimbus-lab: `rbac_minimize_secret_access`
+- cis_k8s: 5.1.2
+- nist_800_53: AC-6
+- Fix templates: k8s_rbac_secrets.k8s.yaml
+
+## K8S_SERVICE_PUBLIC_LB
+
+**Workload exposed to the internet by a LoadBalancer service** — provider `kubernetes`, default severity `HIGH`, resource `k8s_service`
+
+- Weaknesses: PUBLIC_NETWORK_EXPOSURE
+- nimbus-lab: `service_type_loadbalancer_public`
+- nist_800_53: SC-7
+- cis_k8s: 5.7.4
+- Fix templates: k8s_service_internal_lb.k8s.yaml
+
+## K8S_WRITABLE_ROOT_FS
+
+**Container root filesystem is writable** — provider `kubernetes`, default severity `LOW`, resource `k8s_pod`
+
+- checkov: `CKV_K8S_22`
+- trivy: `AVD-KSV-0014`
+- kubescape: `C-0017`
+- nist_800_53: CM-7, SI-7
 
 ## KMS_ROTATION_DISABLED
 
@@ -721,13 +1044,35 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - pci_dss: 3.6.4
 - Fix templates: kms_rotation.tf
 
+## LAMBDA_NOT_IN_VPC
+
+**Lambda function is not attached to a VPC** — provider `aws`, default severity `LOW`, resource `aws_lambda_function`
+
+- checkov: `CKV_AWS_117`
+- nist_800_53: SC-7
+
+## LAMBDA_NO_CODE_SIGNING
+
+**Lambda function does not validate code signing** — provider `aws`, default severity `LOW`, resource `aws_lambda_function`
+
+- checkov: `CKV_AWS_272`
+- nist_800_53: CM-14, SI-7
+
+## LAMBDA_NO_TRACING
+
+**Lambda function has X-Ray tracing disabled** — provider `aws`, default severity `LOW`, resource `aws_lambda_function`
+
+- checkov: `CKV_AWS_50`
+- trivy: `AVD-AWS-0066`
+- nist_800_53: AU-12, SI-4
+
 ## LAMBDA_PUBLIC
 
 **Lambda function URL or policy is publicly invocable** — provider `aws`, default severity `HIGH`, resource `aws_lambda_function`
 
 - Weaknesses: PUBLIC_NETWORK_EXPOSURE
 - prowler: `awslambda_function_url_public`, `awslambda_function_not_publicly_accessible`
-- checkov: `CKV_AWS_364`
+- checkov: `CKV_AWS_364`, `CKV_AWS_258`
 - trivy: `AVD-AWS-0067`
 - steampipe: `lambda_function_restrict_public_access`, `lambda_function_restrict_public_url`
 - nist_800_53: AC-3, SC-7
@@ -781,7 +1126,6 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 
 - Weaknesses: PUBLIC_DATA_STORE
 - checkov: `CKV_OCI_10`
-- trivy: `AVD-OCI-0001`
 - steampipe: `objectstorage_bucket_public_access_blocked`
 - nist_800_53: AC-3
 - pci_dss: 1.3.1
@@ -825,6 +1169,52 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - nist_800_53: AC-11, AC-12
 - pci_dss: 8.1.8
 
+## OKTA_SIGNON_MFA_EXEMPT
+
+**Okta user signs in under a sign-on rule that does not require MFA** — provider `okta`, default severity `HIGH`, resource `okta_user`
+
+- Weaknesses: NO_MFA
+- nimbus-lab: `okta_signon_rule_mfa_exempt`
+- nist_800_53: IA-2(1)
+- pci_dss: 8.3.1
+- hipaa: 164.312(d)
+- Fix templates: okta_signon_mfa.tf
+
+## RDS_BACKUP_RETENTION_LOW
+
+**RDS backup retention is at the 1-day default or disabled** — provider `aws`, default severity `LOW`, resource `aws_db_instance`
+
+- Weaknesses: NO_BACKUP, DATABASE
+- trivy: `AVD-AWS-0077`
+- nist_800_53: CP-9
+
+## RDS_LOGGING_DISABLED
+
+**RDS instance does not export database logs** — provider `aws`, default severity `LOW`, resource `aws_db_instance`
+
+- Weaknesses: NO_LOGGING, DATABASE
+- checkov: `CKV_AWS_129`, `CKV2_AWS_30`
+- nist_800_53: AU-2, AU-12
+- pci_dss: 10.2
+
+## RDS_NO_DELETION_PROTECTION
+
+**RDS instance has deletion protection disabled** — provider `aws`, default severity `LOW`, resource `aws_db_instance`
+
+- Weaknesses: NO_BACKUP, DATABASE
+- checkov: `CKV_AWS_293`
+- trivy: `AVD-AWS-0177`
+- nist_800_53: CP-9, CM-3
+
+## RDS_NO_IAM_AUTH
+
+**RDS instance does not use IAM database authentication** — provider `aws`, default severity `LOW`, resource `aws_db_instance`
+
+- Weaknesses: WEAK_AUTH, DATABASE
+- checkov: `CKV_AWS_161`
+- trivy: `AVD-AWS-0176`
+- nist_800_53: IA-2, AC-2
+
 ## RDS_NO_MINOR_UPGRADE
 
 **RDS instance does not auto-apply minor version upgrades** — provider `aws`, default severity `LOW`, resource `aws_db_instance`
@@ -848,6 +1238,14 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - nist_800_53: CP-10, SC-36
 - hipaa: 164.308(a)(7)(ii)(B)
 
+## RDS_NO_PERFORMANCE_INSIGHTS
+
+**RDS instance does not have Performance Insights enabled** — provider `aws`, default severity `LOW`, resource `aws_db_instance`
+
+- checkov: `CKV_AWS_353`
+- trivy: `AVD-AWS-0133`
+- nist_800_53: SI-4
+
 ## RDS_PUBLIC
 
 **RDS instance is publicly accessible** — provider `aws`, default severity `CRITICAL`, resource `aws_db_instance`
@@ -855,7 +1253,7 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - Weaknesses: PUBLIC_NETWORK_EXPOSURE, DATABASE
 - prowler: `rds_instance_no_public_access`, `rds_snapshots_public_access`
 - checkov: `CKV_AWS_17`
-- trivy: `AVD-AWS-0082`
+- trivy: `AVD-AWS-0082`, `AVD-AWS-0180`
 - scoutsuite: `rds-instance-publicly-accessible`, `rds-snapshot-public`
 - steampipe: `rds_db_instance_prohibit_public_access`, `rds_db_snapshot_prohibit_public_access`
 - cis_aws: 2.3.3
@@ -880,6 +1278,14 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - pci_dss: 3.4
 - hipaa: 164.312(a)(2)(iv)
 - Fix templates: rds_unencrypted.tf
+
+## S3_NO_CMK
+
+**S3 bucket default encryption does not use a KMS customer-managed key** — provider `aws`, default severity `LOW`, resource `aws_s3_bucket`
+
+- checkov: `CKV_AWS_145`
+- trivy: `AVD-AWS-0132`
+- nist_800_53: SC-12, SC-28
 
 ## S3_NO_LOGGING
 
@@ -929,7 +1335,7 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 
 - Weaknesses: PUBLIC_DATA_STORE
 - prowler: `s3_bucket_public_access`, `s3_bucket_policy_public_write_access`, `s3_bucket_public_write_acl`, `s3_bucket_public_list_acl`, `s3_account_level_public_access_blocks`, `cloudtrail_logs_s3_bucket_is_not_publicly_accessible`
-- checkov: `CKV_AWS_53`, `CKV_AWS_54`, `CKV_AWS_55`, `CKV_AWS_56`, `CKV2_AWS_6`, `CKV_AWS_20`, `CKV_AWS_57`
+- checkov: `CKV_AWS_53`, `CKV_AWS_54`, `CKV_AWS_55`, `CKV_AWS_56`, `CKV2_AWS_6`, `CKV_AWS_20`, `CKV_AWS_57`, `CKV_AWS_70`
 - trivy: `AVD-AWS-0086`, `AVD-AWS-0087`, `AVD-AWS-0091`, `AVD-AWS-0092`, `AVD-AWS-0093`, `AVD-AWS-0094`
 - scoutsuite: `s3-bucket-AllUsers-read`, `s3-bucket-AllUsers-write`, `s3-bucket-AllUsers-read_acp`, `s3-bucket-AllUsers-write_acp`, `s3-bucket-AuthenticatedUsers-read`, `s3-bucket-AuthenticatedUsers-write`, `s3-bucket-world-policy-star`, `s3-bucket-world-policy-arn-star`
 - steampipe: `s3_bucket_restrict_public_read_access`, `s3_bucket_restrict_public_write_access`, `s3_public_access_block_bucket`, `s3_bucket_policy_restrict_public_access`
@@ -979,3 +1385,5 @@ Every scanner's native check IDs map onto these canonical IDs; weaknesses feed t
 - cis_aws: 4.16
 - nist_800_53: SI-4, RA-5
 - pci_dss: 11.5
+
+<!-- END GENERATED CATALOG -->

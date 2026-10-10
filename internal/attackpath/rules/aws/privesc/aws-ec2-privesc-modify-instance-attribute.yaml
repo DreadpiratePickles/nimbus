@@ -1,0 +1,77 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-ec2-privesc-modify-instance-attribute
+title: EC2 Role Hijacking via UserData Injection (EC2-002)
+description: >-
+  The principal may stop an EC2 instance, replace its user data with its own script and start it again;
+  the script runs at boot with access to the instance role's credentials. Scope
+  ec2:ModifyInstanceAttribute to instances whose roles the principal may already use.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-ec2-privesc-modify-instance-attribute
+  upstream: pathfinding.cloud - EC2-002 - ec2:ModifyInstanceAttribute + ec2:StopInstances + ec2:StartInstances
+  upstream_url: https://pathfinding.cloud/paths/ec2-002
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator (all three actions allowed on the instance, Deny and SCPs honoured); the instance must run as a role the evaluator rates admin-capable (runs_as edge; hijacking an instance whose role lifts nothing is not an escalation; Prowler lists every instance with a role)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "ec2:ModifyInstanceAttribute", resource: target}
+    - {action: "ec2:StopInstances", resource: target}
+    - {action: "ec2:StartInstances", resource: target}
+  target:
+    types: [aws_instance]
+    has_edge: {edge: runs_as, to_types: [aws_iam_role], to_admin: true}
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/ops
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["ec2:ModifyInstanceAttribute", "ec2:StopInstances", "ec2:StartInstances"], Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/restarter
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["ec2:StopInstances", "ec2:StartInstances"], Resource: "*"}
+      - id: arn:aws:ec2:us-east-1:123456789012:instance/i-withrole
+        type: aws_instance
+        account: "123456789012"
+      - id: arn:aws:ec2:us-east-1:123456789012:instance/i-norole
+        type: aws_instance
+        account: "123456789012"
+      - id: arn:aws:ec2:us-east-1:123456789012:instance/i-lowrole
+        type: aws_instance
+        account: "123456789012"
+      - id: arn:aws:iam::123456789012:role/app
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com], attached_policies: [arn:aws:iam::aws:policy/AdministratorAccess]}
+      - id: arn:aws:iam::123456789012:role/ssm-only
+        type: aws_iam_role
+        account: "123456789012"
+        attributes:
+          trust_principals: [ec2.amazonaws.com]
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["ssm:UpdateInstanceInformation", "ssmmessages:*"], Resource: "*"}
+    edges:
+      - {from: arn:aws:ec2:us-east-1:123456789012:instance/i-withrole, to: arn:aws:iam::123456789012:role/app, kind: runs_as}
+      - {from: arn:aws:ec2:us-east-1:123456789012:instance/i-lowrole, to: arn:aws:iam::123456789012:role/ssm-only, kind: runs_as}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/ops", target: "arn:aws:ec2:us-east-1:123456789012:instance/i-withrole", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/ops", target: "arn:aws:ec2:us-east-1:123456789012:instance/i-norole", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/ops", target: "arn:aws:ec2:us-east-1:123456789012:instance/i-lowrole", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/restarter", target: "arn:aws:ec2:us-east-1:123456789012:instance/i-withrole", match: false}

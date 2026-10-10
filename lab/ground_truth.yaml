@@ -1,0 +1,454 @@
+# Ground truth for the local lab estate (lab/local/estate.yaml).
+#
+# Labelled by hand from the seeded weaknesses. The engine's output must never be
+# copied in here: this file says what a correct attack-path engine reports.
+#
+# Path matching (tests/groundtruth):
+#   entry   "internet" or the resource id of the first foothold (a phished identity,
+#           an unprotected repo, a role an external account can assume).
+#   target  the crown jewel the path ends on (only optional_hops may follow it, e.g. the
+#           ClusterRole an engine renders after a binding; Track B2 item 7).
+#   hops    resource ids on the path in order, excluding the abstract internet node.
+#           A reported path matches when entry and target are equal, every hop is present,
+#           and every reported resource is a hop or an optional_hop (hop order is ignored).
+#   optional_hops  network controls / plumbing a correct engine may or may not render as a
+#           node (security groups, firewalls, the ClusterRole behind a binding).
+#   weaknesses  seeded weakness ids (finding id lab-<id>) the path depends on.
+#   min_score   expected score band: the best matching reported path must score >= this.
+#   max_score   optional upper bound (exclusive) of the band: the best match must score < this.
+#   band        band name when the label is below score_threshold (medium: 5 <= score < 7);
+#               needs band_reason (why the path is not critical) and max_score <= threshold.
+#   status  expected         must be reported with score >= min_score
+#           false_positive   must NOT be reported (no reported path may match it, and no
+#                            path may pass through any of its hops from the internet)
+#           pending-feature  correct today only because the engine lacks a feature; should
+#                            NOT be reported once that feature lands (it is reported today
+#                            and tracked in lab/known_gaps.yaml)
+#   claim   the competitor claim this path demonstrates.
+version: 1
+estate: lab/local/estate.yaml
+score_threshold: 7
+
+# FAIL findings per severity in the generated estate (inventory PASS records excluded).
+expected_findings:
+  total_fail: 66
+  inventory_pass: 33
+  by_severity: {CRITICAL: 9, HIGH: 51, MEDIUM: 6, LOW: 0, INFO: 0}
+
+paths:
+  - id: P01
+    name: Public S3 bucket exposes customer PII
+    status: expected
+    entry: internet
+    target: "arn:aws:s3:::nimbus-lab-customer-pii"
+    hops: ["arn:aws:s3:::nimbus-lab-customer-pii"]
+    weaknesses: [W01]
+    min_score: 7
+    claim: "Wiz/Orca: 'toxic combination' of public exposure + sensitive data (DSPM-aware prioritisation)"
+
+  - id: P02
+    name: Internet -> IMDSv1 EC2 -> admin instance role
+    status: expected
+    entry: internet
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-web-instance-role"
+    hops:
+      - "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60001"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-web-instance-role"
+    optional_hops: ["arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60001"]
+    weaknesses: [W02, W03, W04, W05]
+    min_score: 7
+    claim: "Wiz Security Graph / Prisma: SSRF-to-IMDSv1 credential theft to account admin (the Capital One path)"
+
+  - id: P03
+    name: Publicly accessible production RDS
+    status: expected
+    entry: internet
+    target: "arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-orders"
+    hops: ["arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-orders"]
+    weaknesses: [W06]
+    min_score: 7
+    claim: "Orca/Wiz: internet-exposed database holding confidential data ranked critical"
+
+  - id: P04
+    name: External account 999999999999 assumes an admin role
+    status: expected
+    entry: "arn:aws:iam::111111111111:role/nimbus-lab-vendor-access"
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-vendor-access"
+    hops: ["arn:aws:iam::111111111111:role/nimbus-lab-vendor-access"]
+    weaknesses: [W07, W08]
+    min_score: 7
+    claim: "Wiz/PingSafe: cross-account trust without ExternalId to an admin role = lateral movement from a third party"
+
+  - id: P05
+    name: Phished / leaked IAM user (no MFA, 400-day key) holds AdministratorAccess
+    status: expected
+    entry: "arn:aws:iam::111111111111:user/nimbus-lab-ops-jane"
+    target: "arn:aws:iam::111111111111:user/nimbus-lab-ops-jane"
+    hops: ["arn:aws:iam::111111111111:user/nimbus-lab-ops-jane"]
+    weaknesses: [W09, W10, W11]
+    min_score: 7
+    claim: "Prowler/Wiz CIEM: unrotated admin keys without MFA are the #1 cloud breach entry"
+
+  - id: P06
+    name: Public Lambda function URL -> execution role -> PII bucket
+    status: expected
+    entry: internet
+    target: "arn:aws:s3:::nimbus-lab-customer-pii"
+    hops:
+      - "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-export"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-export-lambda-role"
+      - "arn:aws:s3:::nimbus-lab-customer-pii"
+    weaknesses: [W12]
+    min_score: 7
+    claim: "Wiz/Orca: serverless exposure chained through effective permissions to sensitive data"
+
+  - id: P07
+    name: Public EKS endpoint -> cluster-admin binding
+    status: expected
+    entry: internet
+    target: "cluster/clusterrolebinding/ci-deployer-admin"
+    hops:
+      - "arn:aws:eks:us-east-1:111111111111:cluster/nimbus-lab-eks"
+      - "cluster/clusterrolebinding/ci-deployer-admin"
+    optional_hops: ["cluster/clusterrole/cluster-admin", "ci/serviceaccount/deployer"]
+    weaknesses: [W13, W14]
+    band: medium
+    min_score: 5
+    max_score: 7
+    band_reason: >-
+      A public API endpoint alone does not hand over the binding: using ci-deployer-admin needs a
+      credential of its subject (the ci/deployer service-account token). Exposure + cluster-admin
+      without a credential route is a High-severity posture issue, not a critical path; the
+      credential chain that makes it critical is P08 (expected >= 7). Relabelled in Track B3.
+    claim: "Wiz/Sysdig KSPM: public control plane + cluster-admin service account = cluster takeover"
+
+  - id: P08
+    name: Exposed vulnerable pod -> service account token -> ClusterRoleBinding(cluster-admin)
+    status: expected
+    entry: internet
+    target: "cluster/clusterrolebinding/ci-deployer-admin"
+    hops:
+      - "ci/pod/build-runner-0"
+      - "ci/serviceaccount/deployer"
+      - "cluster/clusterrolebinding/ci-deployer-admin"
+    optional_hops: ["cluster/clusterrole/cluster-admin"]
+    weaknesses: [W15, W16, W17, W14]
+    min_score: 7
+    claim: "Wiz/Aqua/Sysdig: pod -> SA -> RBAC escalation graph (Kubernetes Goat-style chain)"
+
+  - id: P09
+    name: Public GCE instance -> default compute SA with roles/editor
+    status: expected
+    entry: internet
+    target: "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/123456789012-compute@developer.gserviceaccount.com"
+    hops:
+      - "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-web"
+      - "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/123456789012-compute@developer.gserviceaccount.com"
+    optional_hops: ["//compute.googleapis.com/projects/nimbus-lab-gcp/global/firewalls/nimbus-lab-allow-ssh-any"]
+    weaknesses: [W18, W19, W20, W21]
+    min_score: 7
+    claim: "Google SCC attack exposure / Wiz: default compute SA with Editor turns one VM into project takeover"
+
+  - id: P10
+    name: Anonymous blob access on confidential Azure storage
+    status: expected
+    entry: internet
+    target: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Storage/storageAccounts/nimbuslabhrexports"
+    hops: ["/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Storage/storageAccounts/nimbuslabhrexports"]
+    weaknesses: [W22]
+    min_score: 7
+    claim: "Defender CSPM / Orca: public storage with sensitive data labels"
+
+  - id: P11
+    name: RDP open to the internet -> jump VM -> managed identity (subscription Contributor)
+    status: expected
+    entry: internet
+    target: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nimbus-lab-jump-mi"
+    hops:
+      - "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Compute/virtualMachines/nimbus-lab-jump-01"
+      - "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nimbus-lab-jump-mi"
+    optional_hops: ["/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Network/networkSecurityGroups/nimbus-lab-jump-nsg"]
+    weaknesses: [W23, W24]
+    min_score: 7
+    claim: "Defender CSPM attack path: internet-exposed VM with high-privilege managed identity"
+
+  - id: P12
+    name: Unprotected repo -> GitHub OIDC deploy role with AdministratorAccess
+    status: expected
+    entry: "github.com/nimbus-lab/infra-live"
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-gha-deploy"
+    hops:
+      - "github.com/nimbus-lab/infra-live"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-gha-deploy"
+    weaknesses: [W25, W26]
+    min_score: 7
+    claim: "Wiz Code / Orca: code-to-cloud pipeline poisoning reaches cloud admin"
+
+  - id: F01
+    name: "SEEDED FALSE POSITIVE: SSH open only to the trusted corporate CIDR 203.0.113.0/24"
+    status: false_positive
+    entry: internet
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-corp-tools-role"
+    hops:
+      - "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60002"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-corp-tools-role"
+    optional_hops: ["arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60002"]
+    weaknesses: [W27, W28, W29]
+    claim: "Every CSPM: exposure must be labelled wide/narrow/trusted; a trusted-CIDR rule is not an internet path"
+
+  - id: S01
+    name: "Internet -> IMDSv1 batch EC2 -> admin role DENIED by SCP p-lab0quarantine"
+    status: pending-feature
+    feature: "SCP/RCP deny evaluation (effective IAM evaluator, Phase 2; Track C/B compensating controls)"
+    entry: internet
+    target: "arn:aws:iam::222222222222:role/nimbus-lab-batch-role"
+    hops:
+      - "arn:aws:ec2:us-east-1:222222222222:instance/i-0a1b2c3d4e5f60003"
+      - "arn:aws:iam::222222222222:role/nimbus-lab-batch-role"
+    weaknesses: [W30, W31, W32]
+    claim: "Wiz/PingSafe effective permissions: org guardrails (SCP deny) neutralise the admin policy, so this path should NOT be reported once SCP support lands"
+
+  # ------------------------------------------------------------------ P1-LAB L1 (plan v3 §0 "Lab id convention", §4 P1-LAB)
+  # F02–F05 and P13–P18 keep the ids and meanings the plan published (plan v3 line 21; §3 rows 9 and 13;
+  # IG9). The extra scenarios the P1-LAB brief asked for that the plan had not numbered take fresh ids
+  # (F06–F09, P19, P20) so that no published id changes meaning. Scenario ids S15–S30 are estate-internal.
+  # `feature` on an expected label names the engine work the label waits for (it is informative; the
+  # gate is the known-gap entry). Pending-feature labels are reported today and must disappear once
+  # their feature lands.
+
+  - id: F02
+    name: "Allow s3:* + explicit Deny s3:GetObject: the intake Lambda's role cannot read the claims PII bucket"
+    status: pending-feature
+    feature: "IAM v1 evaluator wired into grants_access_to edges (Deny precedence; P1-IAM wiring, plan v3 §9 item 9 F02 decision test)"
+    entry: internet
+    target: "arn:aws:s3:::nimbus-lab-claims-pii"
+    hops:
+      - "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-claims-intake"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-claims-intake-role"
+      - "arn:aws:s3:::nimbus-lab-claims-pii"
+    weaknesses: [W33]
+    claim: >-
+      Wiz/Orca effective permissions: an explicit Deny beats any Allow, so the s3:GetObject read edge the
+      collector draws from `s3:*` must not exist. Scope: the label is the data-read edge
+      (`actions: s3:GetObject`); the residual non-read object actions are not modelled as edges by v1.
+
+  - id: F03
+    name: "SG opens 22 to 0.0.0.0/0 but the subnet NACL denies 22: the SFTP host is not internet-reachable"
+    status: pending-feature
+    feature: "network reachability: NACL evaluation (P2-REACH R1, capability AP8)"
+    entry: internet
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-sftp-role"
+    hops:
+      - "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60004"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-sftp-role"
+    optional_hops:
+      - "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60004"
+      - "arn:aws:ec2:us-east-1:111111111111:network-acl/acl-0a1b2c3d4e5f60001"
+    weaknesses: [W34, W35, W36]
+    claim: "AWS Reachability Analyzer / Wiz network exposure: SG + NACL + route are evaluated together; an SG rule alone is not exposure"
+
+  - id: F04
+    name: "RDS PubliclyAccessible=true in an isolated subnet with no internet-gateway route"
+    status: pending-feature
+    feature: "network reachability: route tables / IGW (P2-REACH R1, capability AP8)"
+    entry: internet
+    target: "arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-ledger"
+    hops: ["arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-ledger"]
+    weaknesses: [W37]
+    claim: "Wiz/Orca network exposure: the PubliclyAccessible flag without an IGW route is a configuration smell, not an internet path"
+
+  - id: F05
+    name: "GitHub OIDC trust with sub pinned to the protected main branch: no pipeline-poisoning path"
+    status: false_positive
+    entry: "github.com/nimbus-lab/payments-service"
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-gha-payments-deploy"
+    hops:
+      - "github.com/nimbus-lab/payments-service"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-gha-payments-deploy"
+    weaknesses: [W38]
+    claim: "Wiz Code / Orca CI/CD: an OIDC trust restricted to a protected branch is the recommended pattern, not a path (the counterpart of P12)"
+
+  - id: P13
+    name: "No-MFA developer with iam:PassRole + ec2:RunInstances -> EC2 admin role (privilege escalation)"
+    status: expected
+    feature: "can_escalate_to{technique: iam:PassRole+ec2:RunInstances} edges from the IAM evaluator (P1-IAM, capability ID2)"
+    entry: "arn:aws:iam::111111111111:user/nimbus-lab-dev-sam"
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-ec2-admin-role"
+    hops:
+      - "arn:aws:iam::111111111111:user/nimbus-lab-dev-sam"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-ec2-admin-role"
+    weaknesses: [W39, W40, W41]
+    min_score: 7
+    claim: "Prowler privesc queries / pathfinding.cloud PassRole+RunInstances: a phishable identity that can launch an instance with an admin profile is an admin"
+
+  - id: P14
+    name: "GitHub OIDC trust with no sub condition: any repository on GitHub assumes an admin deploy role"
+    status: expected
+    feature: "wildcard OIDC subject as an internet-equivalent entry / CI-entry floor (planning decision on P12)"
+    entry: "arn:aws:iam::111111111111:role/nimbus-lab-gha-legacy-deploy"
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-gha-legacy-deploy"
+    hops: ["arn:aws:iam::111111111111:role/nimbus-lab-gha-legacy-deploy"]
+    weaknesses: [W42, W43]
+    min_score: 7
+    claim: >-
+      Wiz/Datadog GitHub OIDC research: a trust policy without a sub condition lets any GitHub user's
+      workflow assume the role. Entry follows the file's convention for "a role an external party can
+      assume" (P04): the role itself is the foothold.
+
+  - id: P15
+    name: "Okta user exempt from MFA -> AWS admins group -> Identity Center AdministratorAccess"
+    status: expected
+    feature: "IdP -> cloud federation edges and an identity-entry floor for federated admin (P2-MULTICLOUD X3, capability IG2)"
+    entry: "okta:user/00u0nimbuslab0contractor"
+    target: "arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_0a1b2c3d4e5f6001"
+    hops:
+      - "okta:user/00u0nimbuslab0contractor"
+      - "okta:group/00g0nimbuslab0awsadmins"
+      - "arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_0a1b2c3d4e5f6001"
+    weaknesses: [W44, W45]
+    min_score: 7
+    claim: "Cartography Okta->AWS federation / Wiz identity graph: an MFA-exempt IdP user who federates into account admin is the 2023-24 Okta-to-cloud breach pattern"
+
+  - id: P16
+    name: "Exposed storefront pod -> service account that can list secrets cluster-wide"
+    status: expected
+    entry: internet
+    target: "cluster/clusterrolebinding/storefront-secrets-reader"
+    hops:
+      - "web/pod/storefront-0"
+      - "web/serviceaccount/storefront"
+      - "cluster/clusterrolebinding/storefront-secrets-reader"
+    optional_hops: ["cluster/clusterrole/secrets-reader"]
+    weaknesses: [W46, W47, W48]
+    min_score: 7
+    claim: "Kubescape/Wiz KSPM: get/list secrets in every namespace hands over every service-account token, i.e. cluster takeover"
+
+  - id: P17
+    name: "Exposed vulnerable pod -> IRSA service account -> IAM role -> analytics PII bucket"
+    status: expected
+    entry: internet
+    target: "arn:aws:s3:::nimbus-lab-analytics-pii"
+    hops:
+      - "analytics/pod/report-worker-0"
+      - "analytics/serviceaccount/report-worker"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-report-irsa"
+      - "arn:aws:s3:::nimbus-lab-analytics-pii"
+    weaknesses: [W49, W50]
+    min_score: 7
+    claim: "Wiz/Sysdig cross-plane paths: Kubernetes workload identity (IRSA) chains a pod compromise into cloud data access"
+
+  - id: P18
+    name: "Publicly invocable Bedrock agent -> agent role with iam:PutRolePolicy (privilege escalation)"
+    status: expected
+    feature: "AI-asset nodes and runs_as edges for agents (P3-CONTENT, capability IG9) + can_escalate_to (P1-IAM ID2)"
+    entry: internet
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-support-agent-role"
+    hops:
+      - "arn:aws:bedrock:us-east-1:111111111111:agent/NIMBUSLAB01"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-support-agent-role"
+    weaknesses: [W51, W52]
+    min_score: 7
+    claim: "AWS Security Hub AI inventory / SCC agent attack paths: prompt injection into an agent whose role can rewrite IAM policies is account takeover"
+
+  - id: F06
+    name: "SEEDED FALSE POSITIVE (GCP): SSH firewall open only to the trusted corporate CIDR 203.0.113.0/24"
+    status: false_positive
+    entry: internet
+    target: "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com"
+    hops:
+      - "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-bastion"
+      - "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com"
+    optional_hops: ["//compute.googleapis.com/projects/nimbus-lab-gcp/global/firewalls/nimbus-lab-allow-ssh-corp"]
+    weaknesses: [W53, W54, W55]
+    claim: "Every CSPM: trusted_cidrs must apply on every provider, not only AWS security groups (the GCP twin of F01)"
+
+  - id: F07
+    name: "Lambda function URL with AuthType AWS_IAM: not an anonymous internet entry"
+    status: false_positive
+    entry: internet
+    target: "arn:aws:s3:::nimbus-lab-claims-pii"
+    hops:
+      - "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-partner-export"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-partner-export-role"
+      - "arn:aws:s3:::nimbus-lab-claims-pii"
+    weaknesses: [W56]
+    claim: "Wiz/Orca exposure analysis: a function URL that requires SigV4 is reachable only by authenticated principals (the counterpart of P06)"
+
+  - id: F08
+    name: "Bucket policy Principal * conditioned on aws:PrincipalOrgID: not public"
+    status: false_positive
+    entry: internet
+    target: "arn:aws:s3:::nimbus-lab-shared-reports"
+    hops: ["arn:aws:s3:::nimbus-lab-shared-reports"]
+    weaknesses: [W57]
+    claim: "AWS Access Analyzer / Wiz: Principal * limited to the caller's organisation grants no anonymous access (the counterpart of P01)"
+
+  - id: P19
+    name: "Internet -> host with a CISA KEV CVE (Log4Shell) -> instance role -> billing PII bucket"
+    status: expected
+    entry: internet
+    target: "arn:aws:s3:::nimbus-lab-billing-exports"
+    hops:
+      - "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60005"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-media-role"
+      - "arn:aws:s3:::nimbus-lab-billing-exports"
+    optional_hops: ["arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60005"]
+    weaknesses: [W58, W59]
+    min_score: 7
+    claim: "Tenable 'toxic cloud trilogy' / Wiz: an exposed, known-exploited (KEV) vulnerability with a data-reading identity is critical even with IMDSv2"
+
+  - id: P20
+    name: "External account 888888888888 -> auditor role (no ExternalId) -> chained AssumeRole into break-glass admin"
+    status: expected
+    entry: "arn:aws:iam::111111111111:role/nimbus-lab-auditor"
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-break-glass"
+    hops:
+      - "arn:aws:iam::111111111111:role/nimbus-lab-auditor"
+      - "arn:aws:iam::111111111111:role/nimbus-lab-break-glass"
+    weaknesses: [W60, W61]
+    min_score: 7
+    claim: "Wiz/PingSafe lateral movement: role chaining turns a read-only third-party trust into admin (the multi-hop counterpart of P04)"
+
+  - id: F09
+    name: "Public records API -> role whose s3:GetObject on the member records bucket is DENIED by SCP p-lab0nodataread"
+    status: pending-feature
+    feature: "SCP deny evaluation on data-access edges: IAM v1 evaluator (internal/iam, governing_scps) wired into grants_access_to (P1-IAM wiring)"
+    entry: internet
+    target: "arn:aws:s3:::nimbus-lab-member-records"
+    hops:
+      - "arn:aws:lambda:us-east-1:222222222222:function:nimbus-lab-records-api"
+      - "arn:aws:iam::222222222222:role/nimbus-lab-records-api-role"
+      - "arn:aws:s3:::nimbus-lab-member-records"
+    weaknesses: [W62]
+    claim: "Wiz/PingSafe effective permissions: an SCP deny on the data action removes the read edge, so the path must disappear once the evaluator is wired (the data-edge counterpart of S01)"
+
+  # W7-ENGINE (competitive delta r5 #15, verification 6 C1): aws:PrincipalOrgID trust conditions are
+  # judged against the role's own organisation, collected as account metadata
+  # (organizations:DescribeOrganization -> aws:account:111111111111 organization_id o-lab0000001).
+  # Justification for P21: the partner-sync role trusts account 777777777777 with
+  # StringEquals aws:PrincipalOrgID o-partner00001. That organisation is not the role's own, so the
+  # condition only says "callers from the partner's organisation" - every principal 777777777777's
+  # admins allow can assume an AdministratorAccess role: an external entry exactly like P04 (the
+  # org condition is not a protection). Before W7 the own organisation was never collected, a named
+  # organisation was taken to be the role's own and the path was deleted (a false negative).
+  - id: P21
+    name: "External account 777777777777 (foreign organisation o-partner00001 in aws:PrincipalOrgID) assumes the partner-sync admin role"
+    status: expected
+    entry: "arn:aws:iam::111111111111:role/nimbus-lab-partner-sync"
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-partner-sync"
+    hops: ["arn:aws:iam::111111111111:role/nimbus-lab-partner-sync"]
+    weaknesses: [W63, W64]
+    min_score: 7
+    claim: "AWS trust evaluation with aws:PrincipalOrgID (IAM Access Analyzer external access): an organisation condition naming a foreign organisation is an external entry to an admin role"
+
+  # The same-organisation counterpart of P21: the org-admin role trusts 222222222222 (a member of
+  # this organisation) only with aws:PrincipalOrgID = o-lab0000001, the role's own organisation.
+  # No principal outside the organisation can assume it: not an external entry, so no path.
+  - id: F10
+    name: "Member account 222222222222 -> org-admin role limited by aws:PrincipalOrgID to this account's own organisation o-lab0000001 (not external)"
+    status: false_positive
+    entry: "arn:aws:iam::111111111111:role/nimbus-lab-org-admin"
+    target: "arn:aws:iam::111111111111:role/nimbus-lab-org-admin"
+    hops: ["arn:aws:iam::111111111111:role/nimbus-lab-org-admin"]
+    weaknesses: [W65, W66]
+    claim: "IAM Access Analyzer zone of trust = the organisation: a trust limited to the own organisation is not external access"

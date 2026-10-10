@@ -1,0 +1,338 @@
+[
+  {
+    "fixture": "kubescape/kubescape-v3.json",
+    "count": 6,
+    "findings": [
+      {
+        "id": "c8350c4cc4437860af206104e815d01b",
+        "source": "kubescape",
+        "check_id": "C-0017",
+        "canonical_id": "K8S_WRITABLE_ROOT_FS",
+        "title": "Immutable container filesystem",
+        "description": "Immutable container filesystem",
+        "severity": "LOW",
+        "status": "FAIL",
+        "provider": "kubernetes",
+        "account": "synthetic-kind",
+        "resource": {
+          "id": "shop/deployment/storefront",
+          "type": "k8s_deployment",
+          "name": "storefront",
+          "attributes": {
+            "fix_paths": [
+              "spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem=true"
+            ],
+            "kind": "Deployment",
+            "kubescape_resource_id": "apps/v1/shop/Deployment/storefront",
+            "namespace": "shop",
+            "score_factor": 3
+          },
+          "related": [
+            "namespace/shop"
+          ],
+          "relations": [
+            {
+              "id": "namespace/shop",
+              "kind": "member_of"
+            }
+          ]
+        },
+        "remediation": "Set spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem=true. See https://hub.armosec.io/docs/c-0017",
+        "compliance": {
+          "nist_800_53": [
+            "CM-7",
+            "SI-7"
+          ]
+        },
+        "tags": {
+          "kubescape_status": "failed"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "405f5b83fb1f6e9658ae9a98aff8c7ff",
+        "source": "kubescape",
+        "check_id": "C-0057",
+        "canonical_id": "K8S_PRIVILEGED_CONTAINER",
+        "title": "Privileged container",
+        "description": "Privileged container: failed at spec.template.spec.containers[0].securityContext.privileged",
+        "severity": "HIGH",
+        "status": "FAIL",
+        "provider": "kubernetes",
+        "account": "synthetic-kind",
+        "resource": {
+          "id": "shop/deployment/storefront",
+          "type": "k8s_deployment",
+          "name": "storefront",
+          "attributes": {
+            "failed_paths": [
+              "spec.template.spec.containers[0].securityContext.privileged"
+            ],
+            "kind": "Deployment",
+            "kubescape_resource_id": "apps/v1/shop/Deployment/storefront",
+            "namespace": "shop",
+            "score_factor": 8
+          },
+          "related": [
+            "namespace/shop"
+          ],
+          "relations": [
+            {
+              "id": "namespace/shop",
+              "kind": "member_of"
+            }
+          ]
+        },
+        "remediation": "See https://hub.armosec.io/docs/c-0057",
+        "weaknesses": [
+          "PRIVILEGED_CONTAINER"
+        ],
+        "compliance": {
+          "cis_k8s": [
+            "5.2.1",
+            "5.2.2"
+          ],
+          "iso_27001": [
+            "A.8.9"
+          ],
+          "nist_800_53": [
+            "AC-6",
+            "CM-7"
+          ],
+          "pci_dss": [
+            "2.2"
+          ],
+          "soc2": [
+            "CC6.8"
+          ]
+        },
+        "tags": {
+          "kubescape_status": "failed"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "3b1ed2e21197981edc67a916ca398908",
+        "source": "kubescape",
+        "check_id": "C-0016",
+        "canonical_id": "K8S_PRIVILEGE_ESCALATION",
+        "title": "Allow privilege escalation",
+        "description": "Allow privilege escalation",
+        "severity": "MEDIUM",
+        "status": "PASS",
+        "provider": "kubernetes",
+        "account": "synthetic-kind",
+        "resource": {
+          "id": "shop/deployment/storefront",
+          "type": "k8s_deployment",
+          "name": "storefront",
+          "attributes": {
+            "kind": "Deployment",
+            "kubescape_resource_id": "apps/v1/shop/Deployment/storefront",
+            "namespace": "shop",
+            "score_factor": 6
+          },
+          "related": [
+            "namespace/shop"
+          ],
+          "relations": [
+            {
+              "id": "namespace/shop",
+              "kind": "member_of"
+            }
+          ]
+        },
+        "remediation": "See https://hub.armosec.io/docs/c-0016",
+        "weaknesses": [
+          "PRIVILEGED_CONTAINER"
+        ],
+        "compliance": {
+          "cis_k8s": [
+            "5.2.5"
+          ],
+          "iso_27001": [
+            "A.8.9"
+          ],
+          "nist_800_53": [
+            "AC-6"
+          ],
+          "soc2": [
+            "CC6.8"
+          ]
+        },
+        "tags": {
+          "kubescape_status": "passed"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "951e373c5b65575ec7449986e0e4ba51",
+        "source": "kubescape",
+        "check_id": "C-0270",
+        "canonical_id": "K8S_NO_RESOURCE_LIMITS",
+        "title": "Ensure CPU limits are set",
+        "description": "Ensure CPU limits are set",
+        "severity": "HIGH",
+        "status": "SKIP",
+        "provider": "kubernetes",
+        "account": "synthetic-kind",
+        "resource": {
+          "id": "shop/deployment/storefront",
+          "type": "k8s_deployment",
+          "name": "storefront",
+          "attributes": {
+            "kind": "Deployment",
+            "kubescape_resource_id": "apps/v1/shop/Deployment/storefront",
+            "namespace": "shop",
+            "score_factor": 8
+          },
+          "related": [
+            "namespace/shop"
+          ],
+          "relations": [
+            {
+              "id": "namespace/shop",
+              "kind": "member_of"
+            }
+          ]
+        },
+        "remediation": "See https://hub.armosec.io/docs/c-0270",
+        "weaknesses": [
+          "NO_RESOURCE_LIMITS"
+        ],
+        "compliance": {
+          "iso_27001": [
+            "A.8.6"
+          ],
+          "nist_800_53": [
+            "SC-5",
+            "SC-6"
+          ],
+          "soc2": [
+            "CC7.1"
+          ]
+        },
+        "tags": {
+          "kubescape_status": "skipped"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "6b8bb1c6ff47c4449e5d69b48aa8e936",
+        "source": "kubescape",
+        "check_id": "C-0034",
+        "canonical_id": "K8S_DEFAULT_SA_TOKEN",
+        "title": "Automatic mapping of service account",
+        "description": "Automatic mapping of service account: failed at automountServiceAccountToken",
+        "severity": "MEDIUM",
+        "status": "FAIL",
+        "provider": "kubernetes",
+        "account": "synthetic-kind",
+        "resource": {
+          "id": "shop/serviceaccount/default",
+          "type": "k8s_service_account",
+          "name": "default",
+          "attributes": {
+            "failed_paths": [
+              "automountServiceAccountToken"
+            ],
+            "kind": "ServiceAccount",
+            "kubescape_resource_id": "/v1/shop/ServiceAccount/default",
+            "namespace": "shop",
+            "score_factor": 6
+          },
+          "related": [
+            "namespace/shop"
+          ],
+          "relations": [
+            {
+              "id": "namespace/shop",
+              "kind": "member_of"
+            }
+          ]
+        },
+        "remediation": "See https://hub.armosec.io/docs/c-0034",
+        "weaknesses": [
+          "SERVICE_ACCOUNT_TOKEN"
+        ],
+        "compliance": {
+          "cis_k8s": [
+            "5.1.5",
+            "5.1.6"
+          ],
+          "iso_27001": [
+            "A.8.2"
+          ],
+          "nist_800_53": [
+            "AC-6",
+            "IA-5"
+          ],
+          "soc2": [
+            "CC6.1"
+          ]
+        },
+        "tags": {
+          "kubescape_status": "failed"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "53a635abc74ee880cdcdd9d39ed1a58b",
+        "source": "kubescape",
+        "check_id": "C-0035",
+        "canonical_id": "K8S_CLUSTER_ADMIN_BINDING",
+        "title": "Administrative Roles",
+        "description": "Administrative Roles: failed at rules[0].verbs[0]",
+        "severity": "CRITICAL",
+        "status": "FAIL",
+        "provider": "kubernetes",
+        "account": "synthetic-kind",
+        "resource": {
+          "id": "cluster/clusterrole/ops-admin",
+          "type": "k8s_cluster_role",
+          "name": "ops-admin",
+          "attributes": {
+            "failed_paths": [
+              "rules[0].verbs[0]"
+            ],
+            "kind": "ClusterRole",
+            "kubescape_resource_id": "rbac.authorization.k8s.io/v1//ClusterRole/ops-admin",
+            "score_factor": 9
+          }
+        },
+        "remediation": "See https://hub.armosec.io/docs/c-0035",
+        "weaknesses": [
+          "CLUSTER_ADMIN",
+          "OVERPRIVILEGED_IDENTITY"
+        ],
+        "compliance": {
+          "cis_k8s": [
+            "5.1.1",
+            "5.1.3"
+          ],
+          "iso_27001": [
+            "A.8.2",
+            "A.5.15"
+          ],
+          "nist_800_53": [
+            "AC-6",
+            "AC-6(1)"
+          ],
+          "soc2": [
+            "CC6.3"
+          ]
+        },
+        "tags": {
+          "kubescape_status": "failed"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      }
+    ]
+  }
+]

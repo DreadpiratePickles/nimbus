@@ -1,0 +1,7 @@
+# Config used by tests/groundtruth and `make groundtruth` for the local lab.
+# Copied into the test's temp HOME and passed with -c, so no user config leaks in.
+python:
+  enabled: false
+# The seeded false positive (lab scenario S13, ground truth F01) is SSH open only to this
+# corporate egress range. Exposure labelling (Track C, O10) must mark it "trusted".
+trusted_cidrs: ["203.0.113.0/24"]

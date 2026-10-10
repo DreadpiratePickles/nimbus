@@ -1,0 +1,93 @@
+category: policy_variables
+cases:
+  - name: aws:username home folder own prefix
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::home/alice/notes.txt", resource_account: "111111111111"}
+    identity:
+      - id: home
+        document: {Version: "2012-10-17", Statement: [{Sid: Home, Effect: Allow, Action: "s3:*Object", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: {decision: allow, matched: [home#Home]}
+
+  - name: aws:username home folder of another user
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::home/bob/notes.txt", resource_account: "111111111111"}
+    identity:
+      - id: home
+        document: {Version: "2012-10-17", Statement: [{Sid: Home, Effect: Allow, Action: "s3:*Object", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: version 2008-10-17 treats variables as literal text
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::home/alice/notes.txt", resource_account: "111111111111"}
+    identity:
+      - id: home
+        document: {Version: "2008-10-17", Statement: [{Sid: Home, Effect: Allow, Action: "s3:*Object", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: aws:username is not defined for role sessions so the grant is unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s1", action: s3:GetObject, resource: "arn:aws:s3:::home/s1/notes.txt", resource_account: "111111111111"}
+    identity:
+      - id: home
+        document: {Version: "2012-10-17", Statement: [{Sid: Home, Effect: Allow, Action: "s3:*Object", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: {decision: unknown, matched: ["home#Home?"], unknown_keys: ["aws:username"]}
+
+  - name: default value used when key is absent
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s1", action: s3:GetObject, resource: "arn:aws:s3:::home/shared/notes.txt", resource_account: "111111111111"}
+    identity:
+      - id: home
+        document: {Version: "2012-10-17", Statement: [{Sid: Home, Effect: Allow, Action: "s3:*Object", Resource: "arn:aws:s3:::home/${aws:PrincipalTag/team, 'shared'}/*"}]}
+    expect: {decision: allow, matched: [home#Home]}
+
+  - name: principal tag variable in condition value
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s1", action: ec2:StartInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1", context: {"aws:PrincipalTag/project": apollo, "aws:ResourceTag/project": apollo}}
+    identity:
+      - id: abac
+        document: {Version: "2012-10-17", Statement: [{Sid: SameProject, Effect: Allow, Action: "ec2:StartInstances", Resource: "*", Condition: {StringEquals: {"aws:ResourceTag/project": "${aws:PrincipalTag/project}"}}}]}
+    expect: {decision: allow, matched: [abac#SameProject]}
+
+  - name: principal tag variable mismatched project
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s1", action: ec2:StartInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1", context: {"aws:PrincipalTag/project": apollo, "aws:ResourceTag/project": gemini}}
+    identity:
+      - id: abac
+        document: {Version: "2012-10-17", Statement: [{Sid: SameProject, Effect: Allow, Action: "ec2:StartInstances", Resource: "*", Condition: {StringEquals: {"aws:ResourceTag/project": "${aws:PrincipalTag/project}"}}}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: unresolvable variable in condition value is unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s1", action: ec2:StartInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-1", context: {"aws:ResourceTag/project": apollo}}
+    identity:
+      - id: abac
+        document: {Version: "2012-10-17", Statement: [{Sid: SameProject, Effect: Allow, Action: "ec2:StartInstances", Resource: "*", Condition: {StringEquals: {"aws:ResourceTag/project": "${aws:PrincipalTag/project}"}}}]}
+    expect: {decision: unknown, matched: ["abac#SameProject?"], unknown_keys: ["aws:PrincipalTag/project"]}
+
+  - name: special character variable star is literal
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/anything", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Lit, Effect: Allow, Action: s3:GetObject, Resource: "arn:aws:s3:::b/${*}"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: special character variable star matches a literal star key
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/*", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Lit, Effect: Allow, Action: s3:GetObject, Resource: "arn:aws:s3:::b/${*}"}]}
+    expect: {decision: allow, matched: [p#Lit]}
+
+  - name: unresolvable variable in deny makes an allow unknown
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/app/s1", action: s3:GetObject, resource: "arn:aws:s3:::home/x/notes.txt", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: NotYours, Effect: Deny, Action: "s3:*", NotResource: "arn:aws:s3:::home/${aws:userid}/*"}
+    expect: {decision: unknown, matched: [p#All, "p#NotYours?"], unknown_keys: ["aws:userid"]}

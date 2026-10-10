@@ -1,0 +1,34 @@
+Governance digest for (unassigned) (by owner)
+Period 2026-10-02 to 2026-10-09
+0 overdue · 0 open critical · 1 open high · 0 resolved this period · 1 open in total
+
+OPEN HIGH (1)
+  [HIGH] i-unassigned Storage account allows public blob access (azure/azure-sub) - no due date
+
+Governance digest for payments@example.com (by owner)
+Period 2026-10-02 to 2026-10-09
+2 overdue · 1 open critical · 1 open high · 1 resolved this period · 5 open in total
+
+OVERDUE (2)
+  [CRITICAL] i-crit-overdue Public S3 bucket payments-logs (aws/aws-prod) - due 2026-10-03, 6d overdue
+      fix: cloud-posture fix --issue i-crit-overdue --apply
+  [LOW] i-low-overdue Log retention below 90 days (aws/aws-prod) - due 2026-10-08, 1d overdue
+
+OPEN CRITICAL (1)
+  [CRITICAL] i-crit-open Lambda <script> & admin role (aws/aws-prod) - due 2026-10-14 (in 5d)
+      fix: cloud-posture fix --issue i-crit-open
+
+OPEN HIGH (1)
+  [HIGH] i-high-open Security group open to 0.0.0.0/0 on 22 (aws/aws-prod) - due 2026-10-20 (in 11d)
+
+RESOLVED THIS PERIOD (1)
+  [HIGH] i-resolved IAM user without MFA (aws/aws-prod) - resolved 2026-10-05
+
+Governance digest for platform@example.com (by owner)
+Period 2026-10-02 to 2026-10-09
+1 overdue · 0 open critical · 0 open high · 0 resolved this period · 1 open in total
+
+OVERDUE (1)
+  [CRITICAL] i-platform EKS API endpoint public (aws/aws-stage) - due 2026-10-05, 4d overdue
+      fix: cloud-posture fix --issue i-platform
+

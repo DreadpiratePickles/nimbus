@@ -12,4 +12,4 @@ resource "google_storage_bucket" "{{ .Slug }}" {
     ignore_changes = [location, storage_class, labels, versioning, lifecycle_rule, cors, website, logging, encryption]
   }
 }
-# CLI: gcloud storage buckets update gs://{{ .Name }} --public-access-prevention --uniform-bucket-level-access
+# CLI: gcloud storage buckets update gs://{{ sh .Raw.Name }} --public-access-prevention --uniform-bucket-level-access

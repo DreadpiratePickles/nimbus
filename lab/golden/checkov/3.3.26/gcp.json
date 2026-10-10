@@ -1,0 +1,2160 @@
+{
+    "check_type": "terraform",
+    "results": {
+        "passed_checks": [
+            {
+                "check_id": "CKV_GCP_41",
+                "bc_check_id": null,
+                "check_name": "Ensure that IAM users are not assigned the Service Account User or Service Account Token Creator roles at project level",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "role"
+                    ]
+                },
+                "code_block": [
+                    [
+                        36,
+                        "resource \"google_project_iam_member\" \"default_sa_editor\" {\n"
+                    ],
+                    [
+                        37,
+                        "  project = var.project_id\n"
+                    ],
+                    [
+                        38,
+                        "  role    = \"roles/editor\"\n"
+                    ],
+                    [
+                        39,
+                        "  member  = \"serviceAccount:${local.default_sa}\"\n"
+                    ],
+                    [
+                        40,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    36,
+                    40
+                ],
+                "resource": "google_project_iam_member.default_sa_editor",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleRoleServiceAccountUser",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "member": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_42",
+                "bc_check_id": null,
+                "check_name": "Ensure that Service Account has no Admin privileges",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "member",
+                        "role"
+                    ]
+                },
+                "code_block": [
+                    [
+                        36,
+                        "resource \"google_project_iam_member\" \"default_sa_editor\" {\n"
+                    ],
+                    [
+                        37,
+                        "  project = var.project_id\n"
+                    ],
+                    [
+                        38,
+                        "  role    = \"roles/editor\"\n"
+                    ],
+                    [
+                        39,
+                        "  member  = \"serviceAccount:${local.default_sa}\"\n"
+                    ],
+                    [
+                        40,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    36,
+                    40
+                ],
+                "resource": "google_project_iam_member.default_sa_editor",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleProjectAdminServiceAccount",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "member": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_88",
+                "bc_check_id": null,
+                "check_name": "Ensure Google compute firewall ingress does not allow unrestricted mysql access",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "allow"
+                    ]
+                },
+                "code_block": [
+                    [
+                        42,
+                        "resource \"google_compute_firewall\" \"ssh_any\" {\n"
+                    ],
+                    [
+                        43,
+                        "  name          = \"nimbus-lab-allow-ssh-any\"\n"
+                    ],
+                    [
+                        44,
+                        "  network       = \"default\"\n"
+                    ],
+                    [
+                        45,
+                        "  source_ranges = [\"0.0.0.0/0\"]\n"
+                    ],
+                    [
+                        46,
+                        "  allow {\n"
+                    ],
+                    [
+                        47,
+                        "    protocol = \"tcp\"\n"
+                    ],
+                    [
+                        48,
+                        "    ports    = [\"22\"]\n"
+                    ],
+                    [
+                        49,
+                        "  }\n"
+                    ],
+                    [
+                        50,
+                        "  target_tags = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        51,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    42,
+                    51
+                ],
+                "resource": "google_compute_firewall.ssh_any",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeFirewallUnrestrictedIngress3306",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf"
+            },
+            {
+                "check_id": "CKV_GCP_75",
+                "bc_check_id": null,
+                "check_name": "Ensure Google compute firewall ingress does not allow unrestricted FTP access",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "allow"
+                    ]
+                },
+                "code_block": [
+                    [
+                        42,
+                        "resource \"google_compute_firewall\" \"ssh_any\" {\n"
+                    ],
+                    [
+                        43,
+                        "  name          = \"nimbus-lab-allow-ssh-any\"\n"
+                    ],
+                    [
+                        44,
+                        "  network       = \"default\"\n"
+                    ],
+                    [
+                        45,
+                        "  source_ranges = [\"0.0.0.0/0\"]\n"
+                    ],
+                    [
+                        46,
+                        "  allow {\n"
+                    ],
+                    [
+                        47,
+                        "    protocol = \"tcp\"\n"
+                    ],
+                    [
+                        48,
+                        "    ports    = [\"22\"]\n"
+                    ],
+                    [
+                        49,
+                        "  }\n"
+                    ],
+                    [
+                        50,
+                        "  target_tags = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        51,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    42,
+                    51
+                ],
+                "resource": "google_compute_firewall.ssh_any",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeFirewallUnrestrictedIngress21",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf"
+            },
+            {
+                "check_id": "CKV_GCP_77",
+                "bc_check_id": null,
+                "check_name": "Ensure Google compute firewall ingress does not allow on ftp port",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "allow"
+                    ]
+                },
+                "code_block": [
+                    [
+                        42,
+                        "resource \"google_compute_firewall\" \"ssh_any\" {\n"
+                    ],
+                    [
+                        43,
+                        "  name          = \"nimbus-lab-allow-ssh-any\"\n"
+                    ],
+                    [
+                        44,
+                        "  network       = \"default\"\n"
+                    ],
+                    [
+                        45,
+                        "  source_ranges = [\"0.0.0.0/0\"]\n"
+                    ],
+                    [
+                        46,
+                        "  allow {\n"
+                    ],
+                    [
+                        47,
+                        "    protocol = \"tcp\"\n"
+                    ],
+                    [
+                        48,
+                        "    ports    = [\"22\"]\n"
+                    ],
+                    [
+                        49,
+                        "  }\n"
+                    ],
+                    [
+                        50,
+                        "  target_tags = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        51,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    42,
+                    51
+                ],
+                "resource": "google_compute_firewall.ssh_any",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeFirewallUnrestrictedIngress20",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf"
+            },
+            {
+                "check_id": "CKV_GCP_3",
+                "bc_check_id": null,
+                "check_name": "Ensure Google compute firewall ingress does not allow unrestricted rdp access",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "allow"
+                    ]
+                },
+                "code_block": [
+                    [
+                        42,
+                        "resource \"google_compute_firewall\" \"ssh_any\" {\n"
+                    ],
+                    [
+                        43,
+                        "  name          = \"nimbus-lab-allow-ssh-any\"\n"
+                    ],
+                    [
+                        44,
+                        "  network       = \"default\"\n"
+                    ],
+                    [
+                        45,
+                        "  source_ranges = [\"0.0.0.0/0\"]\n"
+                    ],
+                    [
+                        46,
+                        "  allow {\n"
+                    ],
+                    [
+                        47,
+                        "    protocol = \"tcp\"\n"
+                    ],
+                    [
+                        48,
+                        "    ports    = [\"22\"]\n"
+                    ],
+                    [
+                        49,
+                        "  }\n"
+                    ],
+                    [
+                        50,
+                        "  target_tags = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        51,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    42,
+                    51
+                ],
+                "resource": "google_compute_firewall.ssh_any",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeFirewallUnrestrictedIngress3389",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf"
+            },
+            {
+                "check_id": "CKV_GCP_106",
+                "bc_check_id": null,
+                "check_name": "Ensure Google compute firewall ingress does not allow unrestricted http port 80 access",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "allow"
+                    ]
+                },
+                "code_block": [
+                    [
+                        42,
+                        "resource \"google_compute_firewall\" \"ssh_any\" {\n"
+                    ],
+                    [
+                        43,
+                        "  name          = \"nimbus-lab-allow-ssh-any\"\n"
+                    ],
+                    [
+                        44,
+                        "  network       = \"default\"\n"
+                    ],
+                    [
+                        45,
+                        "  source_ranges = [\"0.0.0.0/0\"]\n"
+                    ],
+                    [
+                        46,
+                        "  allow {\n"
+                    ],
+                    [
+                        47,
+                        "    protocol = \"tcp\"\n"
+                    ],
+                    [
+                        48,
+                        "    ports    = [\"22\"]\n"
+                    ],
+                    [
+                        49,
+                        "  }\n"
+                    ],
+                    [
+                        50,
+                        "  target_tags = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        51,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    42,
+                    51
+                ],
+                "resource": "google_compute_firewall.ssh_any",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeFirewallUnrestrictedIngress80",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf"
+            },
+            {
+                "check_id": "CKV_GCP_31",
+                "bc_check_id": null,
+                "check_name": "Ensure that instances are not configured to use the default service account with full access to all Cloud APIs",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "service_account/[0]/scopes",
+                        "service_account/[0]/email"
+                    ]
+                },
+                "code_block": [
+                    [
+                        53,
+                        "resource \"google_compute_instance\" \"web\" {\n"
+                    ],
+                    [
+                        54,
+                        "  name         = \"nimbus-lab-gce-web\"\n"
+                    ],
+                    [
+                        55,
+                        "  zone         = \"us-central1-a\"\n"
+                    ],
+                    [
+                        56,
+                        "  machine_type = \"e2-micro\"\n"
+                    ],
+                    [
+                        57,
+                        "  tags         = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        58,
+                        "  labels       = local.labels\n"
+                    ],
+                    [
+                        59,
+                        "  boot_disk {\n"
+                    ],
+                    [
+                        60,
+                        "    initialize_params { image = \"debian-cloud/debian-12\" }\n"
+                    ],
+                    [
+                        61,
+                        "  }\n"
+                    ],
+                    [
+                        62,
+                        "  network_interface {\n"
+                    ],
+                    [
+                        63,
+                        "    network = \"default\"\n"
+                    ],
+                    [
+                        64,
+                        "    access_config {} # external IP\n"
+                    ],
+                    [
+                        65,
+                        "  }\n"
+                    ],
+                    [
+                        66,
+                        "  service_account {\n"
+                    ],
+                    [
+                        67,
+                        "    email  = local.default_sa\n"
+                    ],
+                    [
+                        68,
+                        "    scopes = [\"cloud-platform\"]\n"
+                    ],
+                    [
+                        69,
+                        "  }\n"
+                    ],
+                    [
+                        70,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    53,
+                    70
+                ],
+                "resource": "google_compute_instance.web",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeDefaultServiceAccountFullAccess",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${replace(lower(var.expires_at),\":\",\"-\")}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "service_account.email": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "labels": [
+                        {
+                            "type": "locals",
+                            "name": "labels",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_36",
+                "bc_check_id": null,
+                "check_name": "Ensure that IP forwarding is not enabled on Instances",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "can_ip_forward"
+                    ]
+                },
+                "code_block": [
+                    [
+                        53,
+                        "resource \"google_compute_instance\" \"web\" {\n"
+                    ],
+                    [
+                        54,
+                        "  name         = \"nimbus-lab-gce-web\"\n"
+                    ],
+                    [
+                        55,
+                        "  zone         = \"us-central1-a\"\n"
+                    ],
+                    [
+                        56,
+                        "  machine_type = \"e2-micro\"\n"
+                    ],
+                    [
+                        57,
+                        "  tags         = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        58,
+                        "  labels       = local.labels\n"
+                    ],
+                    [
+                        59,
+                        "  boot_disk {\n"
+                    ],
+                    [
+                        60,
+                        "    initialize_params { image = \"debian-cloud/debian-12\" }\n"
+                    ],
+                    [
+                        61,
+                        "  }\n"
+                    ],
+                    [
+                        62,
+                        "  network_interface {\n"
+                    ],
+                    [
+                        63,
+                        "    network = \"default\"\n"
+                    ],
+                    [
+                        64,
+                        "    access_config {} # external IP\n"
+                    ],
+                    [
+                        65,
+                        "  }\n"
+                    ],
+                    [
+                        66,
+                        "  service_account {\n"
+                    ],
+                    [
+                        67,
+                        "    email  = local.default_sa\n"
+                    ],
+                    [
+                        68,
+                        "    scopes = [\"cloud-platform\"]\n"
+                    ],
+                    [
+                        69,
+                        "  }\n"
+                    ],
+                    [
+                        70,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    53,
+                    70
+                ],
+                "resource": "google_compute_instance.web",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeIPForward",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${replace(lower(var.expires_at),\":\",\"-\")}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "service_account.email": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "labels": [
+                        {
+                            "type": "locals",
+                            "name": "labels",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_34",
+                "bc_check_id": null,
+                "check_name": "Ensure that no instance in the project overrides the project setting for enabling OSLogin(OSLogin needs to be enabled in project metadata for all instances)",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "metadata/[0]/enable-oslogin"
+                    ]
+                },
+                "code_block": [
+                    [
+                        53,
+                        "resource \"google_compute_instance\" \"web\" {\n"
+                    ],
+                    [
+                        54,
+                        "  name         = \"nimbus-lab-gce-web\"\n"
+                    ],
+                    [
+                        55,
+                        "  zone         = \"us-central1-a\"\n"
+                    ],
+                    [
+                        56,
+                        "  machine_type = \"e2-micro\"\n"
+                    ],
+                    [
+                        57,
+                        "  tags         = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        58,
+                        "  labels       = local.labels\n"
+                    ],
+                    [
+                        59,
+                        "  boot_disk {\n"
+                    ],
+                    [
+                        60,
+                        "    initialize_params { image = \"debian-cloud/debian-12\" }\n"
+                    ],
+                    [
+                        61,
+                        "  }\n"
+                    ],
+                    [
+                        62,
+                        "  network_interface {\n"
+                    ],
+                    [
+                        63,
+                        "    network = \"default\"\n"
+                    ],
+                    [
+                        64,
+                        "    access_config {} # external IP\n"
+                    ],
+                    [
+                        65,
+                        "  }\n"
+                    ],
+                    [
+                        66,
+                        "  service_account {\n"
+                    ],
+                    [
+                        67,
+                        "    email  = local.default_sa\n"
+                    ],
+                    [
+                        68,
+                        "    scopes = [\"cloud-platform\"]\n"
+                    ],
+                    [
+                        69,
+                        "  }\n"
+                    ],
+                    [
+                        70,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    53,
+                    70
+                ],
+                "resource": "google_compute_instance.web",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeInstanceOSLogin",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${replace(lower(var.expires_at),\":\",\"-\")}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "service_account.email": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "labels": [
+                        {
+                            "type": "locals",
+                            "name": "labels",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_30",
+                "bc_check_id": null,
+                "check_name": "Ensure that instances are not configured to use the default service account",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "service_account/[0]/email"
+                    ]
+                },
+                "code_block": [
+                    [
+                        53,
+                        "resource \"google_compute_instance\" \"web\" {\n"
+                    ],
+                    [
+                        54,
+                        "  name         = \"nimbus-lab-gce-web\"\n"
+                    ],
+                    [
+                        55,
+                        "  zone         = \"us-central1-a\"\n"
+                    ],
+                    [
+                        56,
+                        "  machine_type = \"e2-micro\"\n"
+                    ],
+                    [
+                        57,
+                        "  tags         = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        58,
+                        "  labels       = local.labels\n"
+                    ],
+                    [
+                        59,
+                        "  boot_disk {\n"
+                    ],
+                    [
+                        60,
+                        "    initialize_params { image = \"debian-cloud/debian-12\" }\n"
+                    ],
+                    [
+                        61,
+                        "  }\n"
+                    ],
+                    [
+                        62,
+                        "  network_interface {\n"
+                    ],
+                    [
+                        63,
+                        "    network = \"default\"\n"
+                    ],
+                    [
+                        64,
+                        "    access_config {} # external IP\n"
+                    ],
+                    [
+                        65,
+                        "  }\n"
+                    ],
+                    [
+                        66,
+                        "  service_account {\n"
+                    ],
+                    [
+                        67,
+                        "    email  = local.default_sa\n"
+                    ],
+                    [
+                        68,
+                        "    scopes = [\"cloud-platform\"]\n"
+                    ],
+                    [
+                        69,
+                        "  }\n"
+                    ],
+                    [
+                        70,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    53,
+                    70
+                ],
+                "resource": "google_compute_instance.web",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeDefaultServiceAccount",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${replace(lower(var.expires_at),\":\",\"-\")}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "service_account.email": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "labels": [
+                        {
+                            "type": "locals",
+                            "name": "labels",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_35",
+                "bc_check_id": null,
+                "check_name": "Ensure 'Enable connecting to serial ports' is not enabled for VM Instance",
+                "check_result": {
+                    "result": "PASSED",
+                    "evaluated_keys": [
+                        "metadata/[0]/serial-port-enable"
+                    ]
+                },
+                "code_block": [
+                    [
+                        53,
+                        "resource \"google_compute_instance\" \"web\" {\n"
+                    ],
+                    [
+                        54,
+                        "  name         = \"nimbus-lab-gce-web\"\n"
+                    ],
+                    [
+                        55,
+                        "  zone         = \"us-central1-a\"\n"
+                    ],
+                    [
+                        56,
+                        "  machine_type = \"e2-micro\"\n"
+                    ],
+                    [
+                        57,
+                        "  tags         = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        58,
+                        "  labels       = local.labels\n"
+                    ],
+                    [
+                        59,
+                        "  boot_disk {\n"
+                    ],
+                    [
+                        60,
+                        "    initialize_params { image = \"debian-cloud/debian-12\" }\n"
+                    ],
+                    [
+                        61,
+                        "  }\n"
+                    ],
+                    [
+                        62,
+                        "  network_interface {\n"
+                    ],
+                    [
+                        63,
+                        "    network = \"default\"\n"
+                    ],
+                    [
+                        64,
+                        "    access_config {} # external IP\n"
+                    ],
+                    [
+                        65,
+                        "  }\n"
+                    ],
+                    [
+                        66,
+                        "  service_account {\n"
+                    ],
+                    [
+                        67,
+                        "    email  = local.default_sa\n"
+                    ],
+                    [
+                        68,
+                        "    scopes = [\"cloud-platform\"]\n"
+                    ],
+                    [
+                        69,
+                        "  }\n"
+                    ],
+                    [
+                        70,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    53,
+                    70
+                ],
+                "resource": "google_compute_instance.web",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeSerialPorts",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${replace(lower(var.expires_at),\":\",\"-\")}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "service_account.email": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "labels": [
+                        {
+                            "type": "locals",
+                            "name": "labels",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV2_GCP_12",
+                "bc_check_id": null,
+                "check_name": "Ensure GCP compute firewall ingress does not allow unrestricted access to all ports",
+                "check_result": {
+                    "result": "PASSED",
+                    "entity": {
+                        "google_compute_firewall": {
+                            "ssh_any": {
+                                "__end_line__": 51,
+                                "__start_line__": 42,
+                                "allow": [
+                                    {
+                                        "ports": [
+                                            [
+                                                "22"
+                                            ]
+                                        ],
+                                        "protocol": [
+                                            "tcp"
+                                        ]
+                                    }
+                                ],
+                                "name": [
+                                    "nimbus-lab-allow-ssh-any"
+                                ],
+                                "network": [
+                                    "default"
+                                ],
+                                "source_ranges": [
+                                    [
+                                        "0.0.0.0/0"
+                                    ]
+                                ],
+                                "target_tags": [
+                                    [
+                                        "nimbus-lab"
+                                    ]
+                                ],
+                                "__address__": "google_compute_firewall.ssh_any",
+                                "__provider_address__": "google.default"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "disabled",
+                        "deny/protocol",
+                        "direction",
+                        "allow/protocol",
+                        "source_ranges"
+                    ]
+                },
+                "code_block": [
+                    [
+                        42,
+                        "resource \"google_compute_firewall\" \"ssh_any\" {\n"
+                    ],
+                    [
+                        43,
+                        "  name          = \"nimbus-lab-allow-ssh-any\"\n"
+                    ],
+                    [
+                        44,
+                        "  network       = \"default\"\n"
+                    ],
+                    [
+                        45,
+                        "  source_ranges = [\"0.0.0.0/0\"]\n"
+                    ],
+                    [
+                        46,
+                        "  allow {\n"
+                    ],
+                    [
+                        47,
+                        "    protocol = \"tcp\"\n"
+                    ],
+                    [
+                        48,
+                        "    ports    = [\"22\"]\n"
+                    ],
+                    [
+                        49,
+                        "  }\n"
+                    ],
+                    [
+                        50,
+                        "  target_tags = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        51,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    42,
+                    51
+                ],
+                "resource": "google_compute_firewall.ssh_any",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf"
+            }
+        ],
+        "failed_checks": [
+            {
+                "check_id": "CKV_GCP_49",
+                "bc_check_id": null,
+                "check_name": "Ensure roles do not impersonate or manage Service Accounts used at project level",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "role"
+                    ]
+                },
+                "code_block": [
+                    [
+                        36,
+                        "resource \"google_project_iam_member\" \"default_sa_editor\" {\n"
+                    ],
+                    [
+                        37,
+                        "  project = var.project_id\n"
+                    ],
+                    [
+                        38,
+                        "  role    = \"roles/editor\"\n"
+                    ],
+                    [
+                        39,
+                        "  member  = \"serviceAccount:${local.default_sa}\"\n"
+                    ],
+                    [
+                        40,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    36,
+                    40
+                ],
+                "resource": "google_project_iam_member.default_sa_editor",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleProjectImpersonationRole",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "member": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_46",
+                "bc_check_id": null,
+                "check_name": "Ensure Default Service account is not used at a project level",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "member"
+                    ]
+                },
+                "code_block": [
+                    [
+                        36,
+                        "resource \"google_project_iam_member\" \"default_sa_editor\" {\n"
+                    ],
+                    [
+                        37,
+                        "  project = var.project_id\n"
+                    ],
+                    [
+                        38,
+                        "  role    = \"roles/editor\"\n"
+                    ],
+                    [
+                        39,
+                        "  member  = \"serviceAccount:${local.default_sa}\"\n"
+                    ],
+                    [
+                        40,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    36,
+                    40
+                ],
+                "resource": "google_project_iam_member.default_sa_editor",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleProjectMemberDefaultServiceAccount",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "member": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_117",
+                "bc_check_id": null,
+                "check_name": "Ensure basic roles are not used at project level.",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "role"
+                    ]
+                },
+                "code_block": [
+                    [
+                        36,
+                        "resource \"google_project_iam_member\" \"default_sa_editor\" {\n"
+                    ],
+                    [
+                        37,
+                        "  project = var.project_id\n"
+                    ],
+                    [
+                        38,
+                        "  role    = \"roles/editor\"\n"
+                    ],
+                    [
+                        39,
+                        "  member  = \"serviceAccount:${local.default_sa}\"\n"
+                    ],
+                    [
+                        40,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    36,
+                    40
+                ],
+                "resource": "google_project_iam_member.default_sa_editor",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleProjectBasicRole",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "member": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_2",
+                "bc_check_id": null,
+                "check_name": "Ensure Google compute firewall ingress does not allow unrestricted ssh access",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "allow/[0]/ports",
+                        "source_ranges"
+                    ]
+                },
+                "code_block": [
+                    [
+                        42,
+                        "resource \"google_compute_firewall\" \"ssh_any\" {\n"
+                    ],
+                    [
+                        43,
+                        "  name          = \"nimbus-lab-allow-ssh-any\"\n"
+                    ],
+                    [
+                        44,
+                        "  network       = \"default\"\n"
+                    ],
+                    [
+                        45,
+                        "  source_ranges = [\"0.0.0.0/0\"]\n"
+                    ],
+                    [
+                        46,
+                        "  allow {\n"
+                    ],
+                    [
+                        47,
+                        "    protocol = \"tcp\"\n"
+                    ],
+                    [
+                        48,
+                        "    ports    = [\"22\"]\n"
+                    ],
+                    [
+                        49,
+                        "  }\n"
+                    ],
+                    [
+                        50,
+                        "  target_tags = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        51,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    42,
+                    51
+                ],
+                "resource": "google_compute_firewall.ssh_any",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeFirewallUnrestrictedIngress22",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf"
+            },
+            {
+                "check_id": "CKV_GCP_32",
+                "bc_check_id": null,
+                "check_name": "Ensure 'Block Project-wide SSH keys' is enabled for VM instances",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "metadata/block-project-ssh-keys"
+                    ]
+                },
+                "code_block": [
+                    [
+                        53,
+                        "resource \"google_compute_instance\" \"web\" {\n"
+                    ],
+                    [
+                        54,
+                        "  name         = \"nimbus-lab-gce-web\"\n"
+                    ],
+                    [
+                        55,
+                        "  zone         = \"us-central1-a\"\n"
+                    ],
+                    [
+                        56,
+                        "  machine_type = \"e2-micro\"\n"
+                    ],
+                    [
+                        57,
+                        "  tags         = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        58,
+                        "  labels       = local.labels\n"
+                    ],
+                    [
+                        59,
+                        "  boot_disk {\n"
+                    ],
+                    [
+                        60,
+                        "    initialize_params { image = \"debian-cloud/debian-12\" }\n"
+                    ],
+                    [
+                        61,
+                        "  }\n"
+                    ],
+                    [
+                        62,
+                        "  network_interface {\n"
+                    ],
+                    [
+                        63,
+                        "    network = \"default\"\n"
+                    ],
+                    [
+                        64,
+                        "    access_config {} # external IP\n"
+                    ],
+                    [
+                        65,
+                        "  }\n"
+                    ],
+                    [
+                        66,
+                        "  service_account {\n"
+                    ],
+                    [
+                        67,
+                        "    email  = local.default_sa\n"
+                    ],
+                    [
+                        68,
+                        "    scopes = [\"cloud-platform\"]\n"
+                    ],
+                    [
+                        69,
+                        "  }\n"
+                    ],
+                    [
+                        70,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    53,
+                    70
+                ],
+                "resource": "google_compute_instance.web",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeBlockProjectSSH",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${replace(lower(var.expires_at),\":\",\"-\")}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "service_account.email": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "labels": [
+                        {
+                            "type": "locals",
+                            "name": "labels",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_38",
+                "bc_check_id": null,
+                "check_name": "Ensure VM disks for critical VMs are encrypted with Customer Supplied Encryption Keys (CSEK)",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "boot_disk",
+                        "boot_disk/[0]/disk_encryption_key_raw",
+                        "boot_disk/[0]/kms_key_self_link"
+                    ]
+                },
+                "code_block": [
+                    [
+                        53,
+                        "resource \"google_compute_instance\" \"web\" {\n"
+                    ],
+                    [
+                        54,
+                        "  name         = \"nimbus-lab-gce-web\"\n"
+                    ],
+                    [
+                        55,
+                        "  zone         = \"us-central1-a\"\n"
+                    ],
+                    [
+                        56,
+                        "  machine_type = \"e2-micro\"\n"
+                    ],
+                    [
+                        57,
+                        "  tags         = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        58,
+                        "  labels       = local.labels\n"
+                    ],
+                    [
+                        59,
+                        "  boot_disk {\n"
+                    ],
+                    [
+                        60,
+                        "    initialize_params { image = \"debian-cloud/debian-12\" }\n"
+                    ],
+                    [
+                        61,
+                        "  }\n"
+                    ],
+                    [
+                        62,
+                        "  network_interface {\n"
+                    ],
+                    [
+                        63,
+                        "    network = \"default\"\n"
+                    ],
+                    [
+                        64,
+                        "    access_config {} # external IP\n"
+                    ],
+                    [
+                        65,
+                        "  }\n"
+                    ],
+                    [
+                        66,
+                        "  service_account {\n"
+                    ],
+                    [
+                        67,
+                        "    email  = local.default_sa\n"
+                    ],
+                    [
+                        68,
+                        "    scopes = [\"cloud-platform\"]\n"
+                    ],
+                    [
+                        69,
+                        "  }\n"
+                    ],
+                    [
+                        70,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    53,
+                    70
+                ],
+                "resource": "google_compute_instance.web",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeBootDiskEncryption",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${replace(lower(var.expires_at),\":\",\"-\")}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "service_account.email": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "labels": [
+                        {
+                            "type": "locals",
+                            "name": "labels",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_39",
+                "bc_check_id": null,
+                "check_name": "Ensure Compute instances are launched with Shielded VM enabled",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": []
+                },
+                "code_block": [
+                    [
+                        53,
+                        "resource \"google_compute_instance\" \"web\" {\n"
+                    ],
+                    [
+                        54,
+                        "  name         = \"nimbus-lab-gce-web\"\n"
+                    ],
+                    [
+                        55,
+                        "  zone         = \"us-central1-a\"\n"
+                    ],
+                    [
+                        56,
+                        "  machine_type = \"e2-micro\"\n"
+                    ],
+                    [
+                        57,
+                        "  tags         = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        58,
+                        "  labels       = local.labels\n"
+                    ],
+                    [
+                        59,
+                        "  boot_disk {\n"
+                    ],
+                    [
+                        60,
+                        "    initialize_params { image = \"debian-cloud/debian-12\" }\n"
+                    ],
+                    [
+                        61,
+                        "  }\n"
+                    ],
+                    [
+                        62,
+                        "  network_interface {\n"
+                    ],
+                    [
+                        63,
+                        "    network = \"default\"\n"
+                    ],
+                    [
+                        64,
+                        "    access_config {} # external IP\n"
+                    ],
+                    [
+                        65,
+                        "  }\n"
+                    ],
+                    [
+                        66,
+                        "  service_account {\n"
+                    ],
+                    [
+                        67,
+                        "    email  = local.default_sa\n"
+                    ],
+                    [
+                        68,
+                        "    scopes = [\"cloud-platform\"]\n"
+                    ],
+                    [
+                        69,
+                        "  }\n"
+                    ],
+                    [
+                        70,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    53,
+                    70
+                ],
+                "resource": "google_compute_instance.web",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeShieldedVM",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${replace(lower(var.expires_at),\":\",\"-\")}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "service_account.email": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "labels": [
+                        {
+                            "type": "locals",
+                            "name": "labels",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            },
+            {
+                "check_id": "CKV_GCP_40",
+                "bc_check_id": null,
+                "check_name": "Ensure that Compute instances do not have public IP addresses",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "network_interface/[0]/access_config"
+                    ]
+                },
+                "code_block": [
+                    [
+                        53,
+                        "resource \"google_compute_instance\" \"web\" {\n"
+                    ],
+                    [
+                        54,
+                        "  name         = \"nimbus-lab-gce-web\"\n"
+                    ],
+                    [
+                        55,
+                        "  zone         = \"us-central1-a\"\n"
+                    ],
+                    [
+                        56,
+                        "  machine_type = \"e2-micro\"\n"
+                    ],
+                    [
+                        57,
+                        "  tags         = [\"nimbus-lab\"]\n"
+                    ],
+                    [
+                        58,
+                        "  labels       = local.labels\n"
+                    ],
+                    [
+                        59,
+                        "  boot_disk {\n"
+                    ],
+                    [
+                        60,
+                        "    initialize_params { image = \"debian-cloud/debian-12\" }\n"
+                    ],
+                    [
+                        61,
+                        "  }\n"
+                    ],
+                    [
+                        62,
+                        "  network_interface {\n"
+                    ],
+                    [
+                        63,
+                        "    network = \"default\"\n"
+                    ],
+                    [
+                        64,
+                        "    access_config {} # external IP\n"
+                    ],
+                    [
+                        65,
+                        "  }\n"
+                    ],
+                    [
+                        66,
+                        "  service_account {\n"
+                    ],
+                    [
+                        67,
+                        "    email  = local.default_sa\n"
+                    ],
+                    [
+                        68,
+                        "    scopes = [\"cloud-platform\"]\n"
+                    ],
+                    [
+                        69,
+                        "  }\n"
+                    ],
+                    [
+                        70,
+                        "}\n"
+                    ]
+                ],
+                "file_path": "/main.tf",
+                "file_abs_path": "/src/lab/terraform/gcp/main.tf",
+                "repo_file_path": "/lab/terraform/gcp/main.tf",
+                "file_line_range": [
+                    53,
+                    70
+                ],
+                "resource": "google_compute_instance.web",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.gcp.GoogleComputeExternalIP",
+                "fixed_definition": null,
+                "entity_tags": {
+                    "cost_ceiling_usd": "25",
+                    "expires_at": "${replace(lower(var.expires_at),\":\",\"-\")}",
+                    "nimbus_lab": true
+                },
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": {},
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": null,
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/src/lab/terraform/gcp/main.tf",
+                "breadcrumbs": {
+                    "service_account.email": [
+                        {
+                            "type": "locals",
+                            "name": "default_sa",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ],
+                    "labels": [
+                        {
+                            "type": "locals",
+                            "name": "labels",
+                            "path": "/src/lab/terraform/gcp/main.tf",
+                            "module_connection": false
+                        }
+                    ]
+                }
+            }
+        ],
+        "skipped_checks": [],
+        "parsing_errors": []
+    },
+    "summary": {
+        "passed": 13,
+        "failed": 8,
+        "skipped": 0,
+        "parsing_errors": 0,
+        "resource_count": 3,
+        "checkov_version": "3.3.26"
+    },
+    "url": "Add an api key '--bc-api-key <api-key>' to see more detailed insights via https://bridgecrew.cloud"
+}

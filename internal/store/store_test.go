@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -56,10 +57,11 @@ func TestRoundTripAndViews(t *testing.T) {
 	if !contains(views, "aws_s3_buckets") {
 		t.Fatalf("views: %v", views)
 	}
-	cols, rows, err := st.Query("SELECT name, public_access, encrypted FROM aws_s3_buckets")
+	qr, err := st.QueryReadOnly(context.Background(), "SELECT name, public_access, encrypted FROM aws_s3_buckets", ReadOnlyOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
+	cols, rows := qr.Columns, qr.Rows
 	if len(rows) != 1 || cols[1] != "public_access" {
 		t.Fatalf("rows %v cols %v", rows, cols)
 	}

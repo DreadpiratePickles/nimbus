@@ -8,9 +8,11 @@ per-framework views) are created here only when missing, as compatible fallbacks
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import sqlite3
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional, Sequence
@@ -51,6 +53,20 @@ CREATE TABLE IF NOT EXISTS graph_nodes (
 CREATE TABLE IF NOT EXISTS graph_edges (from_id TEXT, to_id TEXT, kind TEXT, attr TEXT, PRIMARY KEY (from_id, to_id, kind));
 CREATE INDEX IF NOT EXISTS idx_edges_to ON graph_edges(to_id);
 """
+
+# Byte-for-byte copies of internal/store/store.go activeFailSQL / findingsSummarySQL
+# (tests/test_views_lifecycle.py and Go TestViewSQLMatchesPython compare them): a failing
+# finding a later scan resolved is history, not posture.
+ACTIVE_FAIL_SQL = "f.status = 'FAIL' AND f.state <> 'resolved'"
+FINDINGS_SUMMARY_SQL = "CREATE VIEW findings_summary AS SELECT provider, account, severity, status, COUNT(*) AS count FROM findings WHERE NOT (state = 'resolved' AND status <> 'PASS') GROUP BY provider, account, severity, status"
+# Byte-for-byte copy of internal/store/store.go issuesSummarySQL (Go migration 6: path Issues
+# are counted under kind 'path', max_score is the highest path score). Created only on a
+# Go-migrated DB whose issues table has the migration-6 columns.
+ISSUES_SUMMARY_SQL = "CREATE VIEW issues_summary AS SELECT provider, account, severity, kind, state, COUNT(*) AS count, ROUND(AVG(confidence), 2) AS avg_confidence, MAX(score) AS max_score FROM issues GROUP BY provider, account, severity, kind, state"
+# A standalone Python DB has no lifecycle columns yet (Go's migration adds them): nothing is resolved.
+_ACTIVE_FAIL_SQL_LEGACY = "f.status = 'FAIL'"
+_FINDINGS_SUMMARY_SQL_LEGACY = ("CREATE VIEW findings_summary AS SELECT provider, account, severity, status, COUNT(*) AS count "
+                                "FROM findings GROUP BY provider, account, severity, status")
 
 # Same table as store.go weaknessColumns: (column, weakness, inverted)
 WEAKNESS_COLUMNS = [
@@ -114,6 +130,10 @@ def default_db_path() -> str:
     return os.environ.get("CLOUD_POSTURE_DB") or os.path.join(".cloud-posture", "posture.db")
 
 
+_SAFE_IDENT = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}")
+log = logging.getLogger(__name__)
+
+
 def view_name(resource_type: str) -> str:
     t = resource_type.lower()
     for ch in "/:-. ":
@@ -142,6 +162,14 @@ def _jload(s: Any, default: Any) -> Any:
     return default if v is None else v
 
 
+class UnsafeQuery(ValueError):
+    """An untrusted query was rejected (not read-only, schema-internal, or over its time budget)."""
+
+
+class QueryTimeout(UnsafeQuery):
+    """An untrusted query ran past its deadline (HTTP 408)."""
+
+
 class Store:
     """Thin wrapper over the posture SQLite database."""
 
@@ -152,6 +180,7 @@ class Store:
             con = self._connect(write=True)
             try:
                 con.executescript(SCHEMA)
+                _mark_python_built(con)
                 con.commit()
             finally:
                 con.close()
@@ -383,27 +412,34 @@ class Store:
 
     # -- views -------------------------------------------------------------------
     def ensure_views(self) -> list[str]:
-        """Rebuild inventory views + findings_summary (like Go EnsureViews) and create the
-        Go-owned summary views only when they do not exist yet."""
+        """Rebuild inventory views, findings_summary and (on a Go migration-6 DB) issues_summary
+        like Go EnsureViews, and create the other Go-owned summary views only when they do not
+        exist yet."""
         con = self._connect(write=True)
         made: list[str] = []
         try:
             types = sorted({r[0] for r in con.execute("SELECT DISTINCT type FROM resources WHERE type != ''")})
+            has_state = any(r[1] == "state" for r in con.execute("PRAGMA table_info(findings)"))
+            active = ACTIVE_FAIL_SQL if has_state else _ACTIVE_FAIL_SQL_LEGACY
             for t in types:
                 v = view_name(t)
-                if not v or v in FRAMEWORK_VIEWS or v in ("findings", "resources", "scans", "alerts", "attack_paths"):
+                if not _SAFE_IDENT.fullmatch(v):
+                    # never interpolate a malformed name into DDL (inventory defect 3)
+                    log.warning("skipping inventory view for resource type %r: not a safe identifier", t)
+                    continue
+                if v in FRAMEWORK_VIEWS or v in ("findings", "resources", "scans", "alerts", "attack_paths"):
                     continue
                 kind = con.execute("SELECT type FROM sqlite_master WHERE name = ?", (v,)).fetchone()
                 if kind and kind[0] != "view":
                     continue
                 cols = [
                     "r.id AS id", "r.name AS name", "r.type AS type", "r.provider AS provider", "r.account AS account", "r.region AS region",
-                    "(SELECT COUNT(*) FROM findings f WHERE f.resource_id = r.id AND f.status = 'FAIL') AS open_findings",
+                    f"(SELECT COUNT(*) FROM findings f WHERE f.resource_id = r.id AND {active}) AS open_findings",
                     "(SELECT MAX(CASE f.severity WHEN 'CRITICAL' THEN 5 WHEN 'HIGH' THEN 4 WHEN 'MEDIUM' THEN 3 WHEN 'LOW' THEN 2 ELSE 1 END) "
-                    "FROM findings f WHERE f.resource_id = r.id AND f.status='FAIL') AS max_severity_rank",
+                    f"FROM findings f WHERE f.resource_id = r.id AND {active}) AS max_severity_rank",
                 ]
                 for col, weak, inv in WEAKNESS_COLUMNS:
-                    expr = (f"EXISTS(SELECT 1 FROM findings f WHERE f.resource_id = r.id AND f.status = 'FAIL' "
+                    expr = (f"EXISTS(SELECT 1 FROM findings f WHERE f.resource_id = r.id AND {active} "
                             f"AND f.weaknesses LIKE '%\"{weak}\"%')")
                     if inv:
                         expr = "NOT " + expr
@@ -413,9 +449,13 @@ class Store:
                 con.execute(f"CREATE VIEW IF NOT EXISTS {v} AS SELECT {', '.join(cols)} FROM resources r WHERE r.type = {_q(t)}")
                 made.append(v)
             con.execute("DROP VIEW IF EXISTS findings_summary")
-            con.execute("CREATE VIEW IF NOT EXISTS findings_summary AS SELECT provider, account, severity, status, COUNT(*) AS count "
-                        "FROM findings GROUP BY provider, account, severity, status")
+            con.execute(FINDINGS_SUMMARY_SQL if has_state else _FINDINGS_SUMMARY_SQL_LEGACY)
             made.append("findings_summary")
+            issue_cols = {r[1] for r in con.execute("PRAGMA table_info(issues)")}
+            if {"score", "confidence", "kind", "state"} <= issue_cols:
+                con.execute("DROP VIEW IF EXISTS issues_summary")
+                con.execute(ISSUES_SUMMARY_SQL)
+                made.append("issues_summary")
             con.execute(ATTACK_PATH_SUMMARY_SQL)
             con.execute(COMPLIANCE_CONTROLS_SQL)
             for view, fw in FRAMEWORK_VIEWS.items():
@@ -440,7 +480,8 @@ class Store:
             return []
         con = self._connect()
         try:
-            return [r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+            return [r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+                    if r[0].lower() not in _INTERNAL_TABLES]
         finally:
             con.close()
 
@@ -486,6 +527,162 @@ class Store:
             return cols, rows
         finally:
             con.close()
+
+    def _readonly_connection(self) -> sqlite3.Connection:
+        """A ``mode=ro`` + ``query_only`` connection with tight engine limits (see ``_READONLY_LIMITS``)."""
+        con = self._connect()
+        if hasattr(con, "setlimit"):  # Python 3.11+
+            for name, value in _READONLY_LIMITS.items():
+                con.setlimit(getattr(sqlite3, name), value)
+        return con
+
+    def query_readonly(self, sql: str, timeout: Optional[float] = None, max_rows: int = 10000) -> tuple[list[str], list[list[Any]]]:
+        """Run one untrusted SELECT with engine-level enforcement (inventory defect 1, Track A2).
+
+        Layers: the connection is ``mode=ro`` + ``PRAGMA query_only`` with engine limits (values
+        capped at 1 MiB, SQL at 64 KiB, no attached databases, ...), because one SQLite function call
+        such as ``printf('%.*c', 1e9, 'x')`` cannot be interrupted; an authorizer denies everything
+        except SELECT/READ/FUNCTION/RECURSIVE, and READ only on what ``queryable_tables`` lists (never
+        ``sqlite_*``, ``pragma_*``, virtual tables other than json_each/json_tree, FTS shadow tables,
+        ``*_config``, temp or attached databases) or on the statement's own CTEs; a progress handler
+        aborts the statement once ``timeout`` seconds (default ``$NIMBUS_QUERY_TIMEOUT`` or 10) have
+        passed. Raises :class:`UnsafeQuery`, or :class:`QueryTimeout` on the deadline.
+        """
+        if timeout is None:
+            try:
+                timeout = float(os.environ.get("NIMBUS_QUERY_TIMEOUT", "") or 10.0)
+            except ValueError:
+                timeout = 10.0
+        con = self._readonly_connection()
+        try:
+            schema = [(r[0], r[1], r[2] or "") for r in con.execute("SELECT name, type, sql FROM sqlite_master")]
+            real = {n.lower() for n, _, _ in schema}
+            allowed = {n.lower() for n in _queryable(schema)} | _EPONYMOUS_OK
+            try:
+                modules = {r[0].lower() for r in con.execute("SELECT name FROM pragma_module_list")}
+            except sqlite3.DatabaseError:
+                modules = set()
+            modules = (modules | _DENIED_MODULES) - _EPONYMOUS_OK
+            limited = hasattr(con, "setlimit")
+            denied: list[str] = []
+
+            def is_cte(name: str, db: Optional[str]) -> bool:
+                # A WITH-clause name reaches the authorizer as a READ with no database; it is not a
+                # schema object, an internal table or a virtual-table module.
+                return (db is None and name not in real and name not in modules
+                        and not name.startswith(("sqlite_", "pragma_")))
+
+            def authorize(action: int, arg1: Optional[str], arg2: Optional[str], db: Optional[str], _src: Optional[str]) -> int:
+                if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_RECURSIVE):
+                    return sqlite3.SQLITE_OK
+                if action == sqlite3.SQLITE_FUNCTION:
+                    fn = (arg2 or "").lower()
+                    if fn in _DENIED_FUNCTIONS or (not limited and fn in _AMPLIFYING_FUNCTIONS):
+                        denied.append(f"function {arg2}")
+                        return sqlite3.SQLITE_DENY
+                    return sqlite3.SQLITE_OK
+                if action == sqlite3.SQLITE_READ:
+                    name = (arg1 or "").lower()
+                    if (db in (None, "main") and name in allowed) or is_cte(name, db):
+                        return sqlite3.SQLITE_OK
+                denied.append(f"{_AUTH_NAMES.get(action, action)} {arg1 or ''}".strip())
+                return sqlite3.SQLITE_DENY
+
+            deadline = time.monotonic() + timeout
+            timed_out = [False]
+
+            def progress() -> int:
+                if time.monotonic() > deadline:
+                    timed_out[0] = True
+                    return 1
+                return 0
+
+            con.set_authorizer(authorize)
+            con.set_progress_handler(progress, _PROGRESS_OPS)
+            try:
+                cur = con.execute(sql)
+                cols = [d[0] for d in cur.description] if cur.description else []
+                rows = [[_plain(v) for v in r] for r in cur.fetchmany(max_rows)]
+            except sqlite3.ProgrammingError as exc:  # e.g. "You can only execute one statement at a time"
+                raise UnsafeQuery(f"rejected: {exc}") from exc
+            except sqlite3.DatabaseError as exc:
+                if timed_out[0]:
+                    raise QueryTimeout(f"query exceeded the {timeout:g}s timeout") from exc
+                if denied:
+                    raise UnsafeQuery(f"rejected: not allowed: {denied[0]}") from exc
+                if "too big" in str(exc) or "too many" in str(exc) or "too long" in str(exc):
+                    raise UnsafeQuery(f"rejected: {exc} (read-only query limits)") from exc
+                raise
+            return cols, rows
+        finally:
+            con.close()
+
+    def queryable_tables(self) -> list[str]:
+        """Tables and views untrusted SQL may read (the read-only query allowlist)."""
+        con = self._connect()
+        try:
+            return _queryable([(r[0], r[1], r[2] or "") for r in con.execute("SELECT name, type, sql FROM sqlite_master")])
+        finally:
+            con.close()
+
+
+# Authorizer support for Store.query_readonly.
+_EPONYMOUS_OK = {"json_each", "json_tree"}
+_DENIED_FUNCTIONS = {"load_extension", "readfile", "writefile", "edit", "fts3_tokenizer"}
+# Without Connection.setlimit (Python 3.10) these could build a huge value in one uninterruptible call.
+# (Aggregates grow step by step, so the progress handler still bounds them.)
+_AMPLIFYING_FUNCTIONS = {"randomblob", "zeroblob", "printf", "format", "replace", "hex", "quote", "char", "concat", "concat_ws", "unhex"}
+_DENIED_MODULES = {"dbstat", "sqlite_dbpage", "sqlite_stmt", "fts3", "fts4", "fts4aux", "fts5", "fts5vocab", "fts3tokenize",
+                   "rtree", "rtree_i32", "geopoly", "generate_series", "carray", "completion", "csv", "zipfile", "fsdir"}
+# Same values as the Go read-only connection (internal/store/readonly.go readOnlyLimits).
+_READONLY_LIMITS = {
+    "SQLITE_LIMIT_LENGTH": 1 << 20,
+    "SQLITE_LIMIT_SQL_LENGTH": 64 << 10,
+    "SQLITE_LIMIT_COLUMN": 1000,
+    "SQLITE_LIMIT_EXPR_DEPTH": 200,
+    "SQLITE_LIMIT_COMPOUND_SELECT": 64,
+    "SQLITE_LIMIT_VDBE_OP": 250000,
+    "SQLITE_LIMIT_FUNCTION_ARG": 100,
+    "SQLITE_LIMIT_ATTACHED": 0,
+    "SQLITE_LIMIT_LIKE_PATTERN_LENGTH": 1000,
+    "SQLITE_LIMIT_VARIABLE_NUMBER": 32,
+    "SQLITE_LIMIT_TRIGGER_DEPTH": 1,
+}
+# Progress-handler granularity in VDBE ops: small enough that the deadline is noticed within
+# milliseconds even when each op is a ~1 MiB string operation.
+_PROGRESS_OPS = 100
+_AUTH_NAMES = {getattr(sqlite3, n): n.removeprefix("SQLITE_").lower() for n in dir(sqlite3)
+               if n.startswith("SQLITE_") and n not in ("SQLITE_OK", "SQLITE_DENY", "SQLITE_IGNORE") and isinstance(getattr(sqlite3, n), int)}
+
+
+# Internal Go-store tables that hold the per-database Issue id key and the old (unkeyed) → new id
+# map (internal/store/idkey.go, Verification 5 MCP-1): never readable by untrusted SQL.
+_INTERNAL_TABLES = frozenset({"store_meta", "issue_id_map"})
+
+
+def _mark_python_built(con: sqlite3.Connection) -> None:
+    """Record that this layer built the database (store_meta built_by=python), unless the Go binary
+    already owns it (schema_migrations exists or a marker is set). Go read-only commands refuse to
+    migrate a database marked python; only `ingest` / `scan` upgrade it (internal/store/origin.go)."""
+    if con.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'").fetchone():
+        return
+    con.execute("CREATE TABLE IF NOT EXISTS store_meta (k TEXT PRIMARY KEY, v BLOB NOT NULL)")
+    con.execute("INSERT OR IGNORE INTO store_meta (k, v) VALUES ('built_by', ?)", (b"python",))
+
+
+def _queryable(schema: list[tuple[str, str, str]]) -> list[str]:
+    """Names from sqlite_master rows (name, type, sql) that untrusted SQL may read: tables and views
+    except sqlite_* internals, virtual tables and their shadow tables, and *_config tables."""
+    virtual = [n.lower() for n, t, q in schema if t == "table" and q.lstrip().upper().startswith("CREATE VIRTUAL TABLE")]
+    out = []
+    for name, typ, _ in schema:
+        low = name.lower()
+        if typ not in ("table", "view") or low.startswith("sqlite_") or low.endswith("_config") or low in _INTERNAL_TABLES:
+            continue
+        if any(low == v or low.startswith(v + "_") for v in virtual):
+            continue
+        out.append(name)
+    return sorted(out)
 
 
 def _plain(v: Any) -> Any:

@@ -3,5 +3,6 @@ resource "aws_ebs_encryption_by_default" "{{ .Slug }}" {
   enabled = true
 }
 # Migrate {{ .Name }}:
-#   aws ec2 create-snapshot --volume-id {{ .Name }} --description "pre-encryption"
-#   aws ec2 copy-snapshot --source-snapshot-id <snap> --encrypted --source-region {{ default "us-east-1" .Region }}
+# CLI: aws ec2 create-snapshot --volume-id={{ sh .Raw.Name }} --description "pre-encryption"
+# then, with SNAPSHOT_ID set to the snapshot it printed:
+# CLI: aws ec2 copy-snapshot --source-snapshot-id="$SNAPSHOT_ID" --encrypted --source-region={{ sh (default "us-east-1" .Raw.Region) }}

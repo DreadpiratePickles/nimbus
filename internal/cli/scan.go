@@ -3,10 +3,13 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -24,11 +27,12 @@ import (
 	"github.com/DreadpiratePickles/nimbus/internal/output"
 	"github.com/DreadpiratePickles/nimbus/internal/risk"
 	"github.com/DreadpiratePickles/nimbus/internal/scanner"
+	"github.com/DreadpiratePickles/nimbus/internal/server"
 	"github.com/DreadpiratePickles/nimbus/internal/store"
 	"github.com/spf13/cobra"
 )
 
-var scanFlags struct {
+type scanFlagSet struct {
 	accounts    []string
 	tools       []string
 	iac         []string
@@ -43,7 +47,16 @@ var scanFlags struct {
 	noNative    bool
 	limit       int
 	timeout     time.Duration
+	diff        bool
+	diffJSON    string
+	// failOnUnscanned: IaC files that could not be parsed block --fail-on at every threshold.
+	failOnUnscanned bool
 }
+
+var scanFlags scanFlagSet
+
+// noFailUnscanned reports --fail-on-unscanned=false.
+func (f *scanFlagSet) noFailUnscanned() bool { return !f.failOnUnscanned }
 
 var scanCmd = &cobra.Command{
 	Use:   "scan",
@@ -61,16 +74,19 @@ func init() {
 	f.StringSliceVar(&scanFlags.tools, "tools", nil, "override tools: native,python-checks,prowler,scoutsuite,checkov,trivy,steampipe")
 	f.StringSliceVar(&scanFlags.iac, "iac", nil, "IaC directories/files to scan (Terraform native + checkov/trivy when installed)")
 	f.StringSliceVar(&scanFlags.fromDir, "from-dir", nil, "ingest existing scanner output files/directories instead of running tools")
-	f.StringVarP(&scanFlags.out, "output", "o", "table", "table|json|sarif|dashboard|markdown|summary")
+	f.StringVarP(&scanFlags.out, "output", "o", "table", "table|json|sarif|ocsf|asff|gitlab|junit|csv|dashboard|markdown|summary")
 	f.StringVar(&scanFlags.outFile, "out-file", "", "write the output to a file (dashboard default: cloud-posture-report/index.html)")
 	f.StringVar(&scanFlags.sarif, "sarif", "", "also write SARIF to this path")
 	f.StringVar(&scanFlags.failOn, "fail-on", "", "exit 2 when open findings at or above this severity exist")
+	f.BoolVar(&scanFlags.failOnUnscanned, "fail-on-unscanned", true, "with --fail-on: IaC files that could not be parsed (IAC_PARSE_LIMIT) block the gate at every threshold")
 	f.BoolVar(&scanFlags.noStore, "no-store", false, "do not persist to the posture database")
 	f.BoolVar(&scanFlags.changedOnly, "changed-only", false, "IaC: only files staged/changed in git")
 	f.BoolVar(&scanFlags.alert, "alert", false, "dispatch new findings to configured integrations after the scan")
 	f.BoolVar(&scanFlags.noNative, "no-native", false, "skip the built-in SDK collectors")
 	f.IntVar(&scanFlags.limit, "limit", 60, "rows for table output (0 = all)")
 	f.DurationVar(&scanFlags.timeout, "timeout", 45*time.Minute, "per-tool timeout")
+	f.BoolVar(&scanFlags.diff, "diff", false, "print new / resolved / reopened findings compared with earlier scans (needs the posture database)")
+	f.StringVar(&scanFlags.diffJSON, "diff-json", "", "write the --diff change set as JSON to this file (\"-\" = stdout)")
 	root.AddCommand(scanCmd, ingestCmd, dashboardCmd)
 }
 
@@ -82,6 +98,43 @@ type scanResult struct {
 	Risk     []risk.Ranked
 	Cost     *cost.Report
 	Summary  model.ScanSummary
+	// Diff is this scan's lifecycle change set (nil with --no-store); DiffFindings holds
+	// the stored finding for each id in it, including resolved ones.
+	Diff         *store.Diff
+	DiffFindings map[string]model.Finding
+	// Issues, Coverage and Scans are read from the store for the dashboard payload.
+	Issues   []model.Issue
+	Coverage []store.CoverageEntry
+	Scans    []model.ScanSummary
+	// PathIssues is what this scan's path-Issue rebuild changed (scan --diff).
+	PathIssues *store.PathIssueResult
+	// Headline is the store's Issue headline after this run (nil with --no-store); DBPath is the
+	// database it was written to; Verb names the command in the summary ("Scan", "Ingest").
+	Headline *store.Headline
+	// Trend is this scan's Issue lifecycle counts as the store recorded them (W6-VERIFY), nil
+	// when not recorded; --diff prints Trend.Text(), --diff-json carries issue_trend.
+	Trend  *store.ScanTrend
+	DBPath string
+	Verb   string
+}
+
+// iacSource is the Source of the native Terraform scanner's findings (iac.ScanTerraform).
+const iacSource = "nimbus-iac"
+
+// collectorHook lets tests replace the native collectors (Options.Collectors).
+var collectorHook func(*collector.Options)
+
+// collectorOptions carries config scan.parallel, scan.account_timeout and trusted_cidrs (Track C).
+func collectorOptions(cfg *config.Config, onAccount func(collector.AccountSpec, collector.Result, error)) collector.Options {
+	conc := cfg.Scan.Parallel
+	if conc <= 0 {
+		conc = collector.DefaultConcurrency // unset: the collector default, not 1
+	}
+	o := collector.Options{Concurrency: conc, AccountTimeout: cfg.AccountTimeout(), TrustedCIDRs: cfg.TrustedCIDRs, OnAccount: onAccount}
+	if collectorHook != nil {
+		collectorHook(&o)
+	}
+	return o
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
@@ -98,7 +151,16 @@ func runScan(cmd *cobra.Command, args []string) error {
 	g := graph.New()
 	var signals []collector.CostSignal
 	work := filepath.Join(workDir(cfg), scanID)
-	sopts := scanner.Options{WorkDir: work, Timeout: scanFlags.timeout, Logf: logf, Python: python(cfg)}
+	sopts := scanner.Options{WorkDir: work, Timeout: scanFlags.timeout, Logf: logf, Python: python(cfg), PythonDir: pythonDir()}
+	if (scanFlags.diff || scanFlags.diffJSON != "") && scanFlags.noStore {
+		return fmt.Errorf("--diff/--diff-json compare with stored scans; they cannot be combined with --no-store")
+	}
+	sopts2 := scanOptions{NoStore: scanFlags.noStore, ChangedOnly: scanFlags.changedOnly, Providers: map[string]string{}}
+	for name, a := range cfg.Accounts {
+		if a != nil {
+			sopts2.Providers[name] = a.Provider
+		}
+	}
 
 	// 1. Accounts: native collectors + external tools.
 	if len(scanFlags.accounts) > 0 || (len(scanFlags.iac) == 0 && len(scanFlags.fromDir) == 0 && len(cfg.Accounts) > 0) {
@@ -121,13 +183,13 @@ func runScan(cmd *cobra.Command, args []string) error {
 		}
 		if len(specs) > 0 {
 			logf("▶ native collectors: %d account(s)", len(specs))
-			cg, res := collector.RunAll(ctx, specs, collector.Options{Concurrency: max(cfg.Scan.Parallel, 1), OnAccount: func(spec collector.AccountSpec, r collector.Result, err error) {
+			cg, res := collector.RunAll(ctx, specs, collectorOptions(cfg, func(spec collector.AccountSpec, r collector.Result, err error) {
 				if err != nil {
 					logf("  ✗ %s: %v", spec.Label(), err)
 				} else {
 					logf("  ✓ %s: %d findings", spec.Label(), len(r.Findings))
 				}
-			}})
+			}))
 			g.Merge(cg)
 			for i := range res.Findings {
 				res.Findings[i].ScanID = scanID
@@ -139,9 +201,10 @@ func runScan(cmd *cobra.Command, args []string) error {
 			for _, w := range res.Warnings {
 				logf("  ! %s", w)
 			}
-			for _, e := range res.Errors {
-				sum.Tools = append(sum.Tools, model.ToolRun{Tool: "native", Status: "failed", Message: e.Error()})
-			}
+			// Partial collector errors (denied / throttled / timed-out API calls) are
+			// coverage, not failed tool runs: the per-account run already reports them.
+			sopts2.CollectErrors = append(sopts2.CollectErrors, res.CollectErrors()...)
+			sopts2.Targets = append(sopts2.Targets, nativeTargets(specs, res.Runs)...)
 		}
 		for _, a := range accts {
 			acct := *a
@@ -164,8 +227,18 @@ func runScan(cmd *cobra.Command, args []string) error {
 		iacPaths = cfg.Scan.IaCPaths
 	}
 	for _, p := range iacPaths {
-		fs, err := iac.ScanTerraform(p, now)
-		if err != nil {
+		ires, err := iac.ScanTerraformResult(p, now)
+		fs := ires.Findings
+		var unscanned *iac.UnscannedError
+		if errors.As(err, &unscanned) {
+			// Files that did not parse (or exceeded the parser limits) were not observed:
+			// their stored findings must not resolve, and their IAC_PARSE_LIMIT findings
+			// count toward --fail-on (failOn).
+			for _, f := range ires.UnscannedFiles {
+				logf("  ✗ iac %s: %s not scanned: %s", p, f, ires.UnscannedReasons[f])
+				sopts2.SkipFiles = append(sopts2.SkipFiles, store.FileScope{Root: filepath.Clean(p), File: f})
+			}
+		} else if err != nil {
 			logf("iac %s: %v", p, err)
 		}
 		if scanFlags.changedOnly {
@@ -173,10 +246,19 @@ func runScan(cmd *cobra.Command, args []string) error {
 		}
 		for i := range fs {
 			fs[i].ScanID = scanID
+			tagRoot(&fs[i], p)
 		}
 		adapters.Finalize(fs, adapters.Options{Now: now, Account: "iac"})
 		all = append(all, fs...)
-		sum.Tools = append(sum.Tools, model.ToolRun{Tool: "nimbus-iac", Account: p, Status: "ok", Findings: len(fs)})
+		run := model.ToolRun{Tool: "nimbus-iac", Account: p, Status: "ok", Findings: len(fs)}
+		if err == nil || unscanned != nil {
+			// The root was examined; unscanned files are excluded via SkipFiles.
+			sopts2.Targets = append(sopts2.Targets, store.Target{Source: iacSource, AccountLabel: "iac", Root: filepath.Clean(p)})
+		}
+		if unscanned != nil {
+			run.Status, run.Message = "partial", unscanned.Error()
+		}
+		sum.Tools = append(sum.Tools, run)
 		inv, _ := iac.Inventory(p)
 		kinds := []string{}
 		for k, files := range inv {
@@ -189,6 +271,12 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if len(iacPaths) > 0 {
 		for _, o := range scanner.RunIaC(ctx, iacPaths, sopts) {
 			fs := ingestOutput(o, "iac", "", scanID, now, &sum)
+			for i := range fs {
+				tagRoot(&fs[i], o.Root)
+				// External tools report root-relative files too: qualify their ids by
+				// root, so identical files under two roots never share a finding.
+				fs[i].ID = rootScopedID(fs[i].ID, o.Root)
+			}
 			if scanFlags.changedOnly {
 				fs = filterChanged(fs, ".")
 			}
@@ -203,12 +291,23 @@ func runScan(cmd *cobra.Command, args []string) error {
 		sum.Tools = append(sum.Tools, runs...)
 	}
 
+	if len(sum.Tools) == 0 && len(all) == 0 {
+		// Delta review 2 #11: nothing was examined, so "0 open findings" would be a false
+		// "clean". Exit 2 before anything is stored; --fail-on never passes this.
+		nothingScanned("nothing scanned: no accounts configured, no IaC root and no tool ran; run `cloud-posture onboard` or pass --iac <dir>")
+	}
 	all = dedupe(all)
-	res, err := finishScan(ctx, cfg, all, g, signals, sum, scanFlags.noStore)
+	res, err := finishScanWith(ctx, cfg, all, g, signals, sum, sopts2)
 	if err != nil {
 		return err
 	}
 	if err := emit(res, scanFlags.out, scanFlags.outFile, scanFlags.sarif, scanFlags.limit); err != nil {
+		return err
+	}
+	if scanFlags.diff {
+		printDiff(diffWriter(scanFlags.out, scanFlags.outFile), res)
+	}
+	if err := writeDiffJSON(scanFlags.diffJSON, res); err != nil {
 		return err
 	}
 	if scanFlags.alert && !scanFlags.noStore {
@@ -219,7 +318,59 @@ func runScan(cmd *cobra.Command, args []string) error {
 			logf("alerts: %d results", len(results))
 		}
 	}
-	return failOn(res.Findings, scanFlags.failOn)
+	return failOnWith(res.Findings, scanFlags.failOn, !scanFlags.noFailUnscanned())
+}
+
+// nothingScanned reports a run that examined nothing and exits 2 (the --fail-on exit code):
+// a scan or ingest with no input must never read as a clean result.
+func nothingScanned(msg string) {
+	fmt.Fprintln(os.Stderr, "✗ "+msg)
+	os.Exit(2)
+}
+
+// emptyIngestInputs lists the ingest arguments that held nothing: a file that is empty or
+// whitespace, a JSON document with no records ([] / {} / null), a file an adapter parsed to
+// zero findings, or a directory with no JSON files. Unparseable input is not "empty".
+func emptyIngestInputs(args []string, runs []model.ToolRun) []string {
+	var out []string
+	for _, a := range args {
+		st, err := os.Stat(a)
+		if err != nil {
+			continue
+		}
+		if st.IsDir() {
+			n := 0
+			filepath.WalkDir(a, func(p string, d os.DirEntry, err error) error {
+				if err == nil && !d.IsDir() {
+					switch strings.ToLower(filepath.Ext(p)) {
+					case ".json", ".js", ".jsonl":
+						n++
+					}
+				}
+				return nil
+			})
+			if n == 0 {
+				out = append(out, a)
+			}
+			continue
+		}
+		if st.Size() <= 1<<16 {
+			if b, err := os.ReadFile(a); err == nil {
+				switch strings.TrimSpace(string(b)) {
+				case "", "[]", "{}", "null":
+					out = append(out, a)
+					continue
+				}
+			}
+		}
+		for _, r := range runs {
+			if r.Output == a && r.Status == "ok" && r.Findings == 0 {
+				out = append(out, a)
+				break
+			}
+		}
+	}
+	return out
 }
 
 func ingestOutput(o scanner.Output, account, provider, scanID string, now time.Time, sum *model.ScanSummary) []model.Finding {
@@ -345,17 +496,45 @@ func filterChanged(fs []model.Finding, root string) []model.Finding {
 
 // finishScan persists findings, builds the graph, attack paths, risk ranking and cost report.
 func finishScan(ctx context.Context, cfg *config.Config, all []model.Finding, g *graph.Graph, signals []collector.CostSignal, sum model.ScanSummary, noStore bool) (*scanResult, error) {
+	return finishScanWith(ctx, cfg, all, g, signals, sum, scanOptions{NoStore: noStore})
+}
+
+// scanOptions carries what finishScanWith needs beyond the findings themselves.
+type scanOptions struct {
+	NoStore bool
+	// ChangedOnly scans saw only changed IaC files, so IaC findings are never resolved by absence.
+	ChangedOnly bool
+	// CollectErrors are the native collectors' partial failures (coverage rows, and
+	// their provider's native findings are not resolved by absence this scan).
+	CollectErrors []collector.CollectError
+	// Providers maps configured account names to providers for coverage rows.
+	Providers map[string]string
+	// Targets are what the scan declared it examined in full (IaC roots, native
+	// accounts that ran clean); their stored findings resolve by absence even when the
+	// target produced no findings at all this time.
+	Targets []store.Target
+	// SkipFiles are IaC files under a declared root that could not be parsed: their
+	// stored findings are never resolved by absence.
+	SkipFiles []store.FileScope
+}
+
+func finishScanWith(ctx context.Context, cfg *config.Config, all []model.Finding, g *graph.Graph, signals []collector.CostSignal, sum model.ScanSummary, opts scanOptions) (*scanResult, error) {
+	noStore := opts.NoStore
 	g.AttachFindings(all)
+	// The accounts this scan itself observed (collector graph + its own findings), before
+	// stored findings of other accounts are attached: the path-Issue rebuild is scoped to them.
+	observed := graphAccounts(g)
+	attackpath.AnnotateExposure(g, trustedCIDRs(cfg))
 	res := &scanResult{Findings: all, Graph: g, Summary: sum}
 	rules, _ := attackpath.LoadRules(nil)
 	if noStore {
-		rulePaths := attackpath.Evaluate(all, rules)
-		opts := attackpath.DefaultTraversalOptions()
-		opts.CrownJewels = crownJewels(cfg)
-		an := attackpath.Traverse(g, opts)
+		rulePaths := attackpath.EvaluateWith(all, rules, evalOptionsFor(cfg, g))
+		an := attackpath.Traverse(g, traversalOptionsFor(cfg, g, all))
 		an.Paths = attackpath.Merge(an.Paths, rulePaths)
+		relinkSecurityGroupDeadEnds(an, g)
 		res.Paths, res.Analysis = an.Paths, an
-		res.Risk = risk.Prioritize(all, g, res.Paths, risk.DefaultWeights, 50, time.Now())
+		res.Risk = prioritizeBest(ctx, cfg, nil, all, g, an, 50)
+		governFindingRanked(cfg, res.Risk)
 		res.Summary = summarize(res.Summary, all, res.Paths)
 		return res, nil
 	}
@@ -364,15 +543,25 @@ func finishScan(ctx context.Context, cfg *config.Config, all []model.Finding, g 
 		return nil, err
 	}
 	defer st.Close()
-	if err := st.UpsertFindings(all); err != nil {
+	now := time.Now().UTC()
+	scopes, err := lifecycleScopes(st, all, opts)
+	if err != nil {
 		return nil, err
 	}
+	diff, err := st.ApplyScan(sum.ScanID, all, now, scopes)
+	if err != nil {
+		return nil, err
+	}
+	res.Diff = diff
 	// Findings from earlier scans still count for the graph and paths.
 	stored, err := st.Findings(store.Filter{})
 	if err != nil {
 		return nil, err
 	}
 	g.AttachFindings(stored)
+	// Label internet edges wide / narrow / trusted against trusted_cidrs before the graph is
+	// stored, so every later reader (paths, serve, dashboard) sees the same exposure.
+	attackpath.AnnotateExposure(g, trustedCIDRs(cfg))
 	if err := saveGraph(st, g); err != nil {
 		return nil, err
 	}
@@ -380,24 +569,74 @@ func finishScan(ctx context.Context, cfg *config.Config, all []model.Finding, g 
 	if err != nil {
 		return nil, err
 	}
-	res.Findings, res.Paths, res.Analysis = stored, paths, an
-	res.Risk = prioritizeBest(ctx, cfg, st, stored, g, paths, 50)
+	ranked := rankAll(ctx, cfg, stored, g, paths, an)
+	pathRes, err := rebuildIssueViews(st, sum.ScanID, ranked, an, observedScope(observed, g), now)
+	if err != nil {
+		return nil, err
+	}
+	// Owners and due dates for every Issue (re-resolved each run), then the ranking reads them.
+	governIssueViews(cfg, st, g)
+	governStoredRanked(st, ranked)
+	res.PathIssues = pathRes
+	if err := st.RecordCoverage(sum.ScanID, now, coverageEntries(sum.Tools, opts)); err != nil {
+		return nil, err
+	}
+	res.DiffFindings = map[string]model.Finding{}
+	for _, ids := range [][]string{diff.New, diff.Resolved, diff.Reopened} {
+		for _, id := range ids {
+			if f, err := st.Finding(id); err == nil {
+				res.DiffFindings[id] = *f
+			}
+		}
+	}
+	// Gates, SARIF/JSON output and --alert act on this scan only (inventory defect 8); the graph,
+	// attack paths and risk ranking above still use the full stored history.
+	current, err := st.Findings(store.Filter{ScanID: sum.ScanID})
+	if err != nil {
+		return nil, err
+	}
+	res.Findings, res.Paths, res.Analysis = current, paths, an
+	if err := writeRiskJSON(st, ranked); err != nil {
+		logf("risk.json: %v", err)
+	}
+	res.Risk = topN(ranked, 50)
 	if len(signals) > 0 {
 		cr := cost.Analyze(signals, g, paths, cost.Options{Findings: stored})
 		res.Cost = &cr
 		data, _ := json.Marshal(signals)
-		os.MkdirAll(".cloud-posture", 0o755)
-		os.WriteFile(filepath.Join(".cloud-posture", "cost-signals.json"), data, 0o644)
+		os.MkdirAll(stateDir(), 0o755)
+		os.WriteFile(filepath.Join(stateDir(), "cost-signals.json"), data, 0o644)
 		if cj, err := cr.JSON(); err == nil {
-			os.WriteFile(filepath.Join(".cloud-posture", "cost-report.json"), cj, 0o644)
+			os.WriteFile(filepath.Join(stateDir(), "cost-report.json"), cj, 0o644)
 		}
 	}
-	res.Summary = summarize(res.Summary, stored, paths)
+	res.Summary = summarize(res.Summary, current, paths)
 	res.Summary.FinishedAt = time.Now().UTC()
 	if err := st.SaveScan(res.Summary); err != nil {
 		return nil, err
 	}
+	if t, err := st.ScanTrendOf(res.Summary.ScanID); err == nil {
+		res.Trend = t
+	}
+	loadLifecycleViews(st, res)
 	return res, nil
+}
+
+// loadLifecycleViews fills the Issue, coverage and scan-history views of res (dashboard payload).
+func loadLifecycleViews(st *store.Store, res *scanResult) {
+	if is, err := st.Issues(store.IssueFilter{}); err == nil {
+		res.Issues = is
+	}
+	if h, err := st.Headline(); err == nil {
+		res.Headline = h
+	}
+	res.DBPath = st.Path()
+	if cov, err := st.Coverage(""); err == nil {
+		res.Coverage = cov
+	}
+	if sc, err := server.ScanHistory(st, 100); err == nil {
+		res.Scans = sc
+	}
 }
 
 func summarize(sum model.ScanSummary, fs []model.Finding, paths []model.AttackPath) model.ScanSummary {
@@ -419,47 +658,73 @@ func summarize(sum model.ScanSummary, fs []model.Finding, paths []model.AttackPa
 	return sum
 }
 
-// prioritizeBest uses the Python model when available, else the Go formula.
-func prioritizeBest(ctx context.Context, cfg *config.Config, st *store.Store, fs []model.Finding, g *graph.Graph, paths []model.AttackPath, top int) []risk.Ranked {
-	ranked := risk.Prioritize(fs, g, paths, risk.DefaultWeights, 0, time.Now())
-	if exe := python(cfg); exe != "" && st != nil {
-		out, err := runPython(ctx, exe, []string{"CLOUD_POSTURE_DB=" + st.Path()}, "-m", "nimbus.risk", "--db", st.Path(), "--top", fmt.Sprint(max(top, 1)), "--json")
-		if err == nil {
-			var py []struct {
-				FindingID string   `json:"finding_id"`
-				Score     float64  `json:"risk_score"`
-				Reasons   []string `json:"reasons"`
-			}
-			if json.Unmarshal(out, &py) == nil && len(py) > 0 {
-				byID := map[string]risk.Ranked{}
-				for _, r := range ranked {
-					byID[r.Finding.ID] = r
-				}
-				var merged []risk.Ranked
-				for _, p := range py {
-					r, ok := byID[p.FindingID]
-					if !ok {
-						continue
-					}
-					r.Score = float64(int(p.Score))/10 // python scores 0-100 → 1-10 band scale
-					if r.Score < 1 {
-						r.Score = 1
-					}
-					if len(p.Reasons) > 0 {
-						r.Reasons = p.Reasons
-					}
-					merged = append(merged, r)
-				}
-				if len(merged) > 0 {
-					return merged
-				}
-			}
-		}
+// rankAll is the one published score (internal/risk, docs/scoring.md) over every failing
+// finding, with the KEV/EPSS feed and config crown jewels. Python never re-scores: it reads
+// the risk.json this writes (writeRiskJSON).
+// an is the traversal analysis behind paths (nil = paths alone): its ReachesCrownJewel and
+// Exposures feed the off-path cap (risk.Options.Analysis).
+func rankAll(ctx context.Context, cfg *config.Config, fs []model.Finding, g *graph.Graph, paths []model.AttackPath, an *attackpath.Analysis) []risk.Ranked {
+	o := riskOptions(ctx, cfg)
+	o.Analysis = an
+	return risk.PrioritizeWith(fs, g, paths, o)
+}
+
+// prioritizeBest returns the top ranked findings (0 = all). With a store, owner / SLA / due
+// come from the governance assignment of the Issue carrying each finding (one due date).
+func prioritizeBest(ctx context.Context, cfg *config.Config, st *store.Store, fs []model.Finding, g *graph.Graph, an *attackpath.Analysis, top int) []risk.Ranked {
+	var paths []model.AttackPath
+	if an != nil {
+		paths = an.Paths
 	}
-	if top > 0 && len(ranked) > top {
-		ranked = ranked[:top]
-	}
+	ranked := topN(rankAll(ctx, cfg, fs, g, paths, an), top)
+	governStoredRanked(st, ranked)
 	return ranked
+}
+
+func topN(r []risk.Ranked, n int) []risk.Ranked {
+	if n > 0 && len(r) > n {
+		return r[:n]
+	}
+	return r
+}
+
+// riskJSONPath is <db>.risk.json beside the posture database, where python/nimbus/risk.py
+// looks: one ranking per database, so two DBs in one directory never share or overwrite it.
+func riskJSONPath(st *store.Store) string { return st.Path() + ".risk.json" }
+
+// writeRiskJSON persists the full Go ranking (risk.Ranked JSON with score_version and
+// explanation) atomically, so the Python layer and reports show Go's numbers.
+func writeRiskJSON(st *store.Store, ranked []risk.Ranked) error {
+	if st == nil {
+		return nil
+	}
+	out := make([]risk.Ranked, len(ranked))
+	copy(out, ranked)
+	for i := range out {
+		out[i].Finding.Raw = nil
+	}
+	if out == nil {
+		out = []risk.Ranked{}
+	}
+	data, err := json.Marshal(out)
+	if err != nil {
+		return err
+	}
+	path := riskJSONPath(st)
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".risk-*.json")
+	if err != nil {
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmp.Name())
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 func emit(res *scanResult, format, outFile, sarifPath string, limit int) error {
@@ -480,14 +745,27 @@ func emit(res *scanResult, format, outFile, sarifPath string, limit int) error {
 	}
 	switch format {
 	case "json":
-		return output.JSON(w, map[string]any{"scan": res.Summary, "findings": res.Findings, "attack_paths": res.Paths, "analysis": res.Analysis, "risk": res.Risk, "cost": res.Cost})
+		doc := map[string]any{"scan": res.Summary, "findings": res.Findings, "attack_paths": res.Paths, "analysis": res.Analysis, "risk": res.Risk, "cost": res.Cost}
+		if res.Diff != nil {
+			doc["diff"] = res.Diff
+		}
+		return output.JSON(w, doc)
 	case "sarif":
 		return output.JSON(w, output.SARIF(res.Findings))
+	case "ocsf", "asff", "gitlab", "junit", "csv":
+		// The interop formats of internal/output (OCSF 1.6, ASFF, GitLab SAST v15, JUnit,
+		// formula-safe CSV); the same renderer as `cloud-posture convert`.
+		b, err := output.Render(res.Findings, format)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(b)
+		return err
 	case "markdown", "md":
 		fmt.Fprint(w, output.PRMarkdown(res.Findings, res.Paths, 30))
 		return nil
 	case "summary":
-		output.Summary(w, res.Findings, res.Paths)
+		printScanSummary(w, res)
 		return nil
 	case "dashboard", "html":
 		path := outFile
@@ -502,11 +780,11 @@ func emit(res *scanResult, format, outFile, sarifPath string, limit int) error {
 		if err := os.WriteFile(path, html, 0o644); err != nil {
 			return err
 		}
-		output.Summary(os.Stdout, res.Findings, res.Paths)
+		printScanSummary(os.Stdout, res)
 		abs, _ := filepath.Abs(path)
 		fmt.Printf("\nView dashboard: file://%s\nLive mode:      cloud-posture serve\n", abs)
 		return nil
-	default:
+	case "table", "":
 		var fails []model.Finding
 		for _, f := range res.Findings {
 			if f.Status == model.Fail {
@@ -514,7 +792,7 @@ func emit(res *scanResult, format, outFile, sarifPath string, limit int) error {
 			}
 		}
 		output.Table(w, fails, limit)
-		output.Summary(w, res.Findings, res.Paths)
+		printScanSummary(w, res)
 		if res.Analysis != nil && len(res.Analysis.BreakFixes) > 0 {
 			fmt.Fprintln(w, "\nBreak the path (top fixes):")
 			for i, fx := range res.Analysis.BreakFixes {
@@ -525,13 +803,20 @@ func emit(res *scanResult, format, outFile, sarifPath string, limit int) error {
 			}
 		}
 		if len(res.Risk) > 0 {
-			fmt.Fprintf(w, "\nTop risk: %.1f %s — %s on %s (%s)\n", res.Risk[0].Score, res.Risk[0].Band, res.Risk[0].Finding.CanonicalID, res.Risk[0].Finding.Resource.Name, strings.Join(res.Risk[0].Reasons, "; "))
+			// A finding's contextual risk score, not an Issue count: say so, and name its severity
+			// (the headline counts Issues by severity), so "0 critical" never sits beside an
+			// unlabelled "9.8 Critical" (r4 N9).
+			r := res.Risk[0]
+			fmt.Fprintf(w, "\nTop-ranked finding: %s on %s — risk score %.1f of 10 (severity %s; Issue counts above are by severity; why: %s)\n",
+				r.Finding.CanonicalID, firstNonEmpty(r.Finding.Resource.Name, r.Finding.Resource.ID), r.Score, r.Finding.Severity, strings.Join(r.Reasons, "; "))
 		}
 		if res.Cost != nil {
 			fmt.Fprintln(w)
 			fmt.Fprint(w, res.Cost.Text())
 		}
 		return nil
+	default:
+		return fmt.Errorf("unknown output format %q (table|json|sarif|ocsf|asff|gitlab|junit|csv|dashboard|markdown|summary)", format)
 	}
 }
 
@@ -557,25 +842,173 @@ func renderDashboard(res *scanResult, mode, copilot string) ([]byte, error) {
 		gj = res.Graph.JSON()
 	}
 	sum := res.Summary
-	return dashboard.Render(dashboard.Data{Mode: mode, Accounts: sum.Accounts, Findings: res.Findings, Paths: res.Paths, Analysis: res.Analysis, Graph: gj, Risk: res.Risk, Compliance: reports, Cost: costAny, Scan: &sum, CopilotURL: copilot})
+	issues, coverage, scans := res.Issues, res.Coverage, res.Scans
+	if issues == nil {
+		issues = []model.Issue{}
+	}
+	if coverage == nil {
+		coverage = []store.CoverageEntry{}
+	}
+	if scans == nil {
+		scans = []model.ScanSummary{}
+	}
+	groups, titles := dashboardPathGroups(res)
+	return dashboard.Render(dashboard.Data{Mode: mode, Accounts: sum.Accounts, Findings: res.Findings, Paths: res.Paths, Analysis: res.Analysis, Graph: gj, Risk: res.Risk, Compliance: reports, Cost: costAny, Scan: &sum, CopilotURL: copilot,
+		Issues: issues, Coverage: coverage, Scans: scans, IssuePages: dashboardIssuePages(res), Governance: dashboardGovernance(res), Headline: dashHeadline(res),
+		PathGroups: groups, PathTitles: titles})
+}
+
+// dashboardPathGroups is the paths view's rows under the stored (keyed) Issue ids, so a row links
+// to its Issue page (MCP-1: ids are HMAC-keyed per database). nil without a store: Render then
+// groups the in-memory paths itself.
+func dashboardPathGroups(res *scanResult) ([]dashboard.PathGroupRow, map[string]string) {
+	var st *store.Store
+	if len(res.Issues) > 0 {
+		if s, err := openStore(); err == nil {
+			st = s
+			defer st.Close()
+		}
+	}
+	// One title and one order with `paths`, `plan`, `issues` and the API (W6-POLISH, r4 #4).
+	view := newPathIssueView(st, res.Graph)
+	titles := map[string]string{}
+	for _, p := range res.Paths {
+		titles[p.ID] = view.Row(p)
+	}
+	if st == nil {
+		return nil, titles
+	}
+	groups := pathGroupsOf(res)
+	view.SortGroups(groups)
+	rows := dashboard.PathGroupRows(groups)
+	for i := range rows {
+		rows[i].IssueID = view.IssueID(groups[i].Best)
+		rows[i].Name = view.Title(groups[i].Best)
+	}
+	return rows, titles
+}
+
+// dashboardGovernance is the owners panel's metrics (nil without a store or Issues).
+func dashboardGovernance(res *scanResult) any {
+	if len(res.Issues) == 0 {
+		return nil
+	}
+	st, err := openStore()
+	if err != nil {
+		return nil
+	}
+	defer st.Close()
+	m, err := server.BuildGovernanceMetrics(st, time.Now().UTC())
+	if err != nil {
+		logf("dashboard: governance metrics: %v", err)
+		return nil
+	}
+	return m
+}
+
+// dashIssuePage is the Issue pane's share of server.IssuePage: everything the payload does not
+// already carry (the Issue, its findings and the risk explanation are in the payload).
+type dashIssuePage struct {
+	Hops        []server.PageHop       `json:"hops"`
+	Paths       []server.PagePath      `json:"paths"`
+	Score       server.PageScore       `json:"score"`
+	Confidence  server.PageConfidence  `json:"confidence"`
+	Owner       server.PageOwner       `json:"owner"`
+	Linked      []server.LinkedIssue   `json:"linked_issues"`
+	Fixes       []server.PageFix       `json:"fixes"`
+	Tickets     []server.PageTicket    `json:"tickets"`
+	Timeline    []server.TimelineEntry `json:"timeline"`
+	Suppression server.PageSuppression `json:"suppression"`
+}
+
+// dashboardIssuePages builds the Issue pages of res's Issues from the store (nil without a
+// store or without Issues; the pane then falls back to what the payload has).
+func dashboardIssuePages(res *scanResult) map[string]dashIssuePage {
+	if len(res.Issues) == 0 {
+		return nil
+	}
+	st, err := openStore()
+	if err != nil {
+		return nil
+	}
+	defer st.Close()
+	cfg, _ := config.Load(flagConfig)
+	ctx := context.Background()
+	o := server.IssuePageOptions{Graph: res.Graph, Paths: res.Paths, Analysis: res.Analysis, Issues: res.Issues, Risk: riskOptions(ctx, cfg)}
+	o.Risk.Analysis = res.Analysis
+	if o.Paths == nil {
+		o.Paths = []model.AttackPath{}
+	}
+	pages, err := server.BuildIssuePages(st, o)
+	if err != nil {
+		logf("dashboard: issue pages: %v", err)
+		return nil
+	}
+	out := make(map[string]dashIssuePage, len(pages))
+	for id, pg := range pages {
+		sc := pg.Score
+		sc.Explanation = nil
+		out[id] = dashIssuePage{Hops: pg.Hops, Paths: pg.Paths, Score: sc, Confidence: pg.Confidence, Owner: pg.Owner, Linked: pg.Linked,
+			Fixes: pg.Fixes, Tickets: pg.Tickets, Timeline: pg.Timeline, Suppression: pg.Suppression}
+	}
+	return out
 }
 
 func failOn(fs []model.Finding, sev string) error {
+	return failOnWith(fs, sev, true)
+}
+
+// failOnWith is the --fail-on gate. With unscanned=true (the default; --fail-on-unscanned)
+// a scan gap — an IaC file that could not be parsed (IAC_PARSE_LIMIT, ERROR status) — blocks
+// the gate at EVERY threshold (output.GateBlocks; main-session decision after V3-cli): whatever
+// the file contains was not examined, so `--fail-on critical` must not let a PR hide a public
+// bucket behind a parse error. --fail-on-unscanned=false is the explicit opt-out.
+func failOnWith(fs []model.Finding, sev string, unscanned bool) error {
 	if sev == "" {
 		return nil
 	}
-	min := model.ParseSeverity(sev)
-	n := 0
-	for _, f := range fs {
-		if f.Status == model.Fail && f.Severity.Rank() >= min.Rank() {
-			n++
+	n, gaps := gateCounts(fs, sev, unscanned)
+	if n+gaps > 0 {
+		msg := fmt.Sprintf("✗ %d open finding(s) at or above %s", n, model.ParseSeverity(sev))
+		if gaps > 0 {
+			msg += fmt.Sprintf(" and %d IaC file(s) not scanned (a scan gap blocks every --fail-on threshold; --fail-on-unscanned=false to ignore)", gaps)
 		}
-	}
-	if n > 0 {
-		fmt.Fprintf(os.Stderr, "✗ %d open finding(s) at or above %s\n", n, min)
+		fmt.Fprintln(os.Stderr, msg)
 		os.Exit(2)
 	}
 	return nil
+}
+
+// gateCount is the number of findings that fail the --fail-on gate (output.GateCount
+// semantics: failing findings at or above sev plus every scan gap).
+func gateCount(fs []model.Finding, sev string) int {
+	n, gaps := gateCounts(fs, sev, true)
+	return n + gaps
+}
+
+// gateCounts splits the gate into failing findings at or above sev and scan gaps; gaps
+// count at every threshold when unscanned is set (output.GateBlocks), never otherwise.
+func gateCounts(fs []model.Finding, sev string, unscanned bool) (n, gaps int) {
+	if sev == "" {
+		return 0, 0
+	}
+	for _, f := range fs {
+		switch {
+		case isScanGap(f):
+			if unscanned {
+				gaps++
+			}
+		case output.GateBlocks(f, sev):
+			n++
+		}
+	}
+	return n, gaps
+}
+
+// isScanGap reports a finding that marks unexamined input (output.TagScanGap, or an
+// IAC_PARSE_LIMIT finding from a DB written before the tag existed).
+func isScanGap(f model.Finding) bool {
+	return output.IsScanGap(f) || (f.CanonicalID == "IAC_PARSE_LIMIT" && f.Status != model.Pass)
 }
 
 // ---------------------------------------------------------------- ingest
@@ -583,6 +1016,8 @@ func failOn(fs []model.Finding, sev string) error {
 var ingestFlags struct {
 	source, account string
 	out             string
+	diff            bool
+	diffJSON        string
 }
 
 var ingestCmd = &cobra.Command{
@@ -605,14 +1040,41 @@ var ingestCmd = &cobra.Command{
 			all = append(all, fs...)
 			sum.Tools = append(sum.Tools, runs...)
 		}
+		var dropped int
+		all, dropped = dropEmptyRecords(all)
+		if len(all) == 0 && dropped > 0 {
+			nothingScanned(fmt.Sprintf("nothing to ingest: %s held %d record(s) with no check, resource, file or title (an empty record is not a finding)", strings.Join(args, ", "), dropped))
+		}
+		if dropped > 0 {
+			logf("ingest: skipped %d empty record(s) (no check, resource, file or title)", dropped)
+		}
 		if len(all) == 0 {
+			if empty := emptyIngestInputs(args, sum.Tools); len(empty) > 0 {
+				nothingScanned(fmt.Sprintf("nothing to ingest: %s contains no findings (an empty export is not a clean result; check the scanner run that produced it)", strings.Join(empty, ", ")))
+			}
+			var why []string
+			for _, r := range sum.Tools {
+				if r.Status == "failed" && r.Message != "" {
+					why = append(why, r.Account+": "+r.Message)
+				}
+			}
+			if len(why) > 0 {
+				return fmt.Errorf("no findings parsed (use --source to force a format): %s", strings.Join(why, "; "))
+			}
 			return fmt.Errorf("no findings parsed (use --source to force a format)")
 		}
 		res, err := finishScan(ctx, cfg, dedupe(all), graph.New(), nil, sum, false)
 		if err != nil {
 			return err
 		}
-		return emit(res, ingestFlags.out, "", "", 40)
+		res.Verb = "Ingest"
+		if err := emit(res, ingestFlags.out, "", "", 40); err != nil {
+			return err
+		}
+		if ingestFlags.diff {
+			printDiff(diffWriter(ingestFlags.out, ""), res)
+		}
+		return writeDiffJSON(ingestFlags.diffJSON, res)
 	},
 }
 
@@ -620,6 +1082,8 @@ func init() {
 	ingestCmd.Flags().StringVar(&ingestFlags.source, "source", "", "force adapter: prowler|scoutsuite|checkov|trivy|steampipe|native")
 	ingestCmd.Flags().StringVar(&ingestFlags.account, "account", "", "account label to attach")
 	ingestCmd.Flags().StringVarP(&ingestFlags.out, "output", "o", "summary", "table|json|summary|dashboard")
+	ingestCmd.Flags().BoolVar(&ingestFlags.diff, "diff", false, "print new / resolved / reopened findings compared with earlier scans")
+	ingestCmd.Flags().StringVar(&ingestFlags.diffJSON, "diff-json", "", "write the --diff change set as JSON to this file (\"-\" = stdout)")
 }
 
 // ---------------------------------------------------------------- dashboard
@@ -683,13 +1147,12 @@ func loadResult(ctx context.Context, cfg *config.Config) (*scanResult, *store.St
 		g.AttachFindings(fs)
 	}
 	paths, _ := st.AttackPaths()
-	opts := attackpath.DefaultTraversalOptions()
-	opts.CrownJewels = crownJewels(cfg)
-	an := attackpath.Traverse(g, opts)
+	an := attackpath.Traverse(g, traversalOptionsFor(cfg, g, fs))
 	an.Paths = attackpath.Merge(an.Paths, paths)
+	relinkSecurityGroupDeadEnds(an, g)
 	res := &scanResult{Findings: fs, Graph: g, Paths: an.Paths, Analysis: an}
-	res.Risk = prioritizeBest(ctx, cfg, st, fs, g, an.Paths, 50)
-	if data, err := os.ReadFile(filepath.Join(".cloud-posture", "cost-signals.json")); err == nil {
+	res.Risk = prioritizeBest(ctx, cfg, st, fs, g, an, 50)
+	if data, err := os.ReadFile(filepath.Join(stateDir(), "cost-signals.json")); err == nil {
 		var signals []collector.CostSignal
 		if json.Unmarshal(data, &signals) == nil && len(signals) > 0 {
 			cr := cost.Analyze(signals, g, an.Paths, cost.Options{Findings: fs})
@@ -700,5 +1163,120 @@ func loadResult(ctx context.Context, cfg *config.Config) (*scanResult, *store.St
 		res.Summary = *last
 	}
 	res.Summary = summarize(res.Summary, fs, an.Paths)
+	loadLifecycleViews(st, res)
 	return res, st, nil
+}
+
+// dropEmptyRecords removes records that carry nothing a finding needs (no check id, canonical id,
+// resource, file or title): a native `{}` / `[{}]` is not a finding (Verification 5 C5).
+func dropEmptyRecords(fs []model.Finding) ([]model.Finding, int) {
+	out := fs[:0:0]
+	n := 0
+	for _, f := range fs {
+		canonical := f.CanonicalID
+		if canonical == strings.ToUpper(f.Source)+":" { // Finalize's placeholder for no check id
+			canonical = ""
+		}
+		if strings.TrimSpace(f.CheckID+canonical+f.Resource.ID+f.Resource.Name+f.File+f.Title) == "" {
+			n++
+			continue
+		}
+		out = append(out, f)
+	}
+	return out, n
+}
+
+// printScanSummary is the summary of a scan / ingest (W5-ISSUES item 2, r3 E4–E6): the Issue
+// headline (store.Headline, the numbers every surface prints), then the findings as evidence,
+// the top path Issue and where the database is. --no-store runs have no Issues: they print the
+// path Issue count of the analysis and the findings.
+func printScanSummary(w io.Writer, res *scanResult) {
+	fails := 0
+	byProv := map[string]int{}
+	var gaps []string
+	for _, f := range res.Findings {
+		if output.IsScanGap(f) {
+			gaps = append(gaps, firstNonEmpty(f.File, f.Resource.Name))
+		}
+		if f.Status != model.Fail {
+			continue
+		}
+		fails++
+		byProv[f.Provider]++
+	}
+	verb := firstNonEmpty(res.Verb, "Scan")
+	fmt.Fprintf(w, "\n%s complete: %d open findings in %d results (scanner evidence).\n", verb, fails, len(res.Findings))
+	if len(gaps) > 0 {
+		fmt.Fprintf(w, "⚠ %d file(s) not scanned (they fail --fail-on): %s\n", len(gaps), strings.Join(gaps, ", "))
+	}
+	if h := res.Headline; h != nil {
+		fmt.Fprintln(w, h.Text())
+		if c := h.ClosureText(); c != "" {
+			fmt.Fprintf(w, "Closed / pending: %s\n", c)
+		}
+	} else if res.Analysis != nil || len(res.Paths) > 0 {
+		groups := pathGroupsOf(res)
+		crit := 0
+		for _, g := range groups {
+			if g.Band == "Critical" {
+				crit++
+			}
+		}
+		fmt.Fprintf(w, "%d attack path Issues (%d hop variants), %d critical; finding Issues need the store (results not stored)\n", len(groups), len(res.Paths), crit)
+	}
+	var provs []string
+	for p := range byProv {
+		provs = append(provs, p)
+	}
+	sort.Strings(provs)
+	var parts []string
+	for _, p := range provs {
+		parts = append(parts, fmt.Sprintf("%s=%d", p, byProv[p]))
+	}
+	if len(parts) > 0 {
+		fmt.Fprintf(w, "Findings by provider: %s\n", strings.Join(parts, "  "))
+	}
+	if top := topPathIssue(res); top != nil {
+		fmt.Fprintf(w, "Attack paths: top Issue %s %.1f %s — %s (cloud-posture issues show %s)\n", top.ID, top.Score, top.Band, top.Title, top.ID)
+	} else if len(res.Paths) > 0 {
+		fmt.Fprintf(w, "Attack paths: top %s → %s, score %.1f\n", res.Paths[0].Name, res.Paths[0].Impact, res.Paths[0].Score)
+	}
+	if res.DBPath != "" {
+		abs, err := filepath.Abs(res.DBPath)
+		if err != nil {
+			abs = res.DBPath
+		}
+		fmt.Fprintf(w, "Database: %s\n", abs)
+	}
+}
+
+// topPathIssue is the open path Issue with the best score (nil when none is stored).
+func topPathIssue(res *scanResult) *model.Issue {
+	var best *model.Issue
+	for i := range res.Issues {
+		is := &res.Issues[i]
+		if is.Kind != model.IssuePath || !model.IsActive(is.State) {
+			continue
+		}
+		if best == nil || is.Score > best.Score {
+			best = is
+		}
+	}
+	return best
+}
+
+// pathGroupsOf is the path Issues of an in-memory analysis (no store).
+func pathGroupsOf(res *scanResult) []attackpath.PathGroup {
+	if res.Analysis != nil && len(res.Analysis.Paths) > 0 {
+		return res.Analysis.Grouped()
+	}
+	return attackpath.GroupPaths(res.Paths)
+}
+
+// dashHeadline is the payload's headline (nil, i.e. JSON null, without a store).
+func dashHeadline(res *scanResult) any {
+	if res.Headline == nil {
+		return nil
+	}
+	return res.Headline
 }

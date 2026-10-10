@@ -1,0 +1,428 @@
+[
+  {
+    "AwsAccountId": "123456789012",
+    "CompanyName": "nimbus",
+    "Compliance": {
+      "RelatedRequirements": [
+        "cis_aws 2.1.4",
+        "nist_800_53 AC-3",
+        "nist_800_53 AC-6",
+        "nist_800_53 SC-7",
+        "soc2 CC6.1",
+        "soc2 CC6.6",
+        "soc2 C1.1"
+      ],
+      "Status": "FAILED"
+    },
+    "CreatedAt": "2026-10-01T08:30:00.000Z",
+    "Description": "Bucket pii-exports grants s3:GetObject to Principal \"*\".",
+    "FindingProviderFields": {
+      "Severity": {
+        "Label": "HIGH",
+        "Original": "HIGH"
+      },
+      "Types": [
+        "Software and Configuration Checks/AWS Security Best Practices/S3_PUBLIC_BUCKET"
+      ]
+    },
+    "GeneratorId": "prowler/s3_bucket_public_access",
+    "Id": "6f1c7d0f9a3e4b5c8d2e1f0a9b8c7d6e",
+    "ProductArn": "arn:aws:securityhub:us-east-1:123456789012:product/123456789012/default",
+    "ProductFields": {
+      "ProviderName": "nimbus",
+      "ProviderVersion": "0.1.0",
+      "nimbus/account": "123456789012",
+      "nimbus/canonical_id": "S3_PUBLIC_BUCKET",
+      "nimbus/check_id": "s3_bucket_public_access",
+      "nimbus/fingerprint": "6f1c7d0f9a3e4b5c8d2e1f0a9b8c7d6e",
+      "nimbus/provider": "aws",
+      "nimbus/region": "us-east-1",
+      "nimbus/resource_name": "pii-exports",
+      "nimbus/resource_type": "aws_s3_bucket",
+      "nimbus/scan_id": "scan-2026-10-09T12:00:00Z",
+      "nimbus/source": "prowler",
+      "nimbus/status": "FAIL",
+      "nimbus/tag/account_label": "aws-prod",
+      "nimbus/tag/service": "s3",
+      "nimbus/weaknesses": "PUBLIC_DATA_STORE"
+    },
+    "ProductName": "cloud-posture",
+    "RecordState": "ACTIVE",
+    "Remediation": {
+      "Recommendation": {
+        "Text": "Enable S3 Block Public Access on the bucket and account."
+      }
+    },
+    "Resources": [
+      {
+        "Details": {
+          "Other": {
+            "name": "pii-exports"
+          }
+        },
+        "Id": "arn:aws:s3:::pii-exports",
+        "Partition": "aws",
+        "Region": "us-east-1",
+        "Type": "AwsS3Bucket"
+      }
+    ],
+    "SchemaVersion": "2018-10-08",
+    "Severity": {
+      "Label": "HIGH",
+      "Original": "HIGH"
+    },
+    "Title": "S3 bucket allows public access",
+    "Types": [
+      "Software and Configuration Checks/AWS Security Best Practices/S3_PUBLIC_BUCKET"
+    ],
+    "UpdatedAt": "2026-10-09T12:00:00.000Z",
+    "Workflow": {
+      "Status": "NEW"
+    }
+  },
+  {
+    "AwsAccountId": "000000000000",
+    "CompanyName": "nimbus",
+    "Compliance": {
+      "RelatedRequirements": [
+        "cis_aws 5.2"
+      ],
+      "Status": "FAILED"
+    },
+    "CreatedAt": "2026-10-09T12:00:00.000Z",
+    "Description": "Ingress 0.0.0.0/0 on port 22 \u0026 3389 \u003cadmin\u003e.",
+    "FindingProviderFields": {
+      "Severity": {
+        "Label": "CRITICAL",
+        "Original": "CRITICAL"
+      },
+      "Types": [
+        "Software and Configuration Checks/AWS Security Best Practices/SG_OPEN_ADMIN_PORT"
+      ]
+    },
+    "GeneratorId": "checkov/CKV_AWS_24",
+    "Id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+    "ProductArn": "arn:aws:securityhub:us-east-1:000000000000:product/000000000000/default",
+    "ProductFields": {
+      "ProviderName": "nimbus",
+      "ProviderVersion": "0.1.0",
+      "nimbus/canonical_id": "SG_OPEN_ADMIN_PORT",
+      "nimbus/check_id": "CKV_AWS_24",
+      "nimbus/file": "infra/network.tf",
+      "nimbus/fingerprint": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "nimbus/line_end": "30",
+      "nimbus/line_start": "12",
+      "nimbus/provider": "aws",
+      "nimbus/resource_name": "aws_security_group.bastion",
+      "nimbus/resource_type": "aws_security_group",
+      "nimbus/source": "checkov",
+      "nimbus/status": "FAIL",
+      "nimbus/weaknesses": "PUBLIC_NETWORK_EXPOSURE"
+    },
+    "ProductName": "cloud-posture",
+    "RecordState": "ACTIVE",
+    "Remediation": {
+      "Recommendation": {
+        "Text": "Restrict ingress to 203.0.113.0/24."
+      }
+    },
+    "Resources": [
+      {
+        "Details": {
+          "Other": {
+            "file": "infra/network.tf:12-30",
+            "name": "aws_security_group.bastion"
+          }
+        },
+        "Id": "aws_security_group.bastion",
+        "Partition": "aws",
+        "Region": "us-east-1",
+        "Type": "AwsEc2SecurityGroup"
+      }
+    ],
+    "SchemaVersion": "2018-10-08",
+    "Severity": {
+      "Label": "CRITICAL",
+      "Original": "CRITICAL"
+    },
+    "Title": "Security group allows SSH/RDP from 0.0.0.0/0",
+    "Types": [
+      "Software and Configuration Checks/AWS Security Best Practices/SG_OPEN_ADMIN_PORT"
+    ],
+    "UpdatedAt": "2026-10-09T12:00:00.000Z",
+    "Workflow": {
+      "Status": "NEW"
+    }
+  },
+  {
+    "AwsAccountId": "000000000000",
+    "CompanyName": "nimbus",
+    "Compliance": {
+      "Status": "FAILED"
+    },
+    "CreatedAt": "2026-10-09T12:00:00.000Z",
+    "Description": "xz-utils backdoor (CVE-2024-3094)",
+    "FindingProviderFields": {
+      "Severity": {
+        "Label": "CRITICAL",
+        "Original": "CRITICAL"
+      },
+      "Types": [
+        "Software and Configuration Checks/Vulnerabilities/CVE"
+      ]
+    },
+    "GeneratorId": "trivy/CVE-2024-3094",
+    "Id": "11112222333344445555666677778888",
+    "ProductArn": "arn:aws:securityhub:us-east-1:000000000000:product/000000000000/default",
+    "ProductFields": {
+      "ProviderName": "nimbus",
+      "ProviderVersion": "0.1.0",
+      "nimbus/account": "prod-cluster",
+      "nimbus/canonical_id": "CVE_VULNERABILITY",
+      "nimbus/check_id": "CVE-2024-3094",
+      "nimbus/fingerprint": "11112222333344445555666677778888",
+      "nimbus/provider": "kubernetes",
+      "nimbus/resource_name": "payments/api",
+      "nimbus/resource_type": "kubernetes_deployment",
+      "nimbus/source": "trivy",
+      "nimbus/status": "FAIL",
+      "nimbus/tag/cvss": "10.0",
+      "nimbus/tag/pkg": "xz-utils",
+      "nimbus/tag/primary_url": "https://avd.aquasec.com/nvd/cve-2024-3094",
+      "nimbus/weaknesses": "UNPATCHED"
+    },
+    "ProductName": "cloud-posture",
+    "RecordState": "ACTIVE",
+    "Resources": [
+      {
+        "Details": {
+          "Other": {
+            "account": "prod-cluster",
+            "name": "payments/api",
+            "provider": "kubernetes"
+          }
+        },
+        "Id": "payments/deployment/api",
+        "Type": "Container"
+      }
+    ],
+    "SchemaVersion": "2018-10-08",
+    "Severity": {
+      "Label": "CRITICAL",
+      "Original": "CRITICAL"
+    },
+    "SourceUrl": "https://avd.aquasec.com/nvd/cve-2024-3094",
+    "Title": "xz-utils backdoor (CVE-2024-3094)",
+    "Types": [
+      "Software and Configuration Checks/Vulnerabilities/CVE"
+    ],
+    "UpdatedAt": "2026-10-09T12:00:00.000Z",
+    "Vulnerabilities": [
+      {
+        "Cvss": [
+          {
+            "BaseScore": 10,
+            "Version": "3.1"
+          }
+        ],
+        "Id": "CVE-2024-3094",
+        "ReferenceUrls": [
+          "https://avd.aquasec.com/nvd/cve-2024-3094"
+        ]
+      }
+    ],
+    "Workflow": {
+      "Status": "NEW"
+    }
+  },
+  {
+    "AwsAccountId": "123456789012",
+    "CompanyName": "nimbus",
+    "Compliance": {
+      "Status": "PASSED"
+    },
+    "CreatedAt": "2026-10-09T12:00:00.000Z",
+    "Description": "KMS key rotation disabled",
+    "FindingProviderFields": {
+      "Severity": {
+        "Label": "MEDIUM",
+        "Original": "MEDIUM"
+      },
+      "Types": [
+        "Software and Configuration Checks/AWS Security Best Practices/KMS_ROTATION_DISABLED"
+      ]
+    },
+    "GeneratorId": "prowler/kms_cmk_rotation_enabled",
+    "Id": "99990000aaaabbbbccccddddeeeeffff",
+    "ProductArn": "arn:aws:securityhub:eu-west-1:123456789012:product/123456789012/default",
+    "ProductFields": {
+      "ProviderName": "nimbus",
+      "ProviderVersion": "0.1.0",
+      "nimbus/account": "123456789012",
+      "nimbus/canonical_id": "KMS_ROTATION_DISABLED",
+      "nimbus/check_id": "kms_cmk_rotation_enabled",
+      "nimbus/fingerprint": "99990000aaaabbbbccccddddeeeeffff",
+      "nimbus/provider": "aws",
+      "nimbus/region": "eu-west-1",
+      "nimbus/resource_name": "2222",
+      "nimbus/resource_type": "aws_kms_key",
+      "nimbus/source": "prowler",
+      "nimbus/status": "PASS"
+    },
+    "ProductName": "cloud-posture",
+    "RecordState": "ARCHIVED",
+    "Resources": [
+      {
+        "Details": {
+          "Other": {
+            "name": "2222"
+          }
+        },
+        "Id": "arn:aws:kms:eu-west-1:123456789012:key/2222",
+        "Partition": "aws",
+        "Region": "eu-west-1",
+        "Type": "AwsKmsKey"
+      }
+    ],
+    "SchemaVersion": "2018-10-08",
+    "Severity": {
+      "Label": "MEDIUM",
+      "Original": "MEDIUM"
+    },
+    "Title": "KMS key rotation disabled",
+    "Types": [
+      "Software and Configuration Checks/AWS Security Best Practices/KMS_ROTATION_DISABLED"
+    ],
+    "UpdatedAt": "2026-10-09T12:00:00.000Z",
+    "Workflow": {
+      "Status": "RESOLVED"
+    }
+  },
+  {
+    "AwsAccountId": "000000000000",
+    "CompanyName": "nimbus",
+    "Compliance": {
+      "Status": "NOT_AVAILABLE"
+    },
+    "CreatedAt": "2026-10-09T12:00:00.000Z",
+    "Description": "Storage account allows HTTP",
+    "FindingProviderFields": {
+      "Severity": {
+        "Label": "LOW",
+        "Original": "LOW"
+      },
+      "Types": [
+        "Software and Configuration Checks/Industry and Regulatory Standards/AZ_STORAGE_HTTP"
+      ]
+    },
+    "GeneratorId": "steampipe/storage_account_secure_transfer_required_enabled",
+    "Id": "abababababababababababababababab",
+    "ProductArn": "arn:aws:securityhub:us-east-1:000000000000:product/000000000000/default",
+    "ProductFields": {
+      "ProviderName": "nimbus",
+      "ProviderVersion": "0.1.0",
+      "nimbus/account": "00000000-1111-2222-3333-444444444444",
+      "nimbus/canonical_id": "AZ_STORAGE_HTTP",
+      "nimbus/check_id": "storage_account_secure_transfer_required_enabled",
+      "nimbus/fingerprint": "abababababababababababababababab",
+      "nimbus/provider": "azure",
+      "nimbus/region": "westeurope",
+      "nimbus/resource_name": "st1",
+      "nimbus/resource_type": "azurerm_storage_account",
+      "nimbus/source": "steampipe",
+      "nimbus/status": "SKIP"
+    },
+    "ProductName": "cloud-posture",
+    "RecordState": "ACTIVE",
+    "Resources": [
+      {
+        "Details": {
+          "Other": {
+            "account": "00000000-1111-2222-3333-444444444444",
+            "name": "st1",
+            "provider": "azure",
+            "region": "westeurope"
+          }
+        },
+        "Id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/st1",
+        "Type": "Other"
+      }
+    ],
+    "SchemaVersion": "2018-10-08",
+    "Severity": {
+      "Label": "LOW",
+      "Original": "LOW"
+    },
+    "Title": "Storage account allows HTTP",
+    "Types": [
+      "Software and Configuration Checks/Industry and Regulatory Standards/AZ_STORAGE_HTTP"
+    ],
+    "UpdatedAt": "2026-10-09T12:00:00.000Z",
+    "Workflow": {
+      "Status": "SUPPRESSED"
+    }
+  },
+  {
+    "AwsAccountId": "000000000000",
+    "CompanyName": "nimbus",
+    "Compliance": {
+      "Status": "WARNING"
+    },
+    "CreatedAt": "2026-10-09T12:00:00.000Z",
+    "Description": "syntax: infra/broken.tf:3,1-2: Argument or block definition required",
+    "FindingProviderFields": {
+      "Severity": {
+        "Label": "HIGH",
+        "Original": "HIGH"
+      },
+      "Types": [
+        "Software and Configuration Checks/Industry and Regulatory Standards/IAC_PARSE_LIMIT"
+      ]
+    },
+    "GeneratorId": "cloud-posture/IAC_PARSE_LIMIT",
+    "Id": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "ProductArn": "arn:aws:securityhub:us-east-1:000000000000:product/000000000000/default",
+    "ProductFields": {
+      "ProviderName": "nimbus",
+      "ProviderVersion": "0.1.0",
+      "nimbus/canonical_id": "IAC_PARSE_LIMIT",
+      "nimbus/check_id": "IAC_PARSE_LIMIT",
+      "nimbus/file": "infra/broken.tf",
+      "nimbus/fingerprint": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "nimbus/provider": "iac",
+      "nimbus/resource_name": "infra/broken.tf",
+      "nimbus/resource_type": "file",
+      "nimbus/source": "cloud-posture",
+      "nimbus/status": "ERROR",
+      "nimbus/tag/scan_gap": "syntax"
+    },
+    "ProductName": "cloud-posture",
+    "RecordState": "ACTIVE",
+    "Resources": [
+      {
+        "Details": {
+          "Other": {
+            "file": "infra/broken.tf",
+            "name": "infra/broken.tf",
+            "provider": "iac"
+          }
+        },
+        "Id": "infra/broken.tf",
+        "Type": "Other"
+      }
+    ],
+    "SchemaVersion": "2018-10-08",
+    "Severity": {
+      "Label": "HIGH",
+      "Original": "HIGH"
+    },
+    "Title": "IaC file not scanned",
+    "Types": [
+      "Software and Configuration Checks/Industry and Regulatory Standards/IAC_PARSE_LIMIT"
+    ],
+    "UpdatedAt": "2026-10-09T12:00:00.000Z",
+    "Workflow": {
+      "Status": "NEW"
+    }
+  }
+]

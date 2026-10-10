@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "properties": {
+        "nimbus_id_scheme": "unkeyed"
+      },
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "cloud://aws/arn:aws:s3:::pii-exports"
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "S3 bucket allows public access (pii-exports) — prowler"
+          },
+          "partialFingerprints": {
+            "cloudPostureFingerprint": "6f1c7d0f9a3e4b5c8d2e1f0a9b8c7d6e"
+          },
+          "properties": {
+            "account": "123456789012",
+            "check_id": "s3_bucket_public_access",
+            "provider": "aws",
+            "region": "us-east-1",
+            "resource_id": "arn:aws:s3:::pii-exports",
+            "resource_type": "aws_s3_bucket",
+            "severity": "HIGH",
+            "source": "prowler",
+            "status": "FAIL"
+          },
+          "ruleId": "S3_PUBLIC_BUCKET",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "infra/network.tf"
+                },
+                "region": {
+                  "endLine": 30,
+                  "startLine": 12
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Security group allows SSH/RDP from 0.0.0.0/0 (aws_security_group.bastion) — checkov"
+          },
+          "partialFingerprints": {
+            "cloudPostureFingerprint": "0a1b2c3d4e5f60718293a4b5c6d7e8f9"
+          },
+          "properties": {
+            "account": "",
+            "check_id": "CKV_AWS_24",
+            "provider": "aws",
+            "resource_id": "aws_security_group.bastion",
+            "resource_type": "aws_security_group",
+            "severity": "CRITICAL",
+            "source": "checkov",
+            "status": "FAIL"
+          },
+          "ruleId": "SG_OPEN_ADMIN_PORT",
+          "ruleIndex": 1
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "cloud://kubernetes/payments/deployment/api"
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "xz-utils backdoor (CVE-2024-3094) (payments/api) — trivy"
+          },
+          "partialFingerprints": {
+            "cloudPostureFingerprint": "11112222333344445555666677778888"
+          },
+          "properties": {
+            "account": "prod-cluster",
+            "check_id": "CVE-2024-3094",
+            "provider": "kubernetes",
+            "resource_id": "payments/deployment/api",
+            "resource_type": "kubernetes_deployment",
+            "severity": "CRITICAL",
+            "source": "trivy",
+            "status": "FAIL"
+          },
+          "ruleId": "CVE_VULNERABILITY",
+          "ruleIndex": 2
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "infra/broken.tf"
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "IaC file not scanned (infra/broken.tf) — cloud-posture"
+          },
+          "partialFingerprints": {
+            "cloudPostureFingerprint": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+          },
+          "properties": {
+            "account": "",
+            "check_id": "IAC_PARSE_LIMIT",
+            "provider": "iac",
+            "resource_id": "infra/broken.tf",
+            "resource_type": "file",
+            "severity": "HIGH",
+            "source": "cloud-posture",
+            "status": "ERROR"
+          },
+          "ruleId": "IAC_PARSE_LIMIT",
+          "ruleIndex": 3
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/DreadpiratePickles/nimbus",
+          "name": "cloud-posture",
+          "rules": [
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "fullDescription": {
+                "text": "Bucket pii-exports grants s3:GetObject to Principal \"*\"."
+              },
+              "help": {
+                "markdown": "```\ncloud-posture fix --finding S3_PUBLIC_BUCKET --generate-terraform\n```",
+                "text": "Enable S3 Block Public Access on the bucket and account."
+              },
+              "id": "S3_PUBLIC_BUCKET",
+              "name": "S3_PUBLIC_BUCKET",
+              "properties": {
+                "security-severity": "8.0",
+                "tags": [
+                  "security",
+                  "aws",
+                  "PUBLIC_DATA_STORE"
+                ]
+              },
+              "shortDescription": {
+                "text": "S3 bucket allows public access"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "fullDescription": {
+                "text": "Ingress 0.0.0.0/0 on port 22 \u0026 3389 \u003cadmin\u003e."
+              },
+              "help": {
+                "markdown": "```\ncloud-posture fix --finding SG_OPEN_ADMIN_PORT --generate-terraform\n```",
+                "text": "Restrict ingress to 203.0.113.0/24."
+              },
+              "id": "SG_OPEN_ADMIN_PORT",
+              "name": "SG_OPEN_ADMIN_PORT",
+              "properties": {
+                "security-severity": "9.5",
+                "tags": [
+                  "security",
+                  "aws",
+                  "PUBLIC_NETWORK_EXPOSURE"
+                ]
+              },
+              "shortDescription": {
+                "text": "Security group allows SSH/RDP from 0.0.0.0/0"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "fullDescription": {
+                "text": "xz-utils backdoor (CVE-2024-3094)"
+              },
+              "help": {
+                "markdown": "```\ncloud-posture fix --finding CVE_VULNERABILITY --generate-terraform\n```",
+                "text": "See cloud-posture fix --finding CVE_VULNERABILITY"
+              },
+              "id": "CVE_VULNERABILITY",
+              "name": "CVE_VULNERABILITY",
+              "properties": {
+                "security-severity": "9.5",
+                "tags": [
+                  "security",
+                  "kubernetes",
+                  "UNPATCHED"
+                ]
+              },
+              "shortDescription": {
+                "text": "xz-utils backdoor (CVE-2024-3094)"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "fullDescription": {
+                "text": "syntax: infra/broken.tf:3,1-2: Argument or block definition required"
+              },
+              "help": {
+                "markdown": "```\ncloud-posture fix --finding IAC_PARSE_LIMIT --generate-terraform\n```",
+                "text": "See cloud-posture fix --finding IAC_PARSE_LIMIT"
+              },
+              "id": "IAC_PARSE_LIMIT",
+              "name": "IAC_PARSE_LIMIT",
+              "properties": {
+                "security-severity": "8.0",
+                "tags": [
+                  "security",
+                  "iac"
+                ]
+              },
+              "shortDescription": {
+                "text": "IaC file not scanned"
+              }
+            }
+          ],
+          "version": "0.1.0"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

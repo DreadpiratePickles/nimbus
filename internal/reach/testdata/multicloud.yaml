@@ -1,0 +1,33 @@
+# v1 scope for Azure / GCP / Kubernetes: NSG / firewall sources only; routes are not modelled, so a verdict that
+# would need routes is "unknown", never silently reachable.
+cases:
+  - name: azure vm with nsg open, routes unknown
+    source: https://learn.microsoft.com/en-us/azure/virtual-network/network-security-groups-overview (NSG decides; UDRs are not modelled in v1)
+    port: {protocol: tcp, number: 3389}
+    target: {id: /subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1, kind: vm, provider: azure, public_ip: true, sources: [0.0.0.0/0]}
+    expect:
+      status: unknown
+      unknown: "routes are not modelled for azure in v1"
+
+  - name: gcp instance firewall private only is still blocked
+    source: https://cloud.google.com/firewall/docs/firewalls (source ranges)
+    port: {protocol: tcp, number: 22}
+    target: {id: //compute.googleapis.com/projects/p/zones/z/instances/i, kind: vm, provider: gcp, public_ip: true, sources: [10.128.0.0/9]}
+    expect:
+      status: blocked
+      width: private
+
+  - name: gcp instance without external ip
+    source: https://cloud.google.com/compute/docs/ip-addresses#externaladdresses (no external IP = no inbound internet path)
+    port: {protocol: tcp, number: 22}
+    target: {id: //compute.googleapis.com/projects/p/zones/z/instances/j, kind: vm, provider: gcp, public_ip: false, sources: [0.0.0.0/0]}
+    expect:
+      status: blocked
+      blocker: "has no public IPv4 address"
+
+  - name: unknown resource kind
+    source: docs/reachability.md (no model = unknown, never reachable)
+    target: {id: arn:aws:es:us-east-1:111111111111:domain/d, kind: other}
+    expect:
+      status: unknown
+      unknown: "no reachability model for"

@@ -1,38 +1,20 @@
-"""Minimal Anthropic wrapper with an offline switch.
+"""LLM entry point with an offline switch and pluggable providers (see ``providers.py``).
 
-Uses the official ``anthropic`` SDK. Requests go to ``client.beta.messages.create`` with the
-server-side refusal fallback (``fallbacks="default"``) enabled, so a safety-classifier decline on
-the primary model is re-served by a fallback model inside the same call. Thinking is adaptive by
-default on Claude Opus 5.5; depth is controlled with ``output_config.effort``.
+The default provider is Anthropic through the official ``anthropic`` SDK: requests go to
+``client.beta.messages.create`` with the server-side refusal fallback (``fallbacks="default"``),
+so a safety-classifier decline on the primary model is re-served by a fallback model inside the
+same call. ``NIMBUS_LLM_PROVIDER`` selects ``openai`` (any OpenAI-compatible endpoint, including a
+local one) or ``bedrock`` instead. ``NIMBUS_OFFLINE=1`` disables every provider.
 """
 from __future__ import annotations
 
-import os
 import re
-import sys
 from typing import Optional
 
-DEFAULT_MODEL = "claude-opus-5-5"
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
-
-
-def model_name() -> str:
-    return os.environ.get("NIMBUS_MODEL") or DEFAULT_MODEL
-
-
-def llm_available() -> bool:
-    if os.environ.get("NIMBUS_OFFLINE", "").lower() in ("1", "true", "yes"):
-        return False
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return False
-    try:
-        import anthropic  # noqa: F401
-    except ImportError:
-        return False
-    return True
-
+from .providers import DEFAULT_MODEL, FALLBACK_BETA, Completion, Provider, model_name, offline, provider_from_env  # noqa: F401
 
 _client = None
+_override: Optional[Provider] = None
 
 
 def _get_client():
@@ -44,38 +26,40 @@ def _get_client():
     return _client
 
 
+def set_provider(p: Optional[Provider]) -> None:
+    """Install a provider for this process (tests, eval, embedding apps); None restores env selection."""
+    global _override
+    _override = p
+
+
+def current_provider() -> Optional[Provider]:
+    if _override is not None:
+        # offline still blocks anything that would leave the machine
+        if offline() and getattr(_override, "network", True):
+            return None
+        return _override
+    try:
+        return provider_from_env()
+    except ValueError:
+        return None
+
+
+def llm_available() -> bool:
+    return current_provider() is not None
+
+
+def complete_ex(system: str, prompt: str, max_tokens: int = 16000, effort: str = "medium") -> Optional[Completion]:
+    """Return the provider's Completion (text + token usage), or None offline / on failure."""
+    p = current_provider()
+    if p is None:
+        return None
+    return p.complete(system, prompt, max_tokens=max_tokens, effort=effort)
+
+
 def complete(system: str, prompt: str, max_tokens: int = 16000, effort: str = "medium") -> Optional[str]:
     """Return the model's text, or None when offline / on any API failure (callers fall back)."""
-    if not llm_available():
-        return None
-    import anthropic
-
-    try:
-        resp = _get_client().beta.messages.create(
-            model=model_name(),
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-            output_config={"effort": effort},
-            betas=[FALLBACK_BETA],
-            fallbacks="default",
-        )
-    except anthropic.BadRequestError as exc:
-        print(f"nimbus.ai: request rejected ({exc.status_code}); using offline fallback", file=sys.stderr)
-        return None
-    except anthropic.RateLimitError:
-        print("nimbus.ai: rate limited; using offline fallback", file=sys.stderr)
-        return None
-    except anthropic.APIStatusError as exc:
-        print(f"nimbus.ai: API error {exc.status_code}; using offline fallback", file=sys.stderr)
-        return None
-    except anthropic.APIConnectionError:
-        print("nimbus.ai: cannot reach the Anthropic API; using offline fallback", file=sys.stderr)
-        return None
-    if resp.stop_reason == "refusal":
-        return None
-    text = "".join(getattr(b, "text", "") for b in resp.content if getattr(b, "type", "") == "text").strip()
-    return text or None
+    c = complete_ex(system, prompt, max_tokens=max_tokens, effort=effort)
+    return c.text if c else None
 
 
 _FENCE = re.compile(r"```[a-zA-Z0-9_+-]*\n(.*?)```", re.S)

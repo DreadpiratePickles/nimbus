@@ -1,0 +1,56 @@
+# Known engine gaps against lab/ground_truth.yaml, re-measured 2026-10-09 after Track B3.
+#
+# Each id is an assertion the ground-truth test makes:
+#   missed:<path>                   expected path not reported at all
+#   low_score:<path>                reported, but best score below its min_score band
+#   above_band:<path>               reported above its max_score (a non-critical label ranked higher)
+#   false_positive_reported:<path>  seeded false positive produced a path
+#   pending_feature_reported:<path> path that a missing feature should suppress is still reported
+#   unlabelled_high:<entry> -> <target>  unlabelled path scored >= score_threshold
+#
+# `go test ./tests/groundtruth` passes while exactly these gaps reproduce. It FAILS when a new
+# failure appears (regression, or a gap nobody labelled) and when a gap listed here stops
+# reproducing: delete the entry in the same change that fixes it. GROUNDTRUTH_STRICT=1 ignores
+# this file (Phase 0 exit criterion (e): the list must be empty).
+#
+# Track B3 closed GEN-TYPED (the generator emits typed relationships), CLI-TRUSTED (the CLI
+# passes trusted_cidrs: F01 is suppressed), the >= 7 band for exposed chains to admin / sensitive
+# targets (toxic-combination floor, docs/scoring.md "Path score") and P07's band (relabelled
+# medium in lab/ground_truth.yaml). P1-PLANDIFF closed low_score:P12 (CI-entry floor: unprotected
+# branch + unpinned OIDC subject → admin, toxic_combination ci-entry; docs/plan-diff.md).
+#
+# Benchmark honesty (2026-10-09): every pending_feature_reported:<id> entry below is also a false
+# positive in the harness's "real-world" precision column (docs/benchmark.md "Honest numbers");
+# only the "labelled" column counts it as a hit. Measured today: precision 100% labelled vs 87.1%
+# (27/31) real-world; precision@7 100% vs 85.0% (17/20) (F03 x2, F04, S01).
+gaps:
+  # P1-LAB L1 labels (2026-10-09, measured on the first run after the labels landed; engine untouched).
+  # Causes are the observed `paths --format json` / graph_edges output, not engine source.
+  # Pruned by integration pass 3 (2026-10-09, coordinator list after engine round 2): pending_feature_reported:S01,
+  # missed:P13 (found at 7.00; low_score:P13 not added), low_score:P15, missed:P18, low_score:P20,
+  # pending_feature_reported:F02, pending_feature_reported:F09. F03/F04 stay until P2-REACH lands.
+
+# Gaps against the independently authored noise estate (lab/local/noise/estate.yaml, labels in
+# lab/noise_truth.yaml), measured 2026-10-09 by tests/groundtruth/noise_test.go (P0-NOISE wiring,
+# plan v3 §9 item 5; nothing in the engine was tuned). Same semantics as `gaps:` above:
+#   missed:<TP>                       labelled true-positive chain not reported
+#   fp:<first resource> -> <target>   reported path that is not a TP chain (or a sub-chain sharing entry and target)
+# The default run fails on a new failure and on a listed gap that stops reproducing; GROUNDTRUTH_STRICT=1
+# ignores this list. Causes are the observed behaviour (paths output + `graph export`), not engine source.
+# Phase 1 exit gate (plan v3 §4): 0 unlabelled paths >= 5.
+#
+# 2026-10-09 P1-ENGINE noise round (planning decisions 1-6: impact targets only, anonymous reach,
+# auth-lb compensating control, usable identities, catalog storage aliases, internet fan-out
+# uncapped) closed all 24 entries that were listed here: 0 false-positive paths, TP1-TP3 found (TP2 at 3.80 is the
+# labelled lab's low_score:P12 shape, tracked there). Entries were deleted, not edited.
+noise: []
+
+# Scanner-interop gaps (tests/groundtruth/golden_test.go, lab/golden/expectations.yaml), measured
+# 2026-10-09 on Checkov 3.3.26 and Trivy 0.75.0 goldens of lab/terraform (P1-LAB L2). Same gate as
+# `gaps:`: a new unmapped detection fails, a listed one that maps again must be deleted here;
+# GROUNDTRUTH_STRICT=1 ignores the list. id = golden:<tool>:<weakness>:<native check>.
+# Integration pass 3 item #10 (2026-10-09): Trivy id normalisation (AWS-0028 / KSV-0111 resolve to
+# the AVD-* aliases), the CKV_AWS_70/274/258, CKV_AZURE_34, CKV_GCP_117 aliases and the new
+# GCP_INSTANCE_PUBLIC_IP entry closed all 20 entries that were listed here (21/21 Checkov, 11/11 Trivy
+# detections mapped). Entries were deleted, not edited.
+golden: []

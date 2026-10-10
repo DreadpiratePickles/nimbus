@@ -1,7 +1,18 @@
+from pathlib import Path
+
+import yaml
+
 from nimbus.compliance import build_report, frameworks, load_frameworks, weakness_mappings
 from nimbus.models import Finding
 
 from .conftest import F, sample_findings, sample_paths
+
+_GO_EXTRA = Path(__file__).resolve().parents[2] / "internal" / "compliance" / "extra.yaml"
+
+
+def _go_weakness_mappings() -> dict:
+    """Go's weakness -> control mapping, the single source the Python bundle is generated from."""
+    return yaml.safe_load(_GO_EXTRA.read_text())["weakness_mappings"]
 
 
 def test_bundled_frameworks():
@@ -10,7 +21,8 @@ def test_bundled_frameworks():
     assert {"CC6.1", "CC6.2", "CC6.3", "CC6.6", "CC6.7", "CC6.8", "CC7.1", "CC7.2", "CC7.3", "CC8.1", "A1.2", "C1.1"} <= set(fws["soc2"].controls)
     assert {"A.5.15", "A.8.5", "A.8.24", "A.8.32"} <= set(fws["iso_27001"].controls)
     wm = weakness_mappings()
-    assert len(wm) == 21 and wm["NO_MFA"]["soc2"] == ["CC6.1", "CC6.2"]
+    assert wm == _go_weakness_mappings()  # generated from Go's extra.yaml: same entries, same controls
+    assert wm["NO_MFA"]["soc2"] == ["CC6.1", "CC6.2"]
     listing = {f["key"]: f for f in frameworks()}
     assert listing["soc2"]["weakness_derived"] and not listing["cis_aws"]["weakness_derived"]
 

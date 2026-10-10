@@ -4,24 +4,36 @@ package compliance
 import (
 	"archive/zip"
 	"crypto/sha256"
-	_ "embed"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/DreadpiratePickles/nimbus/internal/catalog"
 	"github.com/DreadpiratePickles/nimbus/internal/model"
 	"gopkg.in/yaml.v3"
 )
+
+//go:generate go run ./gen
 
 //go:embed frameworks.yaml
 var frameworksYAML []byte
 
 //go:embed extra.yaml
 var extraYAML []byte
+
+// importedFS holds frameworks converted from Prowler's compliance JSON by
+// tools/import-prowler-frameworks (one file per framework, plus index.yaml).
+//
+//go:embed frameworks/*.yaml
+var importedFS embed.FS
 
 // ISO 27001:2022 Annex A controls referenced by weakness mappings.
 var iso27001Controls = map[string]string{
@@ -37,6 +49,33 @@ type Framework struct {
 	Name     string            `yaml:"name" json:"name"`
 	Version  string            `yaml:"version" json:"version"`
 	Controls map[string]string `yaml:"controls" json:"controls"`
+	// Checks lists, per control, the canonical finding ids that assess it (imported frameworks).
+	// A finding whose CanonicalID is listed maps to the control in addition to f.Compliance.
+	Checks map[string][]string `yaml:"-" json:"-"`
+	// Provenance is set for frameworks imported from upstream (licence, attribution, source).
+	Provenance *Provenance `yaml:"-" json:"provenance,omitempty"`
+}
+
+// Provenance records where an imported framework came from.
+type Provenance struct {
+	Source       string `yaml:"source" json:"source"`
+	Framework    string `yaml:"framework" json:"framework,omitempty"`
+	Provider     string `yaml:"provider" json:"provider,omitempty"`
+	UpstreamPath string `yaml:"upstream_path" json:"upstream_path"`
+	UpstreamURL  string `yaml:"upstream_url" json:"upstream_url"`
+	License      string `yaml:"license" json:"license"`
+	Attribution  string `yaml:"attribution" json:"attribution"`
+	TextPolicy   string `yaml:"text_policy" json:"text_policy"`
+	ReferenceURL string `yaml:"reference_url" json:"reference_url,omitempty"`
+}
+
+// ControlCoverage is the honest denominator of a framework: how many of its controls nimbus can
+// assess with its own checks, how many only through ingested Prowler results, and how many are
+// manual (no automated check at all).
+type ControlCoverage struct {
+	Native        int `json:"native"`
+	ProwlerIngest int `json:"prowler_ingest"`
+	Manual        int `json:"manual"`
 }
 
 type file struct {
@@ -44,41 +83,236 @@ type file struct {
 	WeaknessMappings map[string]map[string][]string `yaml:"weakness_mappings"`
 }
 
-var weaknessMappings map[string]map[string][]string
+type importedFile struct {
+	Key          string `yaml:"key"`
+	Name         string `yaml:"name"`
+	Version      string `yaml:"version"`
+	Provenance   `yaml:",inline"`
+	Requirements []struct {
+		ID     string   `yaml:"id"`
+		Title  string   `yaml:"title"`
+		Checks []string `yaml:"checks"`
+	} `yaml:"requirements"`
+}
 
+var (
+	loadOnce         sync.Once
+	loaded           map[string]*Framework
+	weaknessMappings map[string]map[string][]string
+	checkIndex       map[string]map[string][]string // framework -> upper(canonical id) -> controls
+	coverage         map[string]ControlCoverage
+)
+
+func load() {
+	loadOnce.Do(func() {
+		var f file
+		if err := yaml.Unmarshal(frameworksYAML, &f); err != nil {
+			panic(err)
+		}
+		var extra file
+		if err := yaml.Unmarshal(extraYAML, &extra); err != nil {
+			panic(err)
+		}
+		for k, fw := range extra.Frameworks {
+			f.Frameworks[k] = fw
+		}
+		for k, fw := range f.Frameworks {
+			fw.Key = k
+		}
+		if iso, ok := f.Frameworks["iso_27001"]; ok {
+			if iso.Controls == nil {
+				iso.Controls = map[string]string{}
+			}
+			for id, title := range iso27001Controls {
+				iso.Controls[id] = title
+			}
+			iso.Version = "2022"
+		}
+		weaknessMappings = extra.WeaknessMappings
+		handWritten := map[string]bool{}
+		for k := range f.Frameworks {
+			handWritten[k] = true
+		}
+		names, err := fs.Glob(importedFS, "frameworks/*.yaml")
+		if err != nil {
+			panic(err)
+		}
+		for _, name := range names {
+			if path.Base(name) == "index.yaml" {
+				continue
+			}
+			data, err := importedFS.ReadFile(name)
+			if err != nil {
+				panic(err)
+			}
+			var imp importedFile
+			if err := yaml.Unmarshal(data, &imp); err != nil {
+				panic(fmt.Sprintf("%s: %v", name, err))
+			}
+			if imp.Key == "" || imp.License == "" || imp.Attribution == "" || imp.Source == "" {
+				panic(fmt.Sprintf("%s: imported framework must declare key, license, attribution and source", name))
+			}
+			if _, clash := f.Frameworks[imp.Key]; clash {
+				panic(fmt.Sprintf("%s: key %q already defined", name, imp.Key))
+			}
+			prov := imp.Provenance
+			fw := &Framework{Key: imp.Key, Name: imp.Name, Version: imp.Version, Controls: map[string]string{}, Checks: map[string][]string{}, Provenance: &prov}
+			for _, r := range imp.Requirements {
+				fw.Controls[r.ID] = r.Title
+				if len(r.Checks) > 0 {
+					fw.Checks[r.ID] = append([]string(nil), r.Checks...)
+				}
+			}
+			f.Frameworks[imp.Key] = fw
+		}
+		loaded = f.Frameworks
+		checkIndex = map[string]map[string][]string{}
+		for k, fw := range loaded {
+			if len(fw.Checks) == 0 {
+				continue
+			}
+			idx := map[string][]string{}
+			for ctrl, ids := range fw.Checks {
+				for _, id := range ids {
+					u := strings.ToUpper(id)
+					idx[u] = append(idx[u], ctrl)
+				}
+			}
+			for _, ctrls := range idx {
+				sort.Slice(ctrls, func(i, j int) bool { return controlLess(ctrls[i], ctrls[j]) })
+			}
+			checkIndex[k] = idx
+		}
+		coverage = computeCoverage(loaded, handWritten, weaknessMappings)
+	})
+}
+
+// computeCoverage classifies each control. Imported frameworks: native when a listed check is a
+// catalog canonical id, prowler_ingest when only PROWLER:<check> ids are listed, manual when none.
+// Hand-written frameworks: native when any catalog entry maps to the control, through its
+// compliance list or through a weakness mapping, else manual.
+func computeCoverage(fws map[string]*Framework, handWritten map[string]bool, wm map[string]map[string][]string) map[string]ControlCoverage {
+	mapped := map[string]map[string]bool{}
+	mark := func(fw string, ctrls []string) {
+		if mapped[fw] == nil {
+			mapped[fw] = map[string]bool{}
+		}
+		for _, c := range ctrls {
+			mapped[fw][c] = true
+		}
+	}
+	for _, e := range catalog.Default().Entries {
+		for fw, ctrls := range e.Compliance {
+			mark(fw, ctrls)
+		}
+		for _, w := range e.Weaknesses {
+			for fw, ctrls := range wm[w] {
+				mark(fw, ctrls)
+			}
+		}
+	}
+	out := map[string]ControlCoverage{}
+	for k, fw := range fws {
+		var c ControlCoverage
+		for ctrl := range fw.Controls {
+			if handWritten[k] {
+				if mapped[k][ctrl] {
+					c.Native++
+				} else {
+					c.Manual++
+				}
+				continue
+			}
+			native, ingest := false, false
+			for _, id := range fw.Checks[ctrl] {
+				if strings.HasPrefix(id, "PROWLER:") {
+					ingest = true
+				} else {
+					native = true
+				}
+			}
+			switch {
+			case native:
+				c.Native++
+			case ingest:
+				c.ProwlerIngest++
+			default:
+				c.Manual++
+			}
+		}
+		out[k] = c
+	}
+	return out
+}
+
+func copyFramework(fw *Framework) *Framework {
+	c := *fw
+	c.Controls = make(map[string]string, len(fw.Controls))
+	for k, v := range fw.Controls {
+		c.Controls[k] = v
+	}
+	if fw.Checks != nil {
+		c.Checks = make(map[string][]string, len(fw.Checks))
+		for k, v := range fw.Checks {
+			c.Checks[k] = append([]string(nil), v...)
+		}
+	}
+	if fw.Provenance != nil {
+		p := *fw.Provenance
+		c.Provenance = &p
+	}
+	return &c
+}
+
+// Frameworks returns a fresh copy of every built-in framework (hand-written and imported).
 func Frameworks() map[string]*Framework {
-	var f file
-	if err := yaml.Unmarshal(frameworksYAML, &f); err != nil {
-		panic(err)
+	load()
+	out := make(map[string]*Framework, len(loaded))
+	for k, fw := range loaded {
+		out[k] = copyFramework(fw)
 	}
-	var extra file
-	if err := yaml.Unmarshal(extraYAML, &extra); err != nil {
-		panic(err)
+	return out
+}
+
+func lookupFramework(key string) (*Framework, bool) {
+	load()
+	fw, ok := loaded[key]
+	if !ok {
+		return nil, false
 	}
-	for k, fw := range extra.Frameworks {
-		f.Frameworks[k] = fw
+	return copyFramework(fw), true
+}
+
+// Coverage returns the control coverage classes of a built-in framework.
+func Coverage(key string) (ControlCoverage, bool) {
+	load()
+	c, ok := coverage[key]
+	return c, ok
+}
+
+// controlsFor lists the controls of a framework a finding maps to: its explicit compliance
+// mappings plus every control whose check list contains its canonical id.
+func controlsFor(key string, f *model.Finding) []string {
+	load()
+	ctrls := f.Compliance[key]
+	idx := checkIndex[key]
+	if idx == nil || f.CanonicalID == "" {
+		return ctrls
 	}
-	for k, fw := range f.Frameworks {
-		fw.Key = k
+	extra := idx[strings.ToUpper(f.CanonicalID)]
+	if len(extra) == 0 {
+		return ctrls
 	}
-	if iso, ok := f.Frameworks["iso_27001"]; ok {
-		if iso.Controls == nil {
-			iso.Controls = map[string]string{}
-		}
-		for id, title := range iso27001Controls {
-			iso.Controls[id] = title
-		}
-		iso.Version = "2022"
+	out := append([]string(nil), ctrls...)
+	for _, c := range extra {
+		out = appendUnique(out, c)
 	}
-	weaknessMappings = extra.WeaknessMappings
-	return f.Frameworks
+	return out
 }
 
 // WeaknessMappings returns framework controls implied by each weakness (SOC 2, ISO 27001).
 func WeaknessMappings() map[string]map[string][]string {
-	if weaknessMappings == nil {
-		Frameworks()
-	}
+	load()
 	return weaknessMappings
 }
 
@@ -178,13 +412,15 @@ type Report struct {
 	Failing      int             `json:"failing"`
 	NotAssessed  int             `json:"not_assessed"`
 	ScorePercent float64         `json:"score_percent"`
+	// Assessed = Passing + Failing; Total is the denominator ("N of M controls assessed").
+	Assessed int              `json:"assessed"`
+	Coverage *ControlCoverage `json:"coverage,omitempty"`
 }
 
 // Build evaluates findings against a framework. A control FAILs if any FAIL finding maps
 // to it, PASSes if only PASS findings map to it, else NOT_ASSESSED.
 func Build(frameworkKey string, findings []model.Finding, scope string) (*Report, error) {
-	fws := Frameworks()
-	fw, ok := fws[frameworkKey]
+	fw, ok := lookupFramework(frameworkKey)
 	if !ok {
 		fw = &Framework{Key: frameworkKey, Name: frameworkKey, Controls: map[string]string{}}
 	}
@@ -195,8 +431,10 @@ func Build(frameworkKey string, findings []model.Finding, scope string) (*Report
 	for id, title := range fw.Controls {
 		status[id] = &ControlStatus{ID: id, Title: title, Status: "NOT_ASSESSED"}
 	}
-	for _, f := range findings {
-		for _, ctrl := range f.Compliance[frameworkKey] {
+	load()
+	for i := range findings {
+		f := &findings[i]
+		for _, ctrl := range controlsFor(frameworkKey, f) {
 			cs, ok := status[ctrl]
 			if !ok {
 				cs = &ControlStatus{ID: ctrl, Status: "NOT_ASSESSED"}
@@ -220,6 +458,9 @@ func Build(frameworkKey string, findings []model.Finding, scope string) (*Report
 		}
 	}
 	rep := &Report{Framework: *fw, Scope: scope}
+	if c, ok := coverage[frameworkKey]; ok {
+		rep.Coverage = &c
+	}
 	for _, cs := range status {
 		rep.Controls = append(rep.Controls, *cs)
 		switch cs.Status {
@@ -233,6 +474,7 @@ func Build(frameworkKey string, findings []model.Finding, scope string) (*Report
 	}
 	sort.Slice(rep.Controls, func(i, j int) bool { return controlLess(rep.Controls[i].ID, rep.Controls[j].ID) })
 	rep.Total = len(rep.Controls)
+	rep.Assessed = rep.Passing + rep.Failing
 	if assessed := rep.Passing + rep.Failing; assessed > 0 {
 		rep.ScorePercent = float64(int(float64(rep.Passing)/float64(assessed)*1000)) / 10
 	}
@@ -246,6 +488,17 @@ func (r *Report) Markdown() string {
 		fmt.Fprintf(&b, "Scope: %s\n\n", r.Scope)
 	}
 	fmt.Fprintf(&b, "| Score | Passing | Failing | Not assessed |\n|---|---|---|---|\n| %.1f%% | %d | %d | %d |\n\n", r.ScorePercent, r.Passing, r.Failing, r.NotAssessed)
+	fmt.Fprintf(&b, "%d of %d controls assessed.\n", r.Assessed, r.Total)
+	if c := r.Coverage; c != nil {
+		fmt.Fprintf(&b, "Coverage: %d assessable natively, %d via Prowler ingest, %d manual.\n", c.Native, c.ProwlerIngest, c.Manual)
+	}
+	if p := r.Framework.Provenance; p != nil {
+		fmt.Fprintf(&b, "Source: %s, %s (%s).\n", p.Source, p.License, p.UpstreamURL)
+		if p.ReferenceURL != "" {
+			fmt.Fprintf(&b, "Control text: %s\n", p.ReferenceURL)
+		}
+	}
+	b.WriteString("\n")
 	b.WriteString("| Control | Title | Status | Failing resources | Max severity |\n|---|---|---|---|---|\n")
 	for _, c := range r.Controls {
 		res := strings.Join(c.Resources, ", ")
@@ -333,7 +586,7 @@ func EvidenceZip(path string, rep *Report, findings []model.Finding, meta map[st
 		}
 		for _, fd := range findings {
 			if fd.Status == model.Pass {
-				for _, ctl := range fd.Compliance[rep.Framework.Key] {
+				for _, ctl := range controlsFor(rep.Framework.Key, &fd) {
 					if ctl == c.ID {
 						evidence = append(evidence, fd)
 					}

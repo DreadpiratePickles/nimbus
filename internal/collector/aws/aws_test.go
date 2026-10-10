@@ -94,9 +94,9 @@ func fixture() *fakeAWS {
 			RoleDetailList: []iamtypes.RoleDetail{
 				{Arn: awssdk.String("arn:aws:iam::" + acct + ":role/web-role"), RoleName: awssdk.String("web-role"), Path: awssdk.String("/"),
 					AssumeRolePolicyDocument: pol(`%7B%22Version%22%3A%222012-10-17%22%2C%22Statement%22%3A%5B%7B%22Effect%22%3A%22Allow%22%2C%22Principal%22%3A%7B%22Service%22%3A%22ec2.amazonaws.com%22%7D%2C%22Action%22%3A%22sts%3AAssumeRole%22%7D%5D%7D`),
-					InstanceProfileList:     []iamtypes.InstanceProfile{{Arn: awssdk.String("arn:aws:iam::" + acct + ":instance-profile/web")}},
-					AttachedManagedPolicies: []iamtypes.AttachedPolicy{{PolicyArn: awssdk.String("arn:aws:iam::aws:policy/AmazonS3FullAccess"), PolicyName: awssdk.String("AmazonS3FullAccess")}},
-					RolePolicyList:          []iamtypes.PolicyDetail{{PolicyName: awssdk.String("secrets"), PolicyDocument: pol(`{"Statement":{"Effect":"Allow","Action":"secretsmanager:GetSecretValue","Resource":"arn:aws:secretsmanager:us-east-1:` + acct + `:secret:db-*"}}`)}},
+					InstanceProfileList:      []iamtypes.InstanceProfile{{Arn: awssdk.String("arn:aws:iam::" + acct + ":instance-profile/web")}},
+					AttachedManagedPolicies:  []iamtypes.AttachedPolicy{{PolicyArn: awssdk.String("arn:aws:iam::aws:policy/AmazonS3FullAccess"), PolicyName: awssdk.String("AmazonS3FullAccess")}},
+					RolePolicyList:           []iamtypes.PolicyDetail{{PolicyName: awssdk.String("secrets"), PolicyDocument: pol(`{"Statement":{"Effect":"Allow","Action":"secretsmanager:GetSecretValue","Resource":"arn:aws:secretsmanager:us-east-1:` + acct + `:secret:db-*"}}`)}},
 				},
 				{Arn: awssdk.String("arn:aws:iam::" + acct + ":role/vendor"), RoleName: awssdk.String("vendor"), Path: awssdk.String("/"),
 					AssumeRolePolicyDocument: pol(`{"Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::222222222222:root"},"Action":"sts:AssumeRole"}]}`)},
@@ -259,10 +259,11 @@ func TestCollectGraph(t *testing.T) {
 		{arn("security-group", "sg-open"), db, graph.EdgeAllowsTrafficTo},
 		{arn("security-group", "sg-open"), arn("security-group", "sg-private"), graph.EdgeAllowsTrafficTo},
 		{role, "arn:aws:iam::aws:policy/AmazonS3FullAccess", graph.EdgeHasPolicy},
-		{"arn:aws:iam::aws:policy/AmazonS3FullAccess", bucket, graph.EdgeGrantsAccessTo},
-		{"arn:aws:iam::aws:policy/AmazonS3FullAccess", "arn:aws:s3:::logs", graph.EdgeGrantsAccessTo},
-		{role + "/inline-policy/secrets", secret, graph.EdgeGrantsAccessTo},
-		{"arn:aws:iam::" + acct + ":policy/full", db, graph.EdgeGrantsAccessTo},
+		// P1-IAM: data-store grants run principal -> store (evaluated; permissions_test.go).
+		{role, bucket, graph.EdgeGrantsAccessTo},
+		{role, "arn:aws:s3:::logs", graph.EdgeGrantsAccessTo},
+		{role, secret, graph.EdgeGrantsAccessTo},
+		{"arn:aws:iam::" + acct + ":user/alice", db, graph.EdgeGrantsAccessTo},
 		{"arn:aws:iam::" + acct + ":user/alice", "arn:aws:iam::" + acct + ":group/admins", graph.EdgeMemberOf},
 		{"arn:aws:iam::" + acct + ":group/admins", "arn:aws:iam::" + acct + ":policy/full", graph.EdgeHasPolicy},
 		{core.AccountNodeID("aws", "222222222222"), "arn:aws:iam::" + acct + ":role/vendor", graph.EdgeCanAssume},
@@ -278,8 +279,8 @@ func TestCollectGraph(t *testing.T) {
 	negative := []struct{ from, to, kind string }{
 		{graph.InternetNodeID, arn("instance", "i-big"), graph.EdgeExposes},
 		{graph.InternetNodeID, "arn:aws:s3:::logs", graph.EdgeExposes},
-		{"arn:aws:iam::aws:policy/AmazonS3FullAccess", db, graph.EdgeGrantsAccessTo},
-		{role + "/inline-policy/secrets", bucket, graph.EdgeGrantsAccessTo},
+		{"arn:aws:iam::aws:policy/AmazonS3FullAccess", bucket, graph.EdgeGrantsAccessTo},
+		{role, db, graph.EdgeGrantsAccessTo},
 	}
 	for _, e := range negative {
 		if hasEdge(g, e.from, e.to, e.kind) {
@@ -406,5 +407,129 @@ func TestParseCredentialReport(t *testing.T) {
 	}
 	if _, err := ParseCredentialReport([]byte("a,b\n\"unterminated")); err == nil {
 		t.Fatal("expected CSV error")
+	}
+}
+
+// Defect 15(b): account-level S3 Block Public Access overrides bucket ACLs/policies.
+func TestS3AccountLevelBlockPublicAccess(t *testing.T) {
+	bucket := "arn:aws:s3:::prod-customer-data" // ACL grants AllUsers, no bucket-level PAB
+	all := &AccountPublicAccessBlock{Configured: true, BlockPublicAcls: true, IgnorePublicAcls: true, BlockPublicPolicy: true, RestrictPublicBuckets: true}
+	t.Run("all four on at account level is not public", func(t *testing.T) {
+		f := fixture()
+		f.accountPAB = all
+		res, g := collect(t, f)
+		if st, _ := findStatus(res.Findings, "s3_bucket_public_access", ":::prod-customer-data"); st != model.Pass {
+			t.Fatalf("status = %q, want PASS", st)
+		}
+		for _, fd := range res.Findings {
+			if fd.CheckID == "s3_bucket_public_access" && strings.HasSuffix(fd.Resource.ID, "prod-customer-data") && !strings.Contains(fd.Description, "account level") {
+				t.Errorf("evidence must name the account-level setting: %q", fd.Description)
+			}
+		}
+		if hasEdge(g, graph.InternetNodeID, bucket, graph.EdgeExposes) {
+			t.Error("bucket blocked at account level must not be internet-exposed")
+		}
+		n, _ := g.Node(bucket)
+		if n.Attributes["public"] != false || n.Attributes["public_access_block_source"] != "account" || n.Attributes["account_public_access_block"] != true {
+			t.Errorf("attrs = %v", n.Attributes)
+		}
+	})
+	t.Run("account BlockPublicAcls without IgnorePublicAcls stays public", func(t *testing.T) {
+		f := fixture()
+		f.accountPAB = &AccountPublicAccessBlock{Configured: true, BlockPublicAcls: true, BlockPublicPolicy: true}
+		res, g := collect(t, f)
+		if st, _ := findStatus(res.Findings, "s3_bucket_public_access", ":::prod-customer-data"); st != model.Fail {
+			t.Fatalf("status = %q, want FAIL", st)
+		}
+		if !hasEdge(g, graph.InternetNodeID, bucket, graph.EdgeExposes) {
+			t.Error("existing public ACL is still honoured without IgnorePublicAcls")
+		}
+	})
+	t.Run("account IgnorePublicAcls neutralises an ACL-only public bucket", func(t *testing.T) {
+		f := fixture()
+		f.accountPAB = &AccountPublicAccessBlock{Configured: true, IgnorePublicAcls: true}
+		res, _ := collect(t, f)
+		if st, _ := findStatus(res.Findings, "s3_bucket_public_access", ":::prod-customer-data"); st != model.Pass {
+			t.Fatalf("status = %q, want PASS", st)
+		}
+	})
+	t.Run("account PAB unreadable is a coverage error, bucket still evaluated", func(t *testing.T) {
+		f := fixture()
+		f.fail["GetAccountPublicAccessBlock"] = apiErr("AccessDenied")
+		res, _ := collect(t, f)
+		ces := res.CollectErrors()
+		if len(ces) != 1 || ces[0].Reason != core.ReasonAccessDenied || !strings.Contains(ces[0].API, "s3control") {
+			t.Fatalf("collect errors = %+v", ces)
+		}
+		if st, _ := findStatus(res.Findings, "s3_bucket_public_access", ":::prod-customer-data"); st != model.Fail {
+			t.Fatalf("status = %q, want FAIL", st)
+		}
+	})
+}
+
+// O10: SG exposure carries width — 0.0.0.0/0 wide, a public /16 narrow, a corp CIDR
+// listed in trusted_cidrs trusted — and Lambda URLs / EKS / RDS / S3 are labelled too.
+func TestExposureWidthLabels(t *testing.T) {
+	running := &ec2types.InstanceState{Name: ec2types.InstanceStateNameRunning}
+	f := fixture()
+	mk := func(id, sg string) ec2types.Instance {
+		return ec2types.Instance{InstanceId: awssdk.String(id), InstanceType: ec2types.InstanceTypeT3Micro, State: running, PublicIpAddress: awssdk.String("54.9.9.9"),
+			SecurityGroups: []ec2types.GroupIdentifier{{GroupId: awssdk.String(sg)}}, MetadataOptions: &ec2types.InstanceMetadataOptionsResponse{HttpTokens: ec2types.HttpTokensStateRequired}}
+	}
+	f.instPages = append(f.instPages, []ec2types.Instance{mk("i-narrow", "sg-narrow"), mk("i-corp", "sg-corp"), mk("i-private", "sg-private")})
+	f.sgs = append(f.sgs,
+		ec2types.SecurityGroup{GroupId: awssdk.String("sg-narrow"), GroupName: awssdk.String("narrow"), IpPermissions: []ec2types.IpPermission{tcp(443, 443, "52.10.0.0/16")}},
+		ec2types.SecurityGroup{GroupId: awssdk.String("sg-corp"), GroupName: awssdk.String("corp"), IpPermissions: []ec2types.IpPermission{tcp(22, 22, "203.0.113.0/24")}},
+	)
+	f.clusters[0].ResourcesVpcConfig.PublicAccessCidrs = []string{"198.51.100.0/24"}
+	g := graph.New()
+	c := &Collector{NewClients: f.factory(), Now: func() time.Time { return now }, CredentialReportPoll: time.Millisecond}
+	res, err := c.Collect(context.Background(), core.AccountSpec{Name: "prod-main", Provider: "aws", Regions: []string{"us-east-1"}, TrustedCIDRs: []string{"203.0.113.0/24"}}, g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inst := func(id string) string { return "arn:aws:ec2:us-east-1:" + acct + ":instance/" + id }
+	attrOf := func(to string) map[string]any {
+		for _, e := range g.Out(graph.InternetNodeID) {
+			if e.To == to && e.Kind == graph.EdgeExposes {
+				return e.Attr
+			}
+		}
+		return nil
+	}
+	cases := []struct {
+		id, width, cidr string
+	}{
+		{inst("i-web"), core.ExposureWide, "0.0.0.0/0"},
+		{inst("i-narrow"), core.ExposureNarrow, "52.10.0.0/16"},
+		{inst("i-corp"), core.ExposureTrusted, "203.0.113.0/24"},
+		{"arn:aws:lambda:us-east-1:" + acct + ":function:hook", core.ExposureWide, "0.0.0.0/0"},
+		{"arn:aws:s3:::prod-customer-data", core.ExposureWide, "0.0.0.0/0"},
+		{"arn:aws:eks:us-east-1:" + acct + ":cluster/c1", core.ExposureNarrow, "198.51.100.0/24"},
+		{"arn:aws:rds:us-east-1:" + acct + ":db:orders", core.ExposureWide, "0.0.0.0/0"},
+	}
+	for _, tc := range cases {
+		a := attrOf(tc.id)
+		if a == nil {
+			t.Errorf("%s: not exposed", tc.id)
+			continue
+		}
+		cidrs, _ := a[core.AttrExposureCIDRs].([]string)
+		if a[core.AttrExposure] != tc.width || len(cidrs) != 1 || cidrs[0] != tc.cidr {
+			t.Errorf("%s: exposure=%v cidrs=%v, want %s %s", tc.id, a[core.AttrExposure], cidrs, tc.width, tc.cidr)
+		}
+		if n, _ := g.Node(tc.id); n.Attributes[core.AttrExposure] != tc.width {
+			t.Errorf("%s: node exposure = %v", tc.id, n.Attributes[core.AttrExposure])
+		}
+	}
+	if attrOf(inst("i-private")) != nil {
+		t.Error("SG with only SG-references must not be internet exposed")
+	}
+	// The CIS "open to the world" findings stay wide-only.
+	if st, _ := findStatus(res.Findings, "ec2_securitygroup_allow_ingress_from_internet_to_any_port", "sg-narrow"); st != model.Pass {
+		t.Errorf("narrow SG flagged as open to the world: %q", st)
+	}
+	if st, _ := findStatus(res.Findings, "eks_control_plane_endpoint_access_publicly_accessible", "cluster/c1"); st != model.Pass {
+		t.Errorf("EKS restricted to a /24 flagged as public: %q", st)
 	}
 }

@@ -1,0 +1,22 @@
+{{ if .Service -}}
+# Strategic merge patch for the LoadBalancer Service {{ .Service }} (namespace {{ .Namespace }}), which
+# selects pod {{ .Workload }} (Service resolved from the {{ .ServiceFrom }}): the cloud load balancer
+# becomes internal, and loadBalancerSourceRanges limits who may connect. The pod is not changed.
+{{- else -}}
+# Strategic merge patch for the LoadBalancer Service that exposes {{ .Workload }} (namespace {{ .Namespace }}):
+# the cloud load balancer becomes internal, and loadBalancerSourceRanges limits who may connect.
+# Find the Service that selects this workload:
+# CLI: kubectl get services --namespace={{ sh .Raw.Namespace }} --field-selector=spec.type=LoadBalancer
+# Apply this patch to THAT Service (kubectl patch service "$SERVICE" ...), not to the pod.
+{{- end }}
+# Changing the scheme replaces the load balancer (new address); public callers must move to an
+# ingress you control.
+metadata:
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+    networking.gke.io/load-balancer-type: Internal
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  loadBalancerSourceRanges:
+    - 192.0.2.0/24 # TODO: replace with the client CIDRs that must keep access (documentation range: matches nobody)

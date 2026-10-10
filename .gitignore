@@ -10,3 +10,9 @@ dist/
 *.egg-info/
 .pytest_cache/
 vscode-extension/node_modules/
+bin/
+python/.venv/
+
+# tests/groundtruth benchmark.json (written by `make groundtruth`; GROUNDTRUTH_JSON overrides)
+lab/local/out/benchmark.json
+.DS_Store

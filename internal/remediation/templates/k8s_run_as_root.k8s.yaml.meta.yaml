@@ -1,0 +1,15 @@
+# Remediation plan metadata for k8s_run_as_root.k8s.yaml (schema: internal/remediation/metadata.go).
+actions_required:
+  - "apps/deployments:get"
+  - "apps/deployments:patch"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Enforce Pod Security Admission restricted in audit mode to list root workloads."
+effort: S
+confidence: medium
+rollback: "kubectl rollout undo <kind>/<name> -n <namespace>"
+breaks_function:
+  value: true
+  note: "Pods of images whose USER is root (or non-numeric) will not start; a rolling update keeps the old pods serving."

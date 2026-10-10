@@ -1,0 +1,63 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-datapipeline-privesc-passrole-create-pipeline
+title: Data Pipeline Creation with Privileged Role (DATAPIPELINE-001)
+description: >-
+  The principal may pass a role that trusts datapipeline.amazonaws.com to a new AWS Data Pipeline,
+  define a pipeline activity that runs its own commands, and activate it, so the commands run with
+  that role's permissions. Scope iam:PassRole to the roles the principal genuinely needs (iam:PassedToService).
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-datapipeline-privesc-passrole-create-pipeline
+  upstream: pathfinding.cloud - DATAPIPELINE-001 - iam:PassRole + datapipeline:CreatePipeline + datapipeline:PutPipelineDefinition + datapipeline:ActivatePipeline
+  upstream_url: https://pathfinding.cloud/paths/datapipeline-001
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator (Allow per action and resource, Deny and SCPs honoured); target is a role trusting datapipeline.amazonaws.com only (the schema takes one trusted service; Prowler also accepts roles trusting elasticmapreduce.amazonaws.com, which the EMR rule aws-emr-privesc-passrole-run-job-flow covers)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:PassRole", resource: target}
+    - {action: "datapipeline:CreatePipeline", resource: "*"}
+    - {action: "datapipeline:PutPipelineDefinition", resource: "*"}
+    - {action: "datapipeline:ActivatePipeline", resource: "*"}
+  target:
+    types: [aws_iam_role]
+    trusts_service: datapipeline.amazonaws.com
+    exclude_self: true
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/dev
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/*"}
+              - {Effect: Allow, Action: ["datapipeline:CreatePipeline", "datapipeline:PutPipelineDefinition", "datapipeline:ActivatePipeline"], Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/partial
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/*"}
+              - {Effect: Allow, Action: ["datapipeline:CreatePipeline", "datapipeline:PutPipelineDefinition"], Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/svc
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [datapipeline.amazonaws.com]}
+      - id: arn:aws:iam::123456789012:role/wrongtrust
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com]}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/svc", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/wrongtrust", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/partial", target: "arn:aws:iam::123456789012:role/svc", match: false}

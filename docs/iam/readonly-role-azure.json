@@ -1,0 +1,24 @@
+{
+  "Name": "Cloud Posture Reader",
+  "IsCustom": true,
+  "Description": "Least-privilege read-only access for nimbus native Azure collection (generated from collector source).",
+  "Actions": [
+    "Microsoft.Compute/disks/read",
+    "Microsoft.Compute/virtualMachines/read",
+    "Microsoft.KeyVault/vaults/read",
+    "Microsoft.Network/networkInterfaces/read",
+    "Microsoft.Network/networkSecurityGroups/read",
+    "Microsoft.Network/publicIPAddresses/read",
+    "Microsoft.ResourceGraph/resources/read",
+    "Microsoft.Resources/subscriptions/read",
+    "Microsoft.Sql/servers/firewallRules/read",
+    "Microsoft.Sql/servers/read",
+    "Microsoft.Storage/storageAccounts/read"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/00000000-0000-0000-0000-000000000000"
+  ]
+}

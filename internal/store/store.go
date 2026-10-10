@@ -6,10 +6,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/DreadpiratePickles/nimbus/internal/model"
@@ -19,7 +22,19 @@ import (
 type Store struct {
 	db   *sql.DB
 	path string
+	// idKey keys Issue ids and secondary keys (idkey.go); nil only for a pre-migration-10
+	// database handle built by tests (legacy unkeyed ids).
+	idKey []byte
+	// viewsMu serialises view (re)creation: EnsureViews drops and recreates views, so two
+	// concurrent callers would race on "view already exists" (seen under concurrent /api/query).
+	viewsMu sync.Mutex
+	// trend holds the pre-scan Issue states between ApplyScan and SaveScan (trend.go).
+	trend trendState
 }
+
+// LockViews serialises callers that (re)create views; pair with UnlockViews.
+func (s *Store) LockViews()   { s.viewsMu.Lock() }
+func (s *Store) UnlockViews() { s.viewsMu.Unlock() }
 
 const schema = `
 CREATE TABLE IF NOT EXISTS findings (
@@ -104,15 +119,50 @@ func Open(path string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	// Who built the file is read on a plain read-only handle first: the WAL pragma of the main
+	// handle rewrites the header, which already modifies a database we may not touch.
+	origin, err := fileOrigin(path)
+	if err != nil {
+		return nil, fmt.Errorf("open %s: %w", path, err)
+	}
+	if origin == OriginPython {
+		pol := currentPolicy()
+		if !pol.Allow {
+			return nil, &ForeignDBError{Path: path, Origin: origin}
+		}
+		if pol.Notice != nil {
+			fmt.Fprintf(pol.Notice, "notice: upgrading %s (built by the Python layer) to the Go schema v%d; read-only commands never migrate a database\n", path, LatestSchemaVersion())
+		}
+	}
+	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate")
 	if err != nil {
 		return nil, err
 	}
-	if _, err := db.Exec(schema + graphSchema); err != nil {
+	applied, err := migrate(db)
+	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
-	return &Store{db: db, path: path}, nil
+	if err := markGoIfNeeded(db, origin); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("init schema: %w", err)
+	}
+	key, err := loadIDKey(db)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	st := &Store{db: db, path: path, idKey: key}
+	for _, v := range applied {
+		if backfillIssuesAfter[v] {
+			if err := st.RebuildIssues(time.Now()); err != nil {
+				db.Close()
+				return nil, fmt.Errorf("backfill issues: %w", err)
+			}
+			break
+		}
+	}
+	return st, nil
 }
 
 func DefaultPath() string {
@@ -123,61 +173,8 @@ func DefaultPath() string {
 }
 
 func (s *Store) Close() error { return s.db.Close() }
-func (s *Store) Path() string  { return s.path }
-func (s *Store) DB() *sql.DB   { return s.db }
-
-// UpsertFindings keeps first_seen from an earlier row and refreshes everything else.
-func (s *Store) UpsertFindings(findings []model.Finding) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	stmt, err := tx.Prepare(`INSERT INTO findings (id, source, check_id, canonical_id, title, description, severity, status, provider, account, region,
-	  resource_id, resource_type, resource_name, file, line_start, line_end, remediation, weaknesses, compliance, tags, scan_id, first_seen, last_seen, doc)
-	  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-	  ON CONFLICT(id) DO UPDATE SET
-	    status=excluded.status, severity=excluded.severity, title=excluded.title, description=excluded.description,
-	    canonical_id=excluded.canonical_id, resource_name=excluded.resource_name, resource_type=excluded.resource_type,
-	    remediation=excluded.remediation, weaknesses=excluded.weaknesses, compliance=excluded.compliance, tags=excluded.tags,
-	    scan_id=excluded.scan_id, last_seen=excluded.last_seen, line_start=excluded.line_start, line_end=excluded.line_end,
-	    doc=excluded.doc`)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-	resStmt, err := tx.Prepare(`INSERT INTO resources (id, type, name, provider, account, region, attributes, related, last_seen)
-	  VALUES (?,?,?,?,?,?,?,?,?)
-	  ON CONFLICT(id) DO UPDATE SET type=COALESCE(NULLIF(excluded.type,''), resources.type), name=excluded.name,
-	    attributes=excluded.attributes, related=excluded.related, last_seen=excluded.last_seen`)
-	if err != nil {
-		return err
-	}
-	defer resStmt.Close()
-	for i := range findings {
-		f := &findings[i]
-		if f.ID == "" {
-			f.Finalize(time.Now().UTC())
-		}
-		doc, _ := json.Marshal(f)
-		weak, _ := json.Marshal(f.Weaknesses)
-		comp, _ := json.Marshal(f.Compliance)
-		tags, _ := json.Marshal(f.Tags)
-		if _, err := stmt.Exec(f.ID, f.Source, f.CheckID, f.CanonicalID, f.Title, f.Description, string(f.Severity), string(f.Status),
-			f.Provider, f.Account, f.Region, f.Resource.ID, f.Resource.Type, f.Resource.Name, f.File, f.LineStart, f.LineEnd,
-			f.Remediation, string(weak), string(comp), string(tags), f.ScanID, f.FirstSeen.Format(time.RFC3339), f.LastSeen.Format(time.RFC3339), string(doc)); err != nil {
-			return err
-		}
-		if f.Resource.ID != "" {
-			attrs, _ := json.Marshal(f.Resource.Attributes)
-			rel, _ := json.Marshal(f.Resource.Related)
-			if _, err := resStmt.Exec(f.Resource.ID, f.Resource.Type, f.Resource.Name, f.Provider, f.Account, f.Region, string(attrs), string(rel), f.LastSeen.Format(time.RFC3339)); err != nil {
-				return err
-			}
-		}
-	}
-	return tx.Commit()
-}
+func (s *Store) Path() string { return s.path }
+func (s *Store) DB() *sql.DB  { return s.db }
 
 type Filter struct {
 	Status      string
@@ -188,6 +185,9 @@ type Filter struct {
 	Source      string
 	ScanID      string
 	Limit       int
+	// IncludeResolved also returns failing findings that a later scan resolved (by
+	// absence). By default they are history, not current posture.
+	IncludeResolved bool
 }
 
 func (s *Store) Findings(fl Filter) ([]model.Finding, error) {
@@ -225,6 +225,9 @@ func (s *Store) Findings(fl Filter) ([]model.Finding, error) {
 			}
 		}
 		where = append(where, "severity IN ("+strings.Join(allowed, ",")+")")
+	}
+	if !fl.IncludeResolved {
+		where = append(where, "NOT (state = 'resolved' AND status <> 'PASS')")
 	}
 	q := "SELECT doc FROM findings"
 	if len(where) > 0 {
@@ -310,7 +313,13 @@ func (s *Store) SaveScan(sum model.ScanSummary) error {
 	doc, _ := json.Marshal(sum)
 	_, err := s.db.Exec("INSERT OR REPLACE INTO scans (id, started_at, finished_at, doc) VALUES (?,?,?,?)",
 		sum.ScanID, sum.StartedAt.Format(time.RFC3339), sum.FinishedAt.Format(time.RFC3339), string(doc))
-	return err
+	if err != nil {
+		return err
+	}
+	if err := s.recordScores(sum.ScanID, sum.FinishedAt); err != nil {
+		return err
+	}
+	return s.recordTrend(sum.ScanID, sum.FinishedAt)
 }
 
 func (s *Store) LastScan() (*model.ScanSummary, error) {
@@ -364,6 +373,20 @@ var weaknessColumns = []struct {
 	{"vulnerable", "UNPATCHED", false},
 }
 
+// activeFailSQL selects a failing finding that is current posture (not resolved by a
+// later scan) inside the inventory views. findingsSummarySQL is the findings_summary
+// view. python/nimbus/store.py mirrors them byte for byte (ACTIVE_FAIL_SQL,
+// FINDINGS_SUMMARY_SQL, ISSUES_SUMMARY_SQL); TestViewSQLMatchesPython and the pytest twin
+// keep them equal.
+const (
+	activeFailSQL      = "f.status = 'FAIL' AND f.state <> 'resolved'"
+	findingsSummarySQL = "CREATE VIEW findings_summary AS SELECT provider, account, severity, status, COUNT(*) AS count FROM findings WHERE NOT (state = 'resolved' AND status <> 'PASS') GROUP BY provider, account, severity, status"
+	// issuesSummarySQL counts Issues of every kind (path Issues under kind 'path'); max_score
+	// is the highest path score in the group (NULL for finding-derived kinds). Mirrored as
+	// ISSUES_SUMMARY_SQL in python/nimbus/store.py.
+	issuesSummarySQL = "CREATE VIEW issues_summary AS SELECT provider, account, severity, kind, state, COUNT(*) AS count, ROUND(AVG(confidence), 2) AS avg_confidence, MAX(score) AS max_score FROM issues GROUP BY provider, account, severity, kind, state"
+)
+
 // EnsureViews creates one view per resource type seen (aws_s3_bucket -> aws_s3_buckets)
 // plus `findings_summary`. Views are rebuilt on every call so new types appear.
 func (s *Store) EnsureViews() ([]string, error) {
@@ -385,24 +408,26 @@ func (s *Store) EnsureViews() ([]string, error) {
 	var views []string
 	for _, t := range types {
 		view := viewName(t)
-		if view == "" {
+		if !safeIdent.MatchString(view) {
+			// Never interpolate a malformed name into DDL (inventory defect 3).
+			Warnf("store: skipping inventory view for resource type %q: not a safe identifier", t)
 			continue
 		}
 		cols := []string{
 			"r.id AS id", "r.name AS name", "r.type AS type", "r.provider AS provider", "r.account AS account", "r.region AS region",
-			"(SELECT COUNT(*) FROM findings f WHERE f.resource_id = r.id AND f.status = 'FAIL') AS open_findings",
-			"(SELECT MAX(CASE f.severity WHEN 'CRITICAL' THEN 5 WHEN 'HIGH' THEN 4 WHEN 'MEDIUM' THEN 3 WHEN 'LOW' THEN 2 ELSE 1 END) FROM findings f WHERE f.resource_id = r.id AND f.status='FAIL') AS max_severity_rank",
+			"(SELECT COUNT(*) FROM findings f WHERE f.resource_id = r.id AND " + activeFailSQL + ") AS open_findings",
+			"(SELECT MAX(CASE f.severity WHEN 'CRITICAL' THEN 5 WHEN 'HIGH' THEN 4 WHEN 'MEDIUM' THEN 3 WHEN 'LOW' THEN 2 ELSE 1 END) FROM findings f WHERE f.resource_id = r.id AND " + activeFailSQL + ") AS max_severity_rank",
 		}
 		for _, wc := range weaknessColumns {
-			expr := fmt.Sprintf("EXISTS(SELECT 1 FROM findings f WHERE f.resource_id = r.id AND f.status = 'FAIL' AND f.weaknesses LIKE '%%\"%s\"%%')", wc.Weakness)
+			expr := fmt.Sprintf("EXISTS(SELECT 1 FROM findings f WHERE f.resource_id = r.id AND %s AND f.weaknesses LIKE '%%\"%s\"%%')", activeFailSQL, wc.Weakness)
 			if wc.Invert {
 				expr = "NOT " + expr
 			}
 			cols = append(cols, fmt.Sprintf("(%s) AS %s", expr, wc.Column))
 		}
 		cols = append(cols, "r.attributes AS attributes")
-		sqlText := fmt.Sprintf("CREATE VIEW IF NOT EXISTS %s AS SELECT %s FROM resources r WHERE r.type = %s", view, strings.Join(cols, ", "), quote(t))
-		if _, err := s.db.Exec("DROP VIEW IF EXISTS " + view); err != nil {
+		sqlText := fmt.Sprintf("CREATE VIEW IF NOT EXISTS %s AS SELECT %s FROM resources r WHERE r.type = %s", quoteIdent(view), strings.Join(cols, ", "), quote(t))
+		if _, err := s.db.Exec("DROP VIEW IF EXISTS " + quoteIdent(view)); err != nil {
 			return nil, err
 		}
 		if _, err := s.db.Exec(sqlText); err != nil {
@@ -410,13 +435,22 @@ func (s *Store) EnsureViews() ([]string, error) {
 		}
 		views = append(views, view)
 	}
-	summary := `CREATE VIEW IF NOT EXISTS findings_summary AS
-	  SELECT provider, account, severity, status, COUNT(*) AS count FROM findings GROUP BY provider, account, severity, status`
-	s.db.Exec("DROP VIEW IF EXISTS findings_summary")
-	if _, err := s.db.Exec(summary); err != nil {
-		return nil, err
+	// findings_summary keeps its columns; failing findings a later scan resolved are
+	// history, not posture, so they are left out (as in Findings()).
+	for _, v := range []struct{ name, sql string }{
+		{"findings_summary", findingsSummarySQL},
+		{"issues_summary", issuesSummarySQL},
+		{"coverage_summary", `CREATE VIEW coverage_summary AS
+	  SELECT scan_id, provider, account, status, COUNT(*) AS count, MAX(at) AS at FROM coverage GROUP BY scan_id, provider, account, status`},
+	} {
+		if _, err := s.db.Exec("DROP VIEW IF EXISTS " + v.name); err != nil {
+			return nil, err
+		}
+		if _, err := s.db.Exec(v.sql); err != nil {
+			return nil, fmt.Errorf("view %s: %w", v.name, err)
+		}
+		views = append(views, v.name)
 	}
-	views = append(views, "findings_summary")
 	return views, nil
 }
 
@@ -435,36 +469,14 @@ func viewName(resourceType string) string {
 
 func quote(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
 
-// Query runs arbitrary SQL and returns column names and rows (values JSON-friendly).
-func (s *Store) Query(sqlText string) ([]string, [][]any, error) {
-	rows, err := s.db.Query(sqlText)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, nil, err
-	}
-	var out [][]any
-	for rows.Next() {
-		vals := make([]any, len(cols))
-		ptrs := make([]any, len(cols))
-		for i := range vals {
-			ptrs[i] = &vals[i]
-		}
-		if err := rows.Scan(ptrs...); err != nil {
-			return nil, nil, err
-		}
-		for i, v := range vals {
-			if b, ok := v.([]byte); ok {
-				vals[i] = string(b)
-			}
-		}
-		out = append(out, vals)
-	}
-	return cols, out, rows.Err()
-}
+// safeIdent is the only shape a derived view name may take before it is used in DDL.
+var safeIdent = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,63}$`)
+
+// quoteIdent double-quotes an identifier (callers have already validated it with safeIdent).
+func quoteIdent(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
+
+// Warnf reports skipped or degraded store operations; replaceable in tests.
+var Warnf = log.Printf
 
 func (s *Store) TableExists(name string) bool {
 	var n int
@@ -494,11 +506,11 @@ func (s *Store) ensureGraphSchema() error {
 // GraphNode/GraphEdge are storage-level mirrors of graph.Node/graph.Edge (kept here to avoid an import cycle).
 type GraphNode struct {
 	ID, Type, Class, Name, Provider, Account, Region, Criticality, Owner, ModifiedAt string
-	Sensitive                                                                       bool
-	CVECount                                                                        int
-	MonthlyCost                                                                     float64
-	Weaknesses                                                                      []string
-	Doc                                                                             []byte
+	Sensitive                                                                        bool
+	CVECount                                                                         int
+	MonthlyCost                                                                      float64
+	Weaknesses                                                                       []string
+	Doc                                                                              []byte
 }
 
 type GraphEdge struct {

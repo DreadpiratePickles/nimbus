@@ -94,7 +94,14 @@ func (c *Collector) Collect(ctx context.Context, spec core.AccountSpec, g *graph
 		{Name: "iam:summary", Fn: func(ctx context.Context) error { return fetchAccountSummary(ctx, hc.IAM, inv) }},
 		{Name: "iam:credential-report", Fn: func(ctx context.Context) error { return fetchCredentialReport(ctx, hc.IAM, inv, poll) }},
 		{Name: "s3", Fn: func(ctx context.Context) error { return fetchS3(ctx, hc.S3, inv, limit*2) }},
+		{Name: "s3control:account-public-access-block", Fn: func(ctx context.Context) error { return fetchAccountPAB(ctx, hc.S3Control, inv) }},
 		{Name: "cloudtrail", Fn: func(ctx context.Context) error { return fetchCloudTrail(ctx, hc.CloudTrail, inv) }},
+	}
+	if hc.Org != nil {
+		tasks = append(tasks, core.Task{Name: "organizations", Fn: func(ctx context.Context) error {
+			fetchOrgID(ctx, hc.Org, inv, acc) // organisation id for aws:PrincipalOrgID trust evaluation (W7)
+			return fetchSCPs(ctx, hc.Org, inv, acc)
+		}})
 	}
 	if !c.SkipMetrics {
 		tasks = append(tasks, core.Task{Name: "costexplorer", Fn: func(ctx context.Context) error {
@@ -125,6 +132,9 @@ func (c *Collector) Collect(ctx context.Context, spec core.AccountSpec, g *graph
 					return err
 				}},
 				{Name: region + ":rds", Fn: func(ctx context.Context) error { return fetchRDS(ctx, rc.RDS, region, inv) }},
+				// Reachability inputs (network.go); each failed call is its own coverage row.
+				{Name: region + ":network", Fn: func(ctx context.Context) error { return fetchNetwork(ctx, rc.EC2, region, inv, acc) }},
+				{Name: region + ":elbv2", Fn: func(ctx context.Context) error { return fetchELB(ctx, rc.ELB, region, inv, acc) }},
 				{Name: region + ":lambda", Fn: func(ctx context.Context) error { return fetchLambda(ctx, rc.Lambda, region, inv) }},
 				{Name: region + ":eks", Fn: func(ctx context.Context) error { return fetchEKS(ctx, rc.EKS, region, inv) }},
 				{Name: region + ":secretsmanager", Fn: func(ctx context.Context) error { return fetchSecrets(ctx, rc.Secrets, region, inv) }},

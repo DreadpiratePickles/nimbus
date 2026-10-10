@@ -1,0 +1,23 @@
+# Remediation plan metadata for iam_admin_policy.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "iam:GetPolicy"
+  - "iam:GetPolicyVersion"
+  - "iam:ListPolicyVersions"
+  - "iam:CreatePolicyVersion"
+  - "iam:DeletePolicyVersion"
+  - "iam:SetDefaultPolicyVersion"
+  - "iam:GenerateServiceLastAccessedDetails"
+  - "iam:GetServiceLastAccessedDetails"
+  - "access-analyzer:StartPolicyGeneration"
+  - "access-analyzer:GetGeneratedPolicy"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Attach a permissions boundary or SCP that denies the most dangerous actions (iam:*, organizations:*, kms:ScheduleKeyDeletion) while usage data is collected."
+effort: M
+confidence: low
+rollback: "aws iam set-default-policy-version --policy-arn <arn> --version-id <previous> (instant; IAM keeps up to 5 versions)."
+breaks_function:
+  value: true
+  note: "Any action missing from allowed_actions fails with AccessDenied. Build the list from at least 90 days of CloudTrail; nimbus does not observe usage yet (TODO)."

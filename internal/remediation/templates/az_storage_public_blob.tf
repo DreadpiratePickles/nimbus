@@ -10,10 +10,9 @@ resource "azurerm_storage_account" "{{ .Slug }}" {
   account_tier                    = "Standard"
   account_replication_type        = "LRS"
   allow_nested_items_to_be_public = false
-  public_network_access_enabled   = false
   min_tls_version                 = "TLS1_2"
   lifecycle {
     ignore_changes = [account_tier, account_replication_type, tags, location, resource_group_name]
   }
 }
-# CLI: az storage account update -n {{ .Name }} -g <rg> --allow-blob-public-access false
+# CLI: az storage account update --name={{ sh .Raw.Name }} --resource-group="$RESOURCE_GROUP" --allow-blob-public-access false

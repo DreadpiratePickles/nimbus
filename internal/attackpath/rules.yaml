@@ -1,9 +1,13 @@
 # Attack-path rules. Each rule is an ordered chain of stages; a stage matches a FAIL
-# finding carrying the weakness, joined to the previous step by `relation`:
+# finding carrying the weakness, joined to the previous step by `relation` (default related):
 #   same_resource  - identical resource ID
-#   related        - resources linked by an edge (attachment, same cluster/namespace, ID containment)
-#   same_account   - same provider + account (weakest link; flagged in narrative as "confirm attachment")
-#   any            - any finding of this provider
+#   related        - resources linked by an edge (declared relationship, attachment, ID
+#                    containment), across accounts and providers
+#   same_account   - same provider + account only (co-tenancy, NOT a link)
+#   any            - no link at all
+# same_account / any are allowed only with `allow_same_account: true` and a `justification`
+# (an account- or tenant-wide control such as audit logging). Such chains are `weak_link`
+# paths and score x0.5. LoadRules rejects a co-tenancy join without a justification.
 # `resource_types` optionally narrows a stage. Score = severity weight × relation tightness.
 rules:
   - id: INTERNET_TO_ACCOUNT_ADMIN
@@ -14,11 +18,11 @@ rules:
       - weakness: PUBLIC_NETWORK_EXPOSURE
         label: Attacker reaches the workload from the internet
       - weakness: IMDSV1_ENABLED
-        relation: related
-        fallback: same_account
+        relation: same_resource
+        fallback: related
         label: SSRF or RCE on the workload steals role credentials from IMDSv1
       - weakness: OVERPRIVILEGED_IDENTITY
-        relation: same_account
+        relation: related
         label: Stolen credentials carry administrative privileges
 
   - id: PUBLIC_BUCKET_SILENT_EXFIL
@@ -34,6 +38,8 @@ rules:
       - weakness: NO_LOGGING
         relation: same_resource
         fallback: same_account
+        allow_same_account: true
+        justification: "CloudTrail / audit logging is an account-wide control: an account without it records no reads of any bucket in it"
         label: Reads leave no audit trail
 
   - id: PUBLIC_DATABASE_BREACH
@@ -57,10 +63,12 @@ rules:
         label: Password alone unlocks the identity
       - weakness: OVERPRIVILEGED_IDENTITY
         relation: same_resource
-        fallback: same_account
+        fallback: related
         label: Identity or account carries wildcard privileges
       - weakness: NO_LOGGING
         relation: same_account
+        allow_same_account: true
+        justification: "audit logging is an account-wide control: the phished identity's actions go unrecorded anywhere in the account"
         label: Activity is not captured by audit logging
 
   - id: STALE_KEY_ABUSE
@@ -71,8 +79,9 @@ rules:
       - weakness: STALE_CREDENTIALS
         label: Access key not rotated or unused for 90+ days
       - weakness: OVERPRIVILEGED_IDENTITY
-        relation: same_account
-        label: Account contains wildcard admin policies the key may exercise
+        relation: same_resource
+        fallback: related
+        label: The key's identity (or a policy attached to it) carries wildcard admin privileges
 
   - id: CROSS_ACCOUNT_PIVOT
     name: Externally assumable role with admin rights
@@ -82,8 +91,8 @@ rules:
       - weakness: CROSS_ACCOUNT_TRUST
         label: Role trusts external or wildcard principals
       - weakness: OVERPRIVILEGED_IDENTITY
-        relation: related
-        fallback: same_account
+        relation: same_resource
+        fallback: related
         label: Trusted role is attached to an admin policy
 
   - id: CONTAINER_ESCAPE_TO_CLUSTER_ADMIN
@@ -98,7 +107,10 @@ rules:
         fallback: related
         label: Host namespaces or hostPath expose the node
       - weakness: CLUSTER_ADMIN
-        relation: same_account
+        relation: related
+        fallback: same_account
+        allow_same_account: true
+        justification: "a node escape exposes every service-account token mounted on that node; any cluster-admin binding in the same cluster may be among them"
         label: cluster-admin bindings make any stolen token omnipotent
 
   - id: VULNERABLE_IMAGE_LATERAL_MOVEMENT
@@ -109,10 +121,16 @@ rules:
       - weakness: UNPATCHED
         label: Known exploitable vulnerability in a running image
       - weakness: NO_NETWORK_POLICY
-        relation: same_account
+        relation: related
+        fallback: same_account
+        allow_same_account: true
+        justification: "a missing NetworkPolicy is a namespace/cluster-wide property: east-west traffic from the exploited pod is unrestricted"
         label: No NetworkPolicy limits east-west traffic
       - weakness: SERVICE_ACCOUNT_TOKEN
-        relation: same_account
+        relation: related
+        fallback: same_account
+        allow_same_account: true
+        justification: "with no NetworkPolicy any pod in the cluster is reachable; its mounted token is the next hop"
         label: Pods auto-mount service account tokens for API access
 
   - id: PUBLIC_K8S_API_TAKEOVER
@@ -124,8 +142,8 @@ rules:
         requires: [K8S_API]
         label: Kubernetes API reachable from the internet
       - weakness: OVERPRIVILEGED_IDENTITY
-        relation: same_account
-        label: Legacy ABAC, disabled RBAC or cluster-admin bindings
+        relation: related
+        label: Legacy ABAC, disabled RBAC or cluster-admin bindings in that cluster
 
   - id: SUPPLY_CHAIN_TO_CLOUD
     name: Unprotected repository leaks cloud credentials
@@ -135,11 +153,12 @@ rules:
       - weakness: BRANCH_UNPROTECTED
         label: Anyone with push access can land code without review
       - weakness: SECRET_EXPOSURE
-        relation: any
+        relation: same_resource
+        fallback: related
         label: Secrets live in source or are not scanned for
       - weakness: OVERPRIVILEGED_IDENTITY
-        relation: any
-        label: Leaked credential maps to an admin identity
+        relation: related
+        label: Leaked credential (or the repo's OIDC trust) maps to an admin identity
 
   - id: IDENTITY_PROVIDER_TAKEOVER
     name: Weak identity-provider policy guarding privileged accounts
@@ -149,5 +168,8 @@ rules:
       - weakness: WEAK_AUTH
         label: Sign-on policy allows legacy auth or skips MFA
       - weakness: OVERPRIVILEGED_IDENTITY
-        relation: same_account
+        relation: related
+        fallback: same_account
+        allow_same_account: true
+        justification: "an identity provider's sign-on policy applies tenant-wide: every privileged admin in the tenant signs in under it"
         label: Privileged administrators exist under that policy

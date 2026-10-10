@@ -1,0 +1,138 @@
+category: deny_precedence
+cases:
+  - name: single allow grants
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::reports/q1.csv", resource_account: "111111111111"}
+    identity:
+      - id: read
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: s3:GetObject, Resource: "arn:aws:s3:::reports/*"}]}
+    expect: {decision: allow, matched: [read#Read]}
+
+  - name: no policy is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic_policy-eval-denyallow.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::reports/q1.csv", resource_account: "111111111111"}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: allow for a different action is implicit deny
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic_policy-eval-denyallow.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:PutObject, resource: "arn:aws:s3:::reports/q1.csv", resource_account: "111111111111"}
+    identity:
+      - id: read
+        document: {Version: "2012-10-17", Statement: [{Sid: Read, Effect: Allow, Action: s3:GetObject, Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: F02 allow s3:* plus deny s3:GetObject on the pii bucket
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic_policy-eval-denyallow.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/nimbus-lab-export-role/export", action: s3:GetObject, resource: "arn:aws:s3:::nimbus-lab-customer-pii/export.csv", resource_account: "111111111111"}
+    identity:
+      - id: export
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: AllS3, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: NoPII, Effect: Deny, Action: s3:GetObject, Resource: ["arn:aws:s3:::nimbus-lab-customer-pii", "arn:aws:s3:::nimbus-lab-customer-pii/*"]}
+    expect: {decision: explicit_deny, matched: [export#AllS3, export#NoPII]}
+
+  - name: F02 other actions on the pii bucket remain allowed
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic_policy-eval-denyallow.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/nimbus-lab-export-role/export", action: s3:PutObject, resource: "arn:aws:s3:::nimbus-lab-customer-pii/export.csv", resource_account: "111111111111"}
+    identity:
+      - id: export
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: AllS3, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: NoPII, Effect: Deny, Action: s3:GetObject, Resource: ["arn:aws:s3:::nimbus-lab-customer-pii", "arn:aws:s3:::nimbus-lab-customer-pii/*"]}
+    expect: {decision: allow, matched: [export#AllS3]}
+
+  - name: deny in a second attached policy overrides allow in the first
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:TerminateInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-0abc", resource_account: "111111111111"}
+    identity:
+      - id: admin
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+      - id: guard
+        document: {Version: "2012-10-17", Statement: [{Sid: NoTerminate, Effect: Deny, Action: "ec2:Terminate*", Resource: "*"}]}
+    expect: {decision: explicit_deny, matched: [admin#All, guard#NoTerminate]}
+
+  - name: deny on a different resource does not apply
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::public-site/index.html", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}
+            - {Sid: NoSecret, Effect: Deny, Action: "s3:*", Resource: "arn:aws:s3:::secret/*"}
+    expect: {decision: allow, matched: [p#All]}
+
+  - name: explicit deny in resource policy overrides identity allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:DeleteObject, resource: "arn:aws:s3:::logs/a.log", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "s3:*", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: NoDelete, Effect: Deny, Principal: "*", Action: s3:DeleteObject, Resource: "arn:aws:s3:::logs/*"}]}
+    expect: {decision: explicit_deny, matched: [id#All, bucket#NoDelete]}
+
+  - name: deny in permission boundary wins over identity allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: iam:CreateUser, resource: "arn:aws:iam::111111111111:user/bob", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: IAM, Effect: Allow, Action: "iam:*", Resource: "*"}]}
+    boundary:
+      id: pb
+      document:
+        Version: "2012-10-17"
+        Statement:
+          - {Sid: Everything, Effect: Allow, Action: "*", Resource: "*"}
+          - {Sid: NoUsers, Effect: Deny, Action: iam:CreateUser, Resource: "*"}
+    expect: {decision: explicit_deny, matched: [id#IAM, pb#Everything, pb#NoUsers]}
+
+  - name: deny statement without sid is referenced by index
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_sid.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: sqs:DeleteQueue, resource: "arn:aws:sqs:us-east-1:111111111111:jobs"}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Effect: Allow, Action: "sqs:*", Resource: "*"}
+            - {Effect: Deny, Action: "sqs:Delete*", Resource: "*"}
+    expect: {decision: explicit_deny, matched: [p#0, p#1]}
+
+  - name: conditioned deny that applies wins
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_deny-requested-region.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:RunInstances, resource: "arn:aws:ec2:ap-south-1:111111111111:instance/*", context: {"aws:RequestedRegion": ap-south-1}}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: EC2, Effect: Allow, Action: "ec2:*", Resource: "*"}
+            - {Sid: Regions, Effect: Deny, Action: "*", Resource: "*", Condition: {StringNotEquals: {"aws:RequestedRegion": [us-east-1, eu-west-1]}}}
+    expect: {decision: explicit_deny, matched: [p#EC2, p#Regions]}
+
+  - name: conditioned deny that does not apply leaves allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_deny-requested-region.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:RunInstances, resource: "arn:aws:ec2:us-east-1:111111111111:instance/*", context: {"aws:RequestedRegion": us-east-1}}
+    identity:
+      - id: p
+        document:
+          Version: "2012-10-17"
+          Statement:
+            - {Sid: EC2, Effect: Allow, Action: "ec2:*", Resource: "*"}
+            - {Sid: Regions, Effect: Deny, Action: "*", Resource: "*", Condition: {StringNotEquals: {"aws:RequestedRegion": [us-east-1, eu-west-1]}}}
+    expect: {decision: allow, matched: [p#EC2]}
+
+  - name: effect is case sensitive so lowercase allow grants nothing
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_effect.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Bad, Effect: allow, Action: "*", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: []}

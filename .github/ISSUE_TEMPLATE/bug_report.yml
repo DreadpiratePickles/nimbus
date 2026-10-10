@@ -1,0 +1,27 @@
+name: Bug report
+description: Something nimbus / cloud-posture does wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security vulnerabilities: do not file here.** See SECURITY.md (private reporting).
+        Never paste credentials, real account IDs or customer data; redact them.
+  - type: input
+    id: version
+    attributes: {label: "`cloud-posture version` output", placeholder: "cloud-posture 0.2.0 (commit ..., built ...)"}
+    validations: {required: true}
+  - type: input
+    id: install
+    attributes: {label: "How was it installed?", placeholder: "install.sh / Homebrew / container image digest / go build"}
+  - type: textarea
+    id: repro
+    attributes: {label: Steps to reproduce, description: Commands and (redacted) inputs, render: shell}
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes: {label: Expected vs actual}
+    validations: {required: true}
+  - type: textarea
+    id: logs
+    attributes: {label: Output / logs (redacted), render: text}

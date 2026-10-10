@@ -1,0 +1,62 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-ecs-privesc-passrole-start-task-existing-cluster
+title: ECS Task Start with Privileged Role on EC2 (ECS-005 - Existing Cluster)
+description: >-
+  The principal may pass a role that trusts ecs-tasks.amazonaws.com and register a task definition with the role and start it on an existing EC2 cluster, so it gains that role's
+  permissions. Scope iam:PassRole to the roles the principal genuinely needs (iam:PassedToService).
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-ecs-privesc-passrole-start-task-existing-cluster
+  upstream: pathfinding.cloud - ECS-005 - iam:PassRole + ecs:RegisterTaskDefinition + ecs:StartTask
+  upstream_url: https://pathfinding.cloud/paths/ecs-005
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator (Allow per action and resource, Deny and SCPs honoured)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:PassRole", resource: target}
+    - {action: "ecs:RegisterTaskDefinition", resource: "*"}
+    - {action: "ecs:StartTask", resource: "*"}
+  target:
+    types: [aws_iam_role]
+    trusts_service: ecs-tasks.amazonaws.com
+    exclude_self: true
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/dev
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/*"}
+              - {Effect: Allow, Action: "ecs:RegisterTaskDefinition", Resource: "*"}
+              - {Effect: Allow, Action: "ecs:StartTask", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/partial
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/*"}
+              - {Effect: Allow, Action: "ecs:RegisterTaskDefinition", Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/svc
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ecs-tasks.amazonaws.com]}
+      - id: arn:aws:iam::123456789012:role/wrongtrust
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com]}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/svc", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/wrongtrust", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/partial", target: "arn:aws:iam::123456789012:role/svc", match: false}

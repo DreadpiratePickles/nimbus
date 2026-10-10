@@ -1,0 +1,17 @@
+# Remediation plan metadata for az_keyvault_softdelete.bicep (schema: internal/remediation/metadata.go).
+actions_required:
+  - "Microsoft.KeyVault/vaults/read"
+  - "Microsoft.KeyVault/vaults/write"
+  - "Microsoft.Resources/deployments/write"
+  - "Microsoft.Resources/deployments/whatIf/action"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Prefer the in-place CLI: az keyvault update --enable-purge-protection true --retention-days 90; add a CanNotDelete resource lock meanwhile."
+effort: S
+confidence: low
+rollback: "Purge protection can NOT be disabled once enabled. Other properties: redeploy the previous template or restore them with az keyvault update."
+breaks_function:
+  value: true
+  note: "Full ARM PUT: access policies, RBAC mode and network ACLs are carried over from the live vault, but any other property not set here (public network access, enabledFor*, tags) is reset. Not validated with the bicep CLI (not installed); if ARM rejects the self-reference, use the CLI."

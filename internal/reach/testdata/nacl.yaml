@@ -1,0 +1,266 @@
+# Network ACL evaluation. AWS: "Rules are evaluated starting with the lowest numbered rule. As soon as a
+# rule matches traffic, it's applied regardless of any higher-numbered rule that might contradict it."
+# NACLs are stateless: return traffic must be allowed by the outbound rules (ephemeral ports 1024-65535).
+cases:
+  - name: F03 sg open 22, nacl rule 90 denies 22
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/nacl-rules.html (lowest rule number wins; lab/ground_truth.yaml F03)
+    port: {protocol: tcp, number: 22}
+    target:
+      id: i-0a1b2c3d4e5f60004
+      kind: instance
+      public_ip: true
+      public_address: 198.51.100.50
+      subnets:
+        - id: subnet-0a1b2c3d4e5f60004
+          route_table: {id: rtb-pub, routes: [{destination: 10.0.0.0/16, target: local}, {destination: 0.0.0.0/0, target: igw-1}]}
+          nacl:
+            id: acl-0a1b2c3d4e5f60001
+            inbound:
+              - {rule: 90, protocol: tcp, from: 22, to: 22, cidr: 0.0.0.0/0, action: deny}
+              - {rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}
+            outbound:
+              - {rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}
+      security_groups:
+        - {id: sg-0a1b2c3d4e5f60004, ingress: [{protocol: tcp, from: 22, to: 22, sources: [0.0.0.0/0]}]}
+    expect:
+      status: blocked
+      blocker: "NACL acl-0a1b2c3d4e5f60001 rule 90 denies 22/tcp from 0.0.0.0/0"
+      confidence: verified
+
+  - name: F03 any-port, route table unknown, nacl still decides
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/nacl-rules.html (a deny is decisive whatever the unknown layers say)
+    target:
+      id: i-0a1b2c3d4e5f60004
+      kind: instance
+      public_ip: true
+      subnets:
+        - id: subnet-0a1b2c3d4e5f60004
+          nacl:
+            id: acl-0a1b2c3d4e5f60001
+            inbound:
+              - {rule: 90, protocol: tcp, from: 22, to: 22, cidr: 0.0.0.0/0, action: deny}
+              - {rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}
+      security_groups:
+        - {id: sg-0a1b2c3d4e5f60004, ingress: [{protocol: tcp, from: 22, to: 22, sources: [0.0.0.0/0]}]}
+    expect:
+      status: blocked
+      blocker: "NACL acl-0a1b2c3d4e5f60001 rule 90 denies 22/tcp from 0.0.0.0/0"
+      port: {protocol: tcp, number: 22}
+
+  - name: lower-numbered allow beats later deny
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/nacl-rules.html
+    port: {protocol: tcp, number: 22}
+    target: &web
+      id: i-web
+      kind: instance
+      public_ip: true
+      subnets:
+        - id: subnet-pub
+          route_table: &rt_pub {id: rtb-pub, routes: [{destination: 10.0.0.0/16, target: local}, {destination: 0.0.0.0/0, target: igw-1}]}
+          nacl:
+            id: acl-1
+            inbound:
+              - {rule: 50, protocol: tcp, from: 22, to: 22, cidr: 0.0.0.0/0, action: allow}
+              - {rule: 90, protocol: tcp, from: 22, to: 22, cidr: 0.0.0.0/0, action: deny}
+            outbound: &out_all [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}]
+      security_groups: &sg_ssh_open
+        - {id: sg-ssh, ingress: [{protocol: tcp, from: 22, to: 22, sources: [0.0.0.0/0]}]}
+    expect:
+      status: reachable
+      width: wide
+      path_kinds: [public_ip, route, nacl_inbound, security_group, nacl_outbound]
+      path_has: "NACL acl-1 rule 50 allows 22/tcp from 0.0.0.0/0"
+      confidence: verified
+
+  - name: default nacl allows everything
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/default-network-acl.html (rule 100 allows all inbound and outbound)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *web
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl: &default_nacl
+            id: acl-default
+            inbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}, {rule: 32767, protocol: "-1", cidr: 0.0.0.0/0, action: deny}]
+            outbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}, {rule: 32767, protocol: "-1", cidr: 0.0.0.0/0, action: deny}]
+    expect:
+      status: reachable
+      width: wide
+      path_has: "NACL acl-default rule 100 allows 22/tcp from 0.0.0.0/0"
+
+  - name: custom nacl with no rules denies all
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/custom-network-acl.html (a new custom NACL denies all inbound and outbound until rules are added)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *web
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl: {id: acl-empty, inbound: [], outbound: []}
+    expect:
+      status: blocked
+      blocker: "NACL acl-empty has no rule allowing 22/tcp"
+
+  - name: nacl allows only a partner range, width becomes narrow
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/nacl-rules.html ; https://learn.microsoft.com/en-us/azure/defender-for-cloud/internet-exposure-analysis (wide vs narrow)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *web
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl:
+            id: acl-partner
+            inbound: [{rule: 100, protocol: tcp, from: 22, to: 22, cidr: 203.0.113.0/24, action: allow}]
+            outbound: *out_all
+    expect:
+      status: reachable
+      width: narrow
+      sources: [203.0.113.0/24]
+
+  - name: nacl narrows to a trusted range, width trusted
+    source: https://learn.microsoft.com/en-us/azure/defender-for-cloud/internet-exposure-analysis (trusted IPs suppress exposure)
+    port: {protocol: tcp, number: 22}
+    trusted: [203.0.113.0/24]
+    target:
+      <<: *web
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl:
+            id: acl-partner
+            inbound: [{rule: 100, protocol: tcp, from: 22, to: 22, cidr: 203.0.113.0/24, action: allow}]
+            outbound: *out_all
+    expect:
+      status: reachable
+      width: trusted
+
+  - name: nacl denies one range, the rest of the internet still reaches
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/nacl-rules.html
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *web
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl:
+            id: acl-deny-one
+            inbound:
+              - {rule: 10, protocol: tcp, from: 22, to: 22, cidr: 198.51.100.0/24, action: deny}
+              - {rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}
+            outbound: *out_all
+    expect:
+      status: reachable
+      width: wide
+      no_blocker: "rule 10"
+
+  - name: nacl deny on a different port does not block
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/nacl-rules.html (a rule applies only to its protocol and port range)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *web
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl:
+            id: acl-3389
+            inbound:
+              - {rule: 90, protocol: tcp, from: 3389, to: 3389, cidr: 0.0.0.0/0, action: deny}
+              - {rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}
+            outbound: *out_all
+    expect:
+      status: reachable
+
+  - name: nacl udp deny does not block tcp
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/nacl-rules.html (protocol is part of the match)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *web
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl:
+            id: acl-udp
+            inbound:
+              - {rule: 90, protocol: "17", from: 0, to: 65535, cidr: 0.0.0.0/0, action: deny}
+              - {rule: 100, protocol: tcp, from: 0, to: 65535, cidr: 0.0.0.0/0, action: allow}
+            outbound: *out_all
+    expect:
+      status: reachable
+
+  - name: nacl protocol number 6 matches tcp
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/nacl-rules.html (protocol by number, 6 = TCP)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *web
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl:
+            id: acl-proto6
+            inbound: [{rule: 90, protocol: "6", from: 22, to: 22, cidr: 0.0.0.0/0, action: deny}]
+            outbound: *out_all
+    expect:
+      status: blocked
+      blocker: "NACL acl-proto6 rule 90 denies 22/tcp from 0.0.0.0/0"
+
+  - name: outbound denies ephemeral ports, return traffic dropped
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/custom-network-acl.html#nacl-ephemeral-ports (stateless; return traffic needs 1024-65535 outbound)
+    port: {protocol: tcp, number: 443}
+    target:
+      <<: *web
+      security_groups: [{id: sg-https, ingress: [{protocol: tcp, from: 443, to: 443, sources: [0.0.0.0/0]}]}]
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl:
+            id: acl-noreturn
+            inbound: [{rule: 100, protocol: tcp, from: 443, to: 443, cidr: 0.0.0.0/0, action: allow}]
+            outbound: [{rule: 100, protocol: tcp, from: 80, to: 80, cidr: 0.0.0.0/0, action: allow}]
+    expect:
+      status: blocked
+      blocker: "NACL acl-noreturn outbound rules deny return traffic to ephemeral ports 1024-65535/tcp"
+
+  - name: outbound allows only the linux ephemeral range, return works
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/custom-network-acl.html#nacl-ephemeral-ports (Linux kernels use 32768-61000)
+    port: {protocol: tcp, number: 443}
+    target:
+      <<: *web
+      security_groups: [{id: sg-https, ingress: [{protocol: tcp, from: 443, to: 443, sources: [0.0.0.0/0]}]}]
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl:
+            id: acl-linux
+            inbound: [{rule: 100, protocol: tcp, from: 443, to: 443, cidr: 0.0.0.0/0, action: allow}]
+            outbound: [{rule: 100, protocol: tcp, from: 32768, to: 61000, cidr: 0.0.0.0/0, action: allow}]
+    expect:
+      status: reachable
+      path_has: "NACL acl-linux outbound rule 100 allows return traffic to 32768-61000/tcp"
+
+  - name: outbound rules not collected, inbound allowed
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/custom-network-acl.html#nacl-ephemeral-ports (return path cannot be proven without outbound rules)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *web
+      subnets:
+        - id: subnet-pub
+          route_table: *rt_pub
+          nacl:
+            id: acl-inonly
+            inbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}]
+    expect:
+      status: unknown
+      unknown: "outbound rules of NACL acl-inonly not collected"
+      confidence: hint
+
+  - name: nacl not collected
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-network-acls.html (every subnet is associated with a NACL)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *web
+      subnets: [{id: subnet-pub, route_table: *rt_pub}]
+    expect:
+      status: unknown
+      unknown: "network ACL for subnet-pub not collected"

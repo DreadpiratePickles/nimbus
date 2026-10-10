@@ -1,0 +1,15 @@
+# Remediation plan metadata for iam_cross_account_trust.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "iam:GetRole"
+  - "iam:UpdateAssumeRolePolicy"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Add an aws:PrincipalOrgID or sts:ExternalId condition, or an SCP/RCP that limits sts:AssumeRole from outside the organization."
+effort: S
+confidence: medium
+rollback: "Save the current policy first (aws iam get-role --query Role.AssumeRolePolicyDocument > trust.json); restore with aws iam update-assume-role-policy --policy-document file://trust.json."
+breaks_function:
+  value: true
+  note: "Principals not in trusted_account_ids / trusted_services, and any federated (SAML/OIDC) principals, can no longer assume the role. With external_id set, callers that do not send that sts:ExternalId are refused; with principal_org_id, callers outside the organization are refused."

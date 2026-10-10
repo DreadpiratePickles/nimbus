@@ -24,10 +24,16 @@ type fakeCompute struct {
 	err   error
 }
 
-func (f *fakeCompute) Instances(context.Context, string) ([]*compute.Instance, error) { return f.inst, f.err }
-func (f *fakeCompute) Firewalls(context.Context, string) ([]*compute.Firewall, error) { return f.fws, nil }
-func (f *fakeCompute) Disks(context.Context, string) ([]*compute.Disk, error)         { return f.disks, nil }
-func (f *fakeCompute) Addresses(context.Context, string) ([]*compute.Address, error)  { return f.addrs, nil }
+func (f *fakeCompute) Instances(context.Context, string) ([]*compute.Instance, error) {
+	return f.inst, f.err
+}
+func (f *fakeCompute) Firewalls(context.Context, string) ([]*compute.Firewall, error) {
+	return f.fws, nil
+}
+func (f *fakeCompute) Disks(context.Context, string) ([]*compute.Disk, error) { return f.disks, nil }
+func (f *fakeCompute) Addresses(context.Context, string) ([]*compute.Address, error) {
+	return f.addrs, nil
+}
 
 type fakeStorage struct {
 	b   []BucketInfo
@@ -241,7 +247,9 @@ func TestCostSignals(t *testing.T) {
 		key   string
 		check func(core.CostSignal) bool
 	}{
-		{core.KindUnattachedVolume + "|disk/orphan", func(c core.CostSignal) bool { return c.SizeGB == 200 && c.Attributes["disk_type"] == "pd-ssd" && c.Region == "us-central1" }},
+		{core.KindUnattachedVolume + "|disk/orphan", func(c core.CostSignal) bool {
+			return c.SizeGB == 200 && c.Attributes["disk_type"] == "pd-ssd" && c.Region == "us-central1"
+		}},
 		{core.KindUnassociatedIP + "|addr/spare", func(c core.CostSignal) bool { return c.Region == "us-central1" }},
 		{core.KindStoppedInstance + "|https://compute/projects/acme-prod/zones/europe-west1-b/instances/batch", func(c core.CostSignal) bool { return c.InstanceType == "n2-standard-8" && c.Region == "europe-west1" }},
 	}
@@ -336,5 +344,126 @@ func TestHelpers(t *testing.T) {
 	}
 	if regionOf("us-central1-a") != "us-central1" {
 		t.Error("regionOf")
+	}
+}
+
+// Defect 15(d): GCP evaluates ingress rules by priority (lower number first) and a
+// deny wins over an allow at the same priority.
+func TestFirewallDenyAndPriority(t *testing.T) {
+	webID := "https://compute/projects/acme-prod/zones/us-central1-a/instances/web"
+	deny := func(name string, prio int64, src string, ports ...string) *compute.Firewall {
+		return &compute.Firewall{Name: name, SelfLink: "fw/" + name, Network: net, Priority: prio, SourceRanges: []string{src},
+			Denied: []*compute.FirewallDenied{{IPProtocol: "tcp", Ports: ports}}}
+	}
+	allow := func(name string, prio int64, src string, ports ...string) *compute.Firewall {
+		return &compute.Firewall{Name: name, SelfLink: "fw/" + name, Network: net, Priority: prio, SourceRanges: []string{src}, TargetTags: []string{"web"},
+			Allowed: []*compute.FirewallAllowed{{IPProtocol: "tcp", Ports: ports}}}
+	}
+	cases := []struct {
+		name    string
+		extra   []*compute.Firewall
+		replace bool // replace the fixture's allow-ssh (priority 0 = default 1000)
+		exposed bool
+		width   string
+		sshFail bool // compute_firewall_ssh_access_from_the_internet_allowed on fw/allow-ssh
+	}{
+		{"baseline allow 0.0.0.0/0", nil, false, true, core.ExposureWide, true},
+		{"higher-priority deny blocks", []*compute.Firewall{deny("deny-ssh", 900, "0.0.0.0/0", "22")}, false, false, "", false},
+		{"equal-priority deny wins", []*compute.Firewall{deny("deny-ssh", 1000, "0.0.0.0/0", "22")}, false, false, "", false},
+		{"lower-priority deny is shadowed", []*compute.Firewall{deny("deny-ssh", 2000, "0.0.0.0/0", "22")}, false, true, core.ExposureWide, true},
+		{"deny on another port does not block", []*compute.Firewall{deny("deny-rdp", 100, "0.0.0.0/0", "3389")}, false, true, core.ExposureWide, true},
+		{"narrow source", []*compute.Firewall{allow("ssh-office", 1000, "198.51.100.0/24", "22")}, true, true, core.ExposureNarrow, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cl := fixture()
+			fc := cl.Compute.(*fakeCompute)
+			if tc.replace {
+				fc.fws = fc.fws[1:]
+			}
+			fc.fws = append(fc.fws, tc.extra...)
+			res, g := collect(t, cl)
+			var attr map[string]any
+			for _, e := range g.Out(graph.InternetNodeID) {
+				if e.To == webID && e.Kind == graph.EdgeExposes {
+					attr = e.Attr
+				}
+			}
+			if (attr != nil) != tc.exposed {
+				t.Fatalf("exposed = %v (%v), want %v", attr != nil, attr, tc.exposed)
+			}
+			if tc.exposed && attr[core.AttrExposure] != tc.width {
+				t.Errorf("exposure = %v, want %s", attr[core.AttrExposure], tc.width)
+			}
+			if !tc.replace {
+				want := model.Pass
+				if tc.sshFail {
+					want = model.Fail
+				}
+				if got := statusOf(res, "compute_firewall_ssh_access_from_the_internet_allowed", "fw/allow-ssh"); got != want {
+					t.Errorf("ssh finding on allow-ssh = %q, want %q", got, want)
+				}
+			}
+		})
+	}
+}
+
+type fakeProjectIAM struct {
+	b   []IAMBinding
+	err error
+}
+
+func (f fakeProjectIAM) IAMPolicy(context.Context, string) ([]IAMBinding, error) { return f.b, f.err }
+
+// Defect 15(d): project IAM is collected so GCP SA → role edges exist for attack paths.
+func TestProjectIAMBindings(t *testing.T) {
+	defSA := "123-compute@developer.gserviceaccount.com"
+	cl := fixture()
+	cl.ProjectIAM = fakeProjectIAM{b: []IAMBinding{
+		{Role: "roles/editor", Members: []string{"serviceAccount:" + defSA, "user:alice@acme.com"}},
+		{Role: "roles/storage.objectViewer", Members: []string{"serviceAccount:app@acme-prod.iam.gserviceaccount.com", "group:eng@acme.com"}},
+		{Role: "projects/acme-prod/roles/customDeployer", Members: []string{"serviceAccount:app@acme-prod.iam.gserviceaccount.com"}, Condition: "expires 2027"},
+	}}
+	res, g := collect(t, cl)
+	sa := saID(proj, defSA)
+	editor := RoleID(proj, "roles/editor")
+	if editor != "//cloudresourcemanager.googleapis.com/projects/acme-prod/roles/editor" {
+		t.Fatalf("RoleID = %s", editor)
+	}
+	has := func(from, to string) map[string]any {
+		for _, e := range g.Out(from) {
+			if e.To == to && e.Kind == graph.EdgeHasPolicy {
+				return e.Attr
+			}
+		}
+		return nil
+	}
+	if a := has(sa, editor); a == nil || a["role"] != "roles/editor" || a["member"] != "serviceAccount:"+defSA {
+		t.Fatalf("SA → roles/editor has_policy edge = %v", a)
+	}
+	if has("gcp:user/alice@acme.com", editor) == nil || has("gcp:group/eng@acme.com", RoleID(proj, "roles/storage.objectViewer")) == nil {
+		t.Error("user / group binding edges missing")
+	}
+	custom := RoleID(proj, "projects/acme-prod/roles/customDeployer")
+	if a := has(saID(proj, "app@acme-prod.iam.gserviceaccount.com"), custom); a == nil || a["condition"] != "expires 2027" {
+		t.Errorf("custom role edge = %v", a)
+	}
+	n, _ := g.Node(editor)
+	if n == nil || n.Type != "gcp_iam_role" || n.Class != graph.ClassIdentity || !n.HasWeakness("OVERPRIVILEGED_IDENTITY") {
+		t.Fatalf("editor role node = %+v", n)
+	}
+	if v, _ := g.Node(RoleID(proj, "roles/storage.objectViewer")); v.HasWeakness("OVERPRIVILEGED_IDENTITY") {
+		t.Error("non-primitive role flagged as overprivileged")
+	}
+	if got := statusOf(res, "iam_role_assigned_to_user_or_sa_primitive", editor); got != model.Fail {
+		t.Errorf("primitive role finding = %q", got)
+	}
+	// Unreadable IAM policy is a coverage error, not a silent gap.
+	cl = fixture()
+	cl.ProjectIAM = fakeProjectIAM{err: errors.New("googleapi: Error 403: Permission denied, forbidden")}
+	res, _ = collect(t, cl)
+	ces := res.CollectErrors()
+	if len(ces) != 1 || ces[0].API != "gcp/resourcemanager.getIamPolicy" || ces[0].Reason != core.ReasonAccessDenied {
+		t.Fatalf("collect errors = %+v", ces)
 	}
 }

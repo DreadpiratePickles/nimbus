@@ -1,0 +1,49 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-sagemaker-privesc-passrole-create-notebook
+title: SageMaker Notebook Creation with Privileged Role (SAGEMAKER-001)
+description: >-
+  The principal may pass a SageMaker-trusting role and create a notebook instance, then read that role credentials from inside it.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-sagemaker-privesc-passrole-create-notebook
+  upstream: pathfinding.cloud - SAGEMAKER-001 - iam:PassRole + sagemaker:CreateNotebookInstance
+  upstream_url: https://pathfinding.cloud/paths/sagemaker-001
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:PassRole", resource: target}
+    - {action: "sagemaker:CreateNotebookInstance", resource: "*"}
+  target:
+    types: [aws_iam_role]
+    trusts_service: sagemaker.amazonaws.com
+    exclude_self: true
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/dev
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/svc"}
+              - {Effect: Allow, Action: "sagemaker:CreateNotebookInstance", Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/svc
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [sagemaker.amazonaws.com]}
+      - id: arn:aws:iam::123456789012:role/wrongtrust
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [lambda.amazonaws.com]}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/svc", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/wrongtrust", match: false}

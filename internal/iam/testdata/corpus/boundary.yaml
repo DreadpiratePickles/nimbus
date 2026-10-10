@@ -1,0 +1,86 @@
+category: boundary
+cases:
+  - name: boundary intersects identity allow
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+    request: {principal: "arn:aws:iam::111111111111:user/shirley", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    boundary:
+      id: pb
+      document: {Version: "2012-10-17", Statement: [{Sid: S3CwEc2, Effect: Allow, Action: ["s3:*", "cloudwatch:*", "ec2:*"], Resource: "*"}]}
+    expect: {decision: allow, matched: [id#All, pb#S3CwEc2]}
+
+  - name: boundary narrows away iam
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+    request: {principal: "arn:aws:iam::111111111111:user/shirley", action: iam:CreateUser, resource: "arn:aws:iam::111111111111:user/x"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    boundary:
+      id: pb
+      document: {Version: "2012-10-17", Statement: [{Sid: S3CwEc2, Effect: Allow, Action: ["s3:*", "cloudwatch:*", "ec2:*"], Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [id#All]}
+
+  - name: boundary alone grants nothing
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+    request: {principal: "arn:aws:iam::111111111111:user/shirley", action: iam:CreateUser, resource: "arn:aws:iam::111111111111:user/x"}
+    boundary:
+      id: pb
+      document: {Version: "2012-10-17", Statement: [{Sid: IAM, Effect: Allow, Action: "iam:*", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [pb#IAM]}
+
+  - name: boundary on resource scope narrows to one bucket
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/dev/s", action: s3:GetObject, resource: "arn:aws:s3:::prod-data/k", resource_account: "111111111111"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: S3, Effect: Allow, Action: "s3:*", Resource: "*"}]}
+    boundary:
+      id: pb
+      document: {Version: "2012-10-17", Statement: [{Sid: DevOnly, Effect: Allow, Action: "s3:*", Resource: ["arn:aws:s3:::dev-*", "arn:aws:s3:::dev-*/*"]}]}
+    expect: {decision: implicit_deny, matched: [id#S3]}
+
+  - name: same-account resource policy naming the IAM user is not limited by the boundary
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+    request: {principal: "arn:aws:iam::111111111111:user/shirley", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    boundary:
+      id: pb
+      document: {Version: "2012-10-17", Statement: [{Sid: EC2, Effect: Allow, Action: "ec2:*", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Shirley, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:user/shirley"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: allow, matched: [bucket#Shirley]}
+
+  - name: same-account resource policy naming the role ARN is limited by the boundary
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/dev/s", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    boundary:
+      id: pb
+      document: {Version: "2012-10-17", Statement: [{Sid: EC2, Effect: Allow, Action: "ec2:*", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Dev, Effect: Allow, Principal: {AWS: "arn:aws:iam::111111111111:role/dev"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: implicit_deny, matched: [bucket#Dev]}
+
+  - name: same-account resource policy naming the role session ARN is not limited by the boundary
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+    request: {principal: "arn:aws:sts::111111111111:assumed-role/dev/s", action: s3:GetObject, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    boundary:
+      id: pb
+      document: {Version: "2012-10-17", Statement: [{Sid: EC2, Effect: Allow, Action: "ec2:*", Resource: "*"}]}
+    resource_policy:
+      id: bucket
+      document: {Version: "2012-10-17", Statement: [{Sid: Sess, Effect: Allow, Principal: {AWS: "arn:aws:sts::111111111111:assumed-role/dev/s"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: allow, matched: [bucket#Sess]}
+
+  - name: boundary with NotAction iam
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+    request: {principal: "arn:aws:iam::111111111111:user/shirley", action: iam:PassRole, resource: "arn:aws:iam::111111111111:role/admin"}
+    identity:
+      - id: id
+        document: {Version: "2012-10-17", Statement: [{Sid: All, Effect: Allow, Action: "*", Resource: "*"}]}
+    boundary:
+      id: pb
+      document: {Version: "2012-10-17", Statement: [{Sid: NoIAM, Effect: Allow, NotAction: "iam:*", Resource: "*"}]}
+    expect: {decision: implicit_deny, matched: [id#All]}

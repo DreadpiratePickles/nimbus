@@ -1,0 +1,81 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-sso-privesc-permission-set-escalation
+title: Identity Center Permission Set Escalation (SSO-001)
+description: >-
+  The principal may create an IAM Identity Center permission set, attach a managed policy such as
+  AdministratorAccess to it, and assign it to an identity it controls in any account of the
+  organization, gaining admin access through the access portal. Restrict sso:CreatePermissionSet,
+  sso:AttachManagedPolicyToPermissionSet and sso:CreateAccountAssignment to Identity Center administrators.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-sso-privesc-permission-set-escalation
+  upstream: pathfinding.cloud - SSO-001 - sso:CreatePermissionSet + sso:AttachManagedPolicyToPermissionSet + sso:CreateAccountAssignment
+  upstream_url: https://pathfinding.cloud/paths/sso-001
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator; as in Prowler each action must be allowed on resource "*" (permission sets are not graph nodes), Deny and SCPs honoured; nimbus also requires the IAM dependent actions AWS lists for sso:CreateAccountAssignment (iam:CreateRole and iam:AttachRolePolicy on the aws-reserved/sso.amazonaws.com role path, where provisioning creates the permission-set role), which Prowler does not check, so PowerUserAccess (sso:* without iam:*) does not match (lab corp-tools-role, noise sandbox-poweruser); the match is reported on the principal itself (self join); nimbus does not anchor on principals already allowed * on *
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: self
+  requires_permissions:
+    - {action: "sso:CreatePermissionSet", resource: "*"}
+    - {action: "sso:AttachManagedPolicyToPermissionSet", resource: "*"}
+    - {action: "sso:CreateAccountAssignment", resource: "*"}
+    - {action: "iam:CreateRole", resource: "arn:aws:iam::{account}:role/aws-reserved/sso.amazonaws.com/*"}
+    - {action: "iam:AttachRolePolicy", resource: "arn:aws:iam::{account}:role/aws-reserved/sso.amazonaws.com/*"}
+  target:
+    types: [aws_iam_user, aws_iam_role]
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/sso-ops
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["sso:CreatePermissionSet", "sso:AttachManagedPolicyToPermissionSet", "sso:CreateAccountAssignment", "sso:Describe*", "sso:List*"], Resource: "*"}
+              - {Effect: Allow, Action: ["iam:CreateRole", "iam:AttachRolePolicy", "iam:PutRolePolicy", "iam:GetRole"], Resource: "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*"}
+      - id: arn:aws:iam::123456789012:role/poweruser
+        type: aws_iam_role
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, NotAction: ["iam:*", "organizations:*", "account:*"], Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/sso-viewer
+        type: aws_iam_role
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["sso:CreatePermissionSet", "sso:AttachManagedPolicyToPermissionSet", "sso:Describe*", "sso:List*"], Resource: "*"}
+              - {Effect: Allow, Action: ["iam:CreateRole", "iam:AttachRolePolicy"], Resource: "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*"}
+      - id: arn:aws:iam::123456789012:user/sso-scoped
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["sso:CreatePermissionSet", "sso:AttachManagedPolicyToPermissionSet", "sso:CreateAccountAssignment"], Resource: "arn:aws:sso:::instance/ssoins-1111111111111111"}
+      - id: arn:aws:iam::123456789012:user/admin
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "*", Resource: "*"}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/sso-ops", target: "arn:aws:iam::123456789012:user/sso-ops", match: true}
+    - {anchor: "arn:aws:iam::123456789012:role/poweruser", target: "arn:aws:iam::123456789012:role/poweruser", match: false}
+    - {anchor: "arn:aws:iam::123456789012:role/sso-viewer", target: "arn:aws:iam::123456789012:role/sso-viewer", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/sso-scoped", target: "arn:aws:iam::123456789012:user/sso-scoped", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/admin", target: "arn:aws:iam::123456789012:user/admin", match: false}

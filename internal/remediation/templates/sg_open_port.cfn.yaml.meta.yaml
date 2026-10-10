@@ -1,0 +1,20 @@
+# Remediation plan metadata for sg_open_port.cfn.yaml (schema: internal/remediation/metadata.go).
+actions_required:
+  - "cloudformation:CreateChangeSet"
+  - "cloudformation:DescribeChangeSet"
+  - "cloudformation:ExecuteChangeSet"
+  - "cloudformation:DescribeStacks"
+  - "ec2:DescribeSecurityGroupRules"
+  - "ec2:AuthorizeSecurityGroupIngress"
+  - "ec2:RevokeSecurityGroupIngress"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Use SSM Session Manager instead of SSH/RDP, or attach a narrower security group and revoke the open rule by hand."
+effort: S
+confidence: medium
+rollback: "aws cloudformation delete-stack removes the allow-list rules; re-authorize a revoked rule only deliberately."
+breaks_function:
+  value: true
+  note: "Sources outside AllowedCidr lose access once step 2 revokes the world-open rule; a rule covering a port range must be re-created for the other ports."

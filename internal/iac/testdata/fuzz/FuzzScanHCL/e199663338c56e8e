@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("resource\"aws_eks_cluster\"\"\"{\nvpc_config{}\n}")

@@ -29,8 +29,13 @@ type Options struct {
 	Now      time.Time
 }
 
+// registry order is detection order. TrivyOperator precedes Trivy because Trivy claims any
+// file name containing "trivy"; the operator adapter only matches aquasecurity.github.io CRD
+// kinds. Kubescape, KubeBench and Cartography sniff content only and sit after the original
+// adapters so they never take an existing format.
 var registry = []Adapter{
-	&Prowler{}, &Checkov{}, &Trivy{}, &Steampipe{}, &ScoutSuite{}, &Native{},
+	&Prowler{}, &Checkov{}, &TrivyOperator{}, &Trivy{}, &Steampipe{}, &ScoutSuite{},
+	&Kubescape{}, &KubeBench{}, &Cartography{}, &Native{},
 }
 
 func All() []Adapter { return registry }
@@ -117,6 +122,16 @@ func (Native) Detect(filename string, data []byte) bool {
 	if strings.HasSuffix(filename, ".findings.json") || strings.HasSuffix(filename, ".jsonl") {
 		return true
 	}
+	if len(trim) > 0 && trim[0] == '{' {
+		// The versioned envelope (docs/spec/finding-v1.md): {"spec_version": "1.x.y", "findings": [...]}.
+		var env map[string]json.RawMessage
+		if json.Unmarshal(trim, &env) != nil {
+			return false
+		}
+		_, v := env["spec_version"]
+		_, f := env["findings"]
+		return v && f
+	}
 	if len(trim) == 0 || trim[0] != '[' {
 		return false
 	}
@@ -133,6 +148,25 @@ func (Native) Detect(filename string, data []byte) bool {
 func (Native) Parse(data []byte, opts Options) ([]model.Finding, error) {
 	trim := bytes.TrimSpace(data)
 	var out []model.Finding
+	if len(trim) > 0 && trim[0] == '{' {
+		var env struct {
+			SpecVersion *string           `json:"spec_version"`
+			Findings    []json.RawMessage `json:"findings"`
+		}
+		if err := json.Unmarshal(trim, &env); err == nil && env.SpecVersion != nil {
+			if !strings.HasPrefix(*env.SpecVersion, "1.") {
+				return nil, fmt.Errorf("finding spec_version %q is not supported (this build reads 1.x)", *env.SpecVersion)
+			}
+			for i, raw := range env.Findings {
+				var f model.Finding
+				if err := json.Unmarshal(raw, &f); err != nil {
+					return nil, fmt.Errorf("findings[%d]: %w", i, err)
+				}
+				out = append(out, f)
+			}
+			return out, nil
+		}
+	}
 	if len(trim) > 0 && trim[0] == '[' {
 		if err := json.Unmarshal(trim, &out); err != nil {
 			return nil, err

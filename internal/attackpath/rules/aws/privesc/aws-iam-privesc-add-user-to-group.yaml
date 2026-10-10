@@ -1,0 +1,58 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-iam-privesc-add-user-to-group
+title: Group Membership Hijacking for Privilege Escalation (IAM-013)
+description: >-
+  The principal may add itself to a privileged group, inheriting its policies.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-iam-privesc-add-user-to-group
+  upstream: pathfinding.cloud - IAM-013 - iam:AddUserToGroup
+  upstream_url: https://pathfinding.cloud/paths/iam-013
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator; target is any IAM group in the account the action is allowed on; nimbus does not anchor on principals already allowed * on * (an escalation adds nothing; Prowler lists them)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+  include_admin: true
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:AddUserToGroup", resource: target}
+  target:
+    types: [aws_iam_group]
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/priv
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:AddUserToGroup", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/plain
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+      - id: arn:aws:iam::123456789012:group/admins
+        type: aws_iam_group
+        account: "123456789012"
+      - id: arn:aws:iam::123456789012:user/admin
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "*", Resource: "*"}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:group/admins", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/plain", target: "arn:aws:iam::123456789012:group/admins", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/admin", target: "arn:aws:iam::123456789012:group/admins", match: false}

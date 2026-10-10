@@ -1,3 +1,6 @@
+# Strategic merge patch for {{ .Kind }}/{{ .Name }}. TODO: size from observed usage (or your
+# metrics); a memory limit below peak usage OOM-kills the pod.
+# CLI: kubectl top pod --namespace={{ sh .Raw.Namespace }}
 spec:
   template:
     spec:
@@ -8,5 +11,4 @@ spec:
               cpu: 100m
               memory: 128Mi
             limits:
-              cpu: 500m
               memory: 512Mi

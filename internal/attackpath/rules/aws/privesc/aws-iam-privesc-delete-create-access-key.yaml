@@ -1,0 +1,76 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-iam-privesc-delete-create-access-key
+title: Access Key Rotation Attack for Lateral Movement (IAM-003)
+description: >-
+  The principal may delete one of another user's access keys and mint a new one, taking over that identity even when the user already holds the two-key maximum. Scope iam:CreateAccessKey and iam:DeleteAccessKey to the caller's own user (${aws:username}).
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-iam-privesc-delete-create-access-key
+  upstream: pathfinding.cloud - IAM-003 - iam:CreateAccessKey + iam:DeleteAccessKey
+  upstream_url: https://pathfinding.cloud/paths/iam-003
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator (both actions must be allowed on the same target user, Deny and SCPs honoured); target is any other IAM user in the account; nimbus does not anchor on principals already allowed * on * (an escalation adds nothing; Prowler lists them)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+  include_admin: true
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:CreateAccessKey", resource: target}
+    - {action: "iam:DeleteAccessKey", resource: target}
+  target:
+    types: [aws_iam_user]
+    exclude_self: true
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/priv
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["iam:CreateAccessKey", "iam:DeleteAccessKey"], Resource: "arn:aws:iam::123456789012:user/*"}
+      - id: arn:aws:iam::123456789012:user/partial
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:CreateAccessKey", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/scoped
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:CreateAccessKey", Resource: "*"}
+              - {Effect: Allow, Action: "iam:DeleteAccessKey", Resource: "arn:aws:iam::123456789012:user/sandbox-*"}
+      - id: arn:aws:iam::123456789012:user/victim
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/admin
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "*", Resource: "*"}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:user/victim", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:user/priv", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/partial", target: "arn:aws:iam::123456789012:user/victim", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/scoped", target: "arn:aws:iam::123456789012:user/victim", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/admin", target: "arn:aws:iam::123456789012:user/victim", match: false}

@@ -1,0 +1,18 @@
+# Remediation plan metadata for sg_open_port.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "ec2:DescribeSecurityGroupRules"
+  - "ec2:AuthorizeSecurityGroupIngress"
+  - "ec2:RevokeSecurityGroupIngress"
+  - "ec2:ModifySecurityGroupRules"
+  - "ec2:CreateTags"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Use SSM Session Manager instead of SSH/RDP, or attach a narrower security group and revoke the open rule by hand."
+effort: S
+confidence: medium
+rollback: "Re-create the original rule only deliberately (aws ec2 authorize-security-group-ingress); terraform destroy removes the allow-list rules."
+breaks_function:
+  value: true
+  note: "Sources outside allowed_cidrs lose access, with a brief gap while the imported rule is replaced (delete, then create). If the open rule covered a port range or all protocols, only the listed port stays reachable."

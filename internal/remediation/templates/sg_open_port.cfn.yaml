@@ -1,20 +1,25 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Restrict ingress on {{ .Name }} (ports {{ range .Ports }}{{ . }} {{ end }})
+# Step 1 (this stack) adds allow-list rules. CloudFormation cannot remove a rule it does not
+# own, so step 2 revokes the world-open rule(s) once the new rules are verified:
+{{- range .Ports }}
+# CLI: aws ec2 revoke-security-group-ingress --group-id={{ sh $.Raw.ShortID }} --protocol tcp --port={{ . }} --cidr 0.0.0.0/0
+{{- end }}
 Parameters:
   AllowedCidr:
     Type: String
-    Description: CIDR allowed to reach the previously world-open ports
-    Default: 10.0.0.0/8
+    Description: REQUIRED - CIDR allowed to reach the previously world-open ports (no default)
+    AllowedPattern: '^(?!0\.0\.0\.0/0$)([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$'
+    ConstraintDescription: an IPv4 CIDR other than 0.0.0.0/0
 Resources:
 {{- range .Ports }}
   Ingress{{ . }}:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      GroupId: {{ $.ID }}
+      GroupId: {{ $.ShortID }}
       IpProtocol: tcp
       FromPort: {{ . }}
       ToPort: {{ . }}
       CidrIp: !Ref AllowedCidr
+      Description: Restricted by nimbus
 {{- end }}
-# Remove the 0.0.0.0/0 rule after deploying:
-#   aws ec2 revoke-security-group-ingress --group-id {{ .ID }} --protocol tcp --port {{ index .Ports 0 }} --cidr 0.0.0.0/0

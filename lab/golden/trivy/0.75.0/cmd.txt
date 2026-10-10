@@ -1,0 +1,11 @@
+tool: trivy 0.75.0 (brew install trivy; embedded checks via --skip-check-update, so the check set is pinned by the trivy version)
+date: 2026-10-10T01:34:33Z
+lab commit: c1901c9
+cwd: repository root
+normalisation: none (ReportID and CreatedAt differ per run)
+command (aws): trivy config --skip-check-update --cache-dir <tmp> -f json lab/terraform/aws
+exit (aws): 0
+command (azure): trivy config --skip-check-update --cache-dir <tmp> -f json lab/terraform/azure
+exit (azure): 0
+command (gcp): trivy config --skip-check-update --cache-dir <tmp> -f json lab/terraform/gcp
+exit (gcp): 0

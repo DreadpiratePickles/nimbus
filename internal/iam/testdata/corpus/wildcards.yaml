@@ -1,0 +1,81 @@
+category: wildcards
+cases:
+  - name: action prefix wildcard
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_action.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: iam:GetAccountSummary, resource: "*"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: Reads, Effect: Allow, Action: ["iam:Get*", "iam:List*"], Resource: "*"}]}
+    expect: {decision: allow, matched: [p#Reads]}
+
+  - name: action names are case insensitive
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_action.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: S3:GETOBJECT, resource: "arn:aws:s3:::b/k", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, Action: s3:getobject, Resource: "arn:aws:s3:::b/*"}]}
+    expect: {decision: allow, matched: [p#S]}
+
+  - name: question mark matches exactly one character
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_action.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::logs-2026-1/x", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, Action: s3:GetObject, Resource: "arn:aws:s3:::logs-2026-?/*"}]}
+    expect: {decision: allow, matched: [p#S]}
+
+  - name: question mark does not match two characters
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_resource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::logs-2026-10/x", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, Action: s3:GetObject, Resource: "arn:aws:s3:::logs-2026-?/*"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: resource ARNs are case sensitive
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_resource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:GetObject, resource: "arn:aws:s3:::Reports/x", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, Action: s3:GetObject, Resource: "arn:aws:s3:::reports/*"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: object wildcard does not cover the bucket ARN
+    source: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-arn-format.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: s3:ListBucket, resource: "arn:aws:s3:::reports", resource_account: "111111111111"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, Action: "s3:*", Resource: "arn:aws:s3:::reports/*"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: wildcard in resource path segment spans slashes
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_resource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: iam:GetRole, resource: "arn:aws:iam::111111111111:role/division_abc/subdivision_xyz/app"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, Action: iam:GetRole, Resource: "arn:aws:iam::111111111111:role/division_abc/*"}]}
+    expect: {decision: allow, matched: [p#S]}
+
+  - name: region wildcard does not cross the account segment
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_resource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: ec2:StopInstances, resource: "arn:aws:ec2:eu-west-1:111111111111:instance/i-1"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, Action: ec2:StopInstances, Resource: "arn:aws:ec2:us-*:111111111111:instance/*"}]}
+    expect: {decision: implicit_deny, matched: []}
+
+  - name: account wildcard segment
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_resource.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: dynamodb:GetItem, resource: "arn:aws:dynamodb:us-east-1:111111111111:table/Books"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, Action: "dynamodb:*", Resource: "arn:aws:dynamodb:*:*:table/Books"}]}
+    expect: {decision: allow, matched: [p#S]}
+
+  - name: action star colon star
+    source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_action.html
+    request: {principal: "arn:aws:iam::111111111111:user/alice", action: lambda:InvokeFunction, resource: "arn:aws:lambda:us-east-1:111111111111:function:f"}
+    identity:
+      - id: p
+        document: {Version: "2012-10-17", Statement: [{Sid: S, Effect: Allow, Action: "*:*", Resource: "arn:*"}]}
+    expect: {decision: allow, matched: [p#S]}

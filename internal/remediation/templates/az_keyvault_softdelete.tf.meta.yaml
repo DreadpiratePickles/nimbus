@@ -1,0 +1,15 @@
+# Remediation plan metadata for az_keyvault_softdelete.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "Microsoft.KeyVault/vaults/read"
+  - "Microsoft.KeyVault/vaults/write"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Limit who holds Microsoft.KeyVault/vaults/delete and Microsoft.KeyVault/locations/deletedVaults/purge/action until purge protection is on; add a CanNotDelete resource lock."
+effort: S
+confidence: medium
+rollback: "Soft-delete retention can be changed later, but purge protection can NOT be disabled once enabled: treat it as irreversible."
+breaks_function:
+  value: false
+  note: "Data-plane access is unchanged (access_policy and network_acls are ignored). Deleted vaults and keys can no longer be purged early, which blocks name reuse for the retention period."

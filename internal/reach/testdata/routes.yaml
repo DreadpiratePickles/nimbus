@@ -1,0 +1,213 @@
+# Address and route-table evaluation. AWS: an instance is reachable from the internet only when it has a public
+# IPv4 address (auto-assigned or Elastic IP) AND its subnet's route table routes the internet range to an internet
+# gateway. A NAT gateway is outbound only. Routes are chosen by longest prefix match.
+cases:
+  - name: public ip and igw route, sg open 22
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html (public IP + route to IGW + SG/NACL allow)
+    port: {protocol: tcp, number: 22}
+    target: &inst
+      id: i-1
+      kind: instance
+      public_ip: true
+      public_address: 198.51.100.10
+      subnets:
+        - id: subnet-a
+          route_table: {id: rtb-pub, routes: [{destination: 10.0.0.0/16, target: local}, {destination: 0.0.0.0/0, target: igw-1}]}
+          nacl: &allow_all {id: acl-default, inbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}], outbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}]}
+      security_groups: [{id: sg-ssh, ingress: [{protocol: tcp, from: 22, to: 22, sources: [0.0.0.0/0]}]}]
+    expect:
+      status: reachable
+      width: wide
+      path_has: "route table rtb-pub sends 0.0.0.0/0 to internet gateway igw-1"
+      sources: [0.0.0.0/0]
+      confidence: verified
+
+  - name: no public ip
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-ip-addressing.html (without a public IPv4 address an instance cannot be reached from the internet)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      public_ip: false
+    expect:
+      status: blocked
+      blocker: "i-1 has no public IPv4 address or Elastic IP association"
+
+  - name: public ip unknown
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-ip-addressing.html
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      public_ip: null
+    expect:
+      status: unknown
+      unknown: "public address of i-1 not known"
+
+  - name: private subnet default route to nat
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html (external services cannot initiate a connection through a NAT gateway)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      subnets:
+        - id: subnet-priv
+          route_table: {id: rtb-priv, routes: [{destination: 10.0.0.0/16, target: local}, {destination: 0.0.0.0/0, target: nat-1}]}
+          nacl: *allow_all
+    expect:
+      status: blocked
+      blocker: "route table rtb-priv sends 0.0.0.0/0 to NAT gateway nat-1 (outbound only: no inbound internet path)"
+      confidence: verified
+
+  - name: isolated subnet only local route
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/RouteTables.html (the local route covers only the VPC CIDR)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      subnets:
+        - id: subnet-iso
+          route_table: {id: rtb-iso, routes: [{destination: 10.0.0.0/16, target: local}]}
+          nacl: *allow_all
+    expect:
+      status: blocked
+      blocker: "route table rtb-iso has no route to an internet gateway"
+
+  - name: blackhole igw route
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/RouteTables.html (a route whose target was deleted is a blackhole and drops traffic)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      subnets:
+        - id: subnet-bh
+          route_table: {id: rtb-bh, routes: [{destination: 0.0.0.0/0, target: igw-gone, state: blackhole}]}
+          nacl: *allow_all
+    expect:
+      status: blocked
+      blocker: "is a blackhole"
+
+  - name: longest prefix match sends the attacker range to nat
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/route-tables-priority.html (the most specific route wins)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      security_groups: [{id: sg-partner, ingress: [{protocol: tcp, from: 22, to: 22, sources: [203.0.113.0/24]}]}]
+      subnets:
+        - id: subnet-a
+          route_table: {id: rtb-mixed, routes: [{destination: 0.0.0.0/0, target: igw-1}, {destination: 203.0.113.0/24, target: nat-1}]}
+          nacl: *allow_all
+    expect:
+      status: blocked
+      blocker: "route table rtb-mixed sends 203.0.113.0/24 to NAT gateway nat-1"
+
+  - name: specific igw route covers only the partner range
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/route-tables-priority.html
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      subnets:
+        - id: subnet-a
+          route_table: {id: rtb-partner, routes: [{destination: 0.0.0.0/0, target: nat-1}, {destination: 203.0.113.0/24, target: igw-1}]}
+          nacl: *allow_all
+    expect:
+      status: reachable
+      width: narrow
+      sources: [203.0.113.0/24]
+
+  - name: transit gateway default route is not modelled
+    source: https://docs.aws.amazon.com/vpc/latest/tgw/how-transit-gateways-work.html (inbound via a central egress/ingress VPC depends on the other VPC; out of v1 scope)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      subnets:
+        - id: subnet-tgw
+          route_table: {id: rtb-tgw, routes: [{destination: 0.0.0.0/0, target: tgw-1}]}
+          nacl: *allow_all
+    expect:
+      status: unknown
+      unknown: "route table rtb-tgw sends 0.0.0.0/0 to tgw-1 (transit gateway, peering, VPN and PrivateLink are not modelled in v1)"
+
+  - name: vpc peering route is not modelled
+    source: https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html (peering does not provide internet transit; out of v1 scope)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      subnets:
+        - id: subnet-pcx
+          route_table: {id: rtb-pcx, routes: [{destination: 0.0.0.0/0, target: pcx-1}]}
+          nacl: *allow_all
+    expect:
+      status: unknown
+      unknown: "pcx-1"
+
+  - name: route table not collected
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/RouteTables.html
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      subnets: [{id: subnet-a, nacl: *allow_all}]
+    expect:
+      status: unknown
+      unknown: "route table for subnet-a not collected"
+
+  - name: subnet not known at all
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/configure-subnets.html
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      subnets: null
+    expect:
+      status: unknown
+      unknown: "subnet of i-1 not known"
+
+  - name: summary flag internet_gateway_route false
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html (no IGW route, no internet path)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      subnets: [{id: subnet-x, igw_route: false}]
+    expect:
+      status: blocked
+      blocker: "subnet subnet-x has no internet-gateway route (internet_gateway_route=false)"
+      confidence: inferred
+
+  - name: ipv6 source through egress-only gateway
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/egress-only-internet-gateway.html (prevents the internet from initiating an IPv6 connection)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      security_groups: [{id: sg-v6, ingress: [{protocol: tcp, from: 22, to: 22, sources: ["::/0"]}]}]
+      subnets:
+        - id: subnet-v6
+          route_table: {id: rtb-v6, routes: [{destination: 0.0.0.0/0, target: igw-1}, {destination: "::/0", target: eigw-1}]}
+          nacl: {id: acl-v6, inbound: [{rule: 100, protocol: "-1", cidr: "::/0", action: allow}], outbound: [{rule: 100, protocol: "-1", cidr: "::/0", action: allow}]}
+    expect:
+      status: blocked
+      blocker: "egress-only internet gateway eigw-1 (outbound only: no inbound internet path)"
+
+  - name: ipv6 source through igw
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html (IPv6 ::/0 route to the IGW)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      security_groups: [{id: sg-v6, ingress: [{protocol: tcp, from: 22, to: 22, sources: ["::/0"]}]}]
+      subnets:
+        - id: subnet-v6
+          route_table: {id: rtb-v6, routes: [{destination: "::/0", target: igw-1}]}
+          nacl: {id: acl-v6, inbound: [{rule: 100, protocol: "-1", cidr: "::/0", action: allow}], outbound: [{rule: 100, protocol: "-1", cidr: "::/0", action: allow}]}
+    expect:
+      status: reachable
+      width: wide
+
+  - name: elastic network interface with eip in a public subnet
+    source: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html (an EIP is associated with a network interface)
+    port: {protocol: tcp, number: 443}
+    target:
+      id: eni-1
+      kind: network_interface
+      public_ip: true
+      public_address: 203.0.113.99
+      subnets:
+        - id: subnet-a
+          route_table: {id: rtb-pub, routes: [{destination: 0.0.0.0/0, target: igw-1}]}
+          nacl: *allow_all
+      security_groups: [{id: sg-https, ingress: [{protocol: tcp, from: 443, to: 443, sources: [0.0.0.0/0]}]}]
+    expect:
+      status: reachable
+      path_has: "public IPv4 203.0.113.99 is associated"

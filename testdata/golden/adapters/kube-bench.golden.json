@@ -1,0 +1,403 @@
+[
+  {
+    "fixture": "kube-bench/kube-bench.json",
+    "count": 6,
+    "findings": [
+      {
+        "id": "92fa82240d0fefd12a700c86e9844b4d",
+        "source": "kube-bench",
+        "check_id": "1.1.1",
+        "canonical_id": "KUBE-BENCH:1.1.1",
+        "title": "Ensure that the API server pod specification file permissions are set to 600 or more restrictive (Automated)",
+        "description": "Ensure that the API server pod specification file permissions are set to 600 or more restrictive (Automated)\n\nExpected: permissions has permissions 600, expected 600 or more restrictive\nActual: permissions=600",
+        "severity": "MEDIUM",
+        "status": "PASS",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "cluster/nodetype/master",
+          "type": "k8s_node_type",
+          "name": "master",
+          "attributes": {
+            "actual_value": "permissions=600",
+            "audit": "/bin/sh -c 'if test -e /etc/kubernetes/manifests/kube-apiserver.yaml; then stat -c permissions=%a /etc/kubernetes/manifests/kube-apiserver.yaml; fi'",
+            "benchmark": "cis-1.8",
+            "control_id": "1",
+            "control_text": "Control Plane Security Configuration",
+            "expected": "permissions has permissions 600, expected 600 or more restrictive",
+            "kube_version": "1.27",
+            "node_type": "master",
+            "scored": true,
+            "section": "1.1",
+            "section_desc": "Control Plane Node Configuration Files"
+          }
+        },
+        "remediation": "Run the below command (based on the file location on your system) on the control plane node.\nFor example, chmod 600 /etc/kubernetes/manifests/kube-apiserver.yaml",
+        "compliance": {
+          "cis_k8s": [
+            "1.1.1"
+          ]
+        },
+        "tags": {
+          "benchmark": "cis-1.8",
+          "kube_bench_status": "PASS",
+          "node_type": "master"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "6870e1bdf6d6e9949d92f59fdde06139",
+        "source": "kube-bench",
+        "check_id": "1.2.1",
+        "canonical_id": "KUBE-BENCH:1.2.1",
+        "title": "Ensure that the --anonymous-auth argument is set to false (Manual)",
+        "description": "Ensure that the --anonymous-auth argument is set to false (Manual)\n\nExpected: '--anonymous-auth' is equal to 'false'",
+        "severity": "LOW",
+        "status": "SKIP",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "cluster/nodetype/master",
+          "type": "k8s_node_type",
+          "name": "master",
+          "attributes": {
+            "audit": "/bin/ps -ef | grep kube-apiserver | grep -v grep",
+            "benchmark": "cis-1.8",
+            "control_id": "1",
+            "control_text": "Control Plane Security Configuration",
+            "expected": "'--anonymous-auth' is equal to 'false'",
+            "kube_version": "1.27",
+            "node_type": "master",
+            "scored": false,
+            "section": "1.2",
+            "section_desc": "API Server"
+          }
+        },
+        "remediation": "Edit the API server pod specification file /etc/kubernetes/manifests/kube-apiserver.yaml on the control plane node and set the below parameter.\n--anonymous-auth=false",
+        "compliance": {
+          "cis_k8s": [
+            "1.2.1"
+          ]
+        },
+        "tags": {
+          "benchmark": "cis-1.8",
+          "kube_bench_status": "WARN",
+          "node_type": "master"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "9b57dd23afee0625ecbcf0e7e1248b0b",
+        "source": "kube-bench",
+        "check_id": "1.2.16",
+        "canonical_id": "KUBE-BENCH:1.2.16",
+        "title": "Ensure that the --profiling argument is set to false (Automated)",
+        "description": "Ensure that the --profiling argument is set to false (Automated)\n\nExpected: '--profiling' is equal to 'false'\nActual: root 1201 1 kube-apiserver --advertise-address=192.0.2.10 --allow-privileged=true --authorization-mode=Node,RBAC",
+        "severity": "MEDIUM",
+        "status": "FAIL",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "cluster/nodetype/master",
+          "type": "k8s_node_type",
+          "name": "master",
+          "attributes": {
+            "actual_value": "root 1201 1 kube-apiserver --advertise-address=192.0.2.10 --allow-privileged=true --authorization-mode=Node,RBAC",
+            "audit": "/bin/ps -ef | grep kube-apiserver | grep -v grep",
+            "benchmark": "cis-1.8",
+            "control_id": "1",
+            "control_text": "Control Plane Security Configuration",
+            "expected": "'--profiling' is equal to 'false'",
+            "kube_version": "1.27",
+            "node_type": "master",
+            "scored": true,
+            "section": "1.2",
+            "section_desc": "API Server"
+          }
+        },
+        "remediation": "Edit the API server pod specification file /etc/kubernetes/manifests/kube-apiserver.yaml on the control plane node and set the below parameter.\n--profiling=false",
+        "compliance": {
+          "cis_k8s": [
+            "1.2.16"
+          ]
+        },
+        "tags": {
+          "benchmark": "cis-1.8",
+          "kube_bench_status": "FAIL",
+          "node_type": "master"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "5f0d9c4acd667965337579f60bf720bd",
+        "source": "kube-bench",
+        "check_id": "4.2.1",
+        "canonical_id": "KUBE-BENCH:4.2.1",
+        "title": "Ensure that the --anonymous-auth argument is set to false (Automated)",
+        "description": "Ensure that the --anonymous-auth argument is set to false (Automated)\n\nExpected: '.authentication.anonymous.enabled' is equal to 'false'",
+        "severity": "MEDIUM",
+        "status": "FAIL",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "cluster/nodetype/node",
+          "type": "k8s_node_type",
+          "name": "node",
+          "attributes": {
+            "audit": "/bin/ps -fC kubelet",
+            "benchmark": "cis-1.8",
+            "control_id": "4",
+            "control_text": "Worker Node Security Configuration",
+            "expected": "'.authentication.anonymous.enabled' is equal to 'false'",
+            "kube_version": "1.27",
+            "node_type": "node",
+            "scored": true,
+            "section": "4.2",
+            "section_desc": "Kubelet"
+          }
+        },
+        "remediation": "If using a Kubelet config file, edit the file to set `authentication: anonymous: enabled` to `false`.",
+        "compliance": {
+          "cis_k8s": [
+            "4.2.1"
+          ]
+        },
+        "tags": {
+          "benchmark": "cis-1.8",
+          "kube_bench_status": "FAIL",
+          "node_type": "node"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "f4ea782c24d46ed2f2766a7fb1f05372",
+        "source": "kube-bench",
+        "check_id": "4.2.2",
+        "canonical_id": "KUBE-BENCH:4.2.2",
+        "title": "Ensure that the --authorization-mode argument is not set to AlwaysAllow (Automated)",
+        "description": "Ensure that the --authorization-mode argument is not set to AlwaysAllow (Automated)\n\nExpected: '.authorization.mode' does not have 'AlwaysAllow'\nActual: Webhook",
+        "severity": "MEDIUM",
+        "status": "PASS",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "cluster/nodetype/node",
+          "type": "k8s_node_type",
+          "name": "node",
+          "attributes": {
+            "actual_value": "Webhook",
+            "audit": "/bin/ps -fC kubelet",
+            "benchmark": "cis-1.8",
+            "control_id": "4",
+            "control_text": "Worker Node Security Configuration",
+            "expected": "'.authorization.mode' does not have 'AlwaysAllow'",
+            "kube_version": "1.27",
+            "node_type": "node",
+            "scored": true,
+            "section": "4.2",
+            "section_desc": "Kubelet"
+          }
+        },
+        "remediation": "If using a Kubelet config file, edit the file to set `authorization.mode` to Webhook.",
+        "compliance": {
+          "cis_k8s": [
+            "4.2.2"
+          ]
+        },
+        "tags": {
+          "benchmark": "cis-1.8",
+          "kube_bench_status": "PASS",
+          "node_type": "node"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "0c73f3da55417c439f114c4643243058",
+        "source": "kube-bench",
+        "check_id": "5.1.1",
+        "canonical_id": "K8S_CLUSTER_ADMIN_BINDING",
+        "title": "Ensure that the cluster-admin role is only used where required (Manual)",
+        "description": "Ensure that the cluster-admin role is only used where required (Manual)\n\nReason: Test marked as a manual test",
+        "severity": "LOW",
+        "status": "SKIP",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "cluster/nodetype/policies",
+          "type": "k8s_node_type",
+          "name": "policies",
+          "attributes": {
+            "benchmark": "cis-1.8",
+            "control_id": "5",
+            "control_text": "Kubernetes Policies",
+            "kube_version": "1.27",
+            "node_type": "policies",
+            "scored": false,
+            "section": "5.1",
+            "section_desc": "RBAC and Service Accounts"
+          }
+        },
+        "remediation": "Identify all clusterrolebindings to the cluster-admin role. Check if they are used and if they need this role or if they could use a role with fewer privileges.",
+        "weaknesses": [
+          "CLUSTER_ADMIN",
+          "OVERPRIVILEGED_IDENTITY"
+        ],
+        "compliance": {
+          "cis_k8s": [
+            "5.1.1"
+          ],
+          "iso_27001": [
+            "A.8.2",
+            "A.5.15"
+          ],
+          "nist_800_53": [
+            "AC-6",
+            "AC-6(1)"
+          ],
+          "soc2": [
+            "CC6.3"
+          ]
+        },
+        "tags": {
+          "benchmark": "cis-1.8",
+          "kube_bench_status": "WARN",
+          "node_type": "policies"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      }
+    ]
+  },
+  {
+    "fixture": "kube-bench/kube-bench.legacy-array.json",
+    "count": 3,
+    "findings": [
+      {
+        "id": "9047783ddb74918374e8ffc309a6b1d8",
+        "source": "kube-bench",
+        "check_id": "2.1",
+        "canonical_id": "KUBE-BENCH:2.1",
+        "title": "Ensure that the --cert-file and --key-file arguments are set as appropriate (Automated)",
+        "description": "Ensure that the --cert-file and --key-file arguments are set as appropriate (Automated)\n\nExpected: '--cert-file' is present AND '--key-file' is present",
+        "severity": "MEDIUM",
+        "status": "PASS",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "cluster/nodetype/etcd",
+          "type": "k8s_node_type",
+          "name": "etcd",
+          "attributes": {
+            "audit": "/bin/ps -ef | /bin/grep etcd | /bin/grep -v grep",
+            "benchmark": "cis-1.6",
+            "control_id": "2",
+            "control_text": "Etcd Node Configuration",
+            "expected": "'--cert-file' is present AND '--key-file' is present",
+            "node_type": "etcd",
+            "scored": true,
+            "section": "2",
+            "section_desc": "Etcd Node Configuration Files"
+          }
+        },
+        "remediation": "Follow the etcd service documentation and configure TLS encryption.",
+        "compliance": {
+          "cis_k8s": [
+            "2.1"
+          ]
+        },
+        "tags": {
+          "benchmark": "cis-1.6",
+          "kube_bench_status": "PASS",
+          "node_type": "etcd"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "fc24c795fb9a2312c35e75b0e01356a4",
+        "source": "kube-bench",
+        "check_id": "2.2",
+        "canonical_id": "KUBE-BENCH:2.2",
+        "title": "Ensure that the --client-cert-auth argument is set to true (Automated)",
+        "description": "Ensure that the --client-cert-auth argument is set to true (Automated)\n\nExpected: '--client-cert-auth' is equal to 'true'",
+        "severity": "MEDIUM",
+        "status": "FAIL",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "cluster/nodetype/etcd",
+          "type": "k8s_node_type",
+          "name": "etcd",
+          "attributes": {
+            "audit": "/bin/ps -ef | /bin/grep etcd | /bin/grep -v grep",
+            "benchmark": "cis-1.6",
+            "control_id": "2",
+            "control_text": "Etcd Node Configuration",
+            "expected": "'--client-cert-auth' is equal to 'true'",
+            "node_type": "etcd",
+            "scored": true,
+            "section": "2",
+            "section_desc": "Etcd Node Configuration Files"
+          }
+        },
+        "remediation": "Edit the etcd pod specification file and set --client-cert-auth=\"true\".",
+        "compliance": {
+          "cis_k8s": [
+            "2.2"
+          ]
+        },
+        "tags": {
+          "benchmark": "cis-1.6",
+          "kube_bench_status": "FAIL",
+          "node_type": "etcd"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "c886dc19d88e4c880e9f1a128c049c7a",
+        "source": "kube-bench",
+        "check_id": "2.7",
+        "canonical_id": "KUBE-BENCH:2.7",
+        "title": "Ensure that a unique Certificate Authority is used for etcd (Manual)",
+        "description": "Ensure that a unique Certificate Authority is used for etcd (Manual)",
+        "severity": "LOW",
+        "status": "SKIP",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "cluster/nodetype/etcd",
+          "type": "k8s_node_type",
+          "name": "etcd",
+          "attributes": {
+            "benchmark": "cis-1.6",
+            "control_id": "2",
+            "control_text": "Etcd Node Configuration",
+            "node_type": "etcd",
+            "scored": false,
+            "section": "2",
+            "section_desc": "Etcd Node Configuration Files"
+          }
+        },
+        "remediation": "Follow the etcd documentation and create a dedicated certificate authority setup for the etcd service.",
+        "compliance": {
+          "cis_k8s": [
+            "2.7"
+          ]
+        },
+        "tags": {
+          "benchmark": "cis-1.6",
+          "kube_bench_status": "INFO",
+          "node_type": "etcd"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      }
+    ]
+  }
+]

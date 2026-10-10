@@ -1,0 +1,18 @@
+# Remediation plan metadata for lambda_function_url_auth.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "lambda:GetFunctionUrlConfig"
+  - "lambda:UpdateFunctionUrlConfig"
+  - "lambda:GetPolicy"
+  - "lambda:AddPermission"
+  - "lambda:RemovePermission"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the function and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Put the URL behind CloudFront with origin access control (OAC signs requests to an AWS_IAM URL), or set reserved concurrency to 0 to stop invocations while callers are listed."
+effort: S
+confidence: high
+rollback: "aws lambda update-function-url-config --function-name <name> --auth-type NONE (and terraform state rm the imported URL if Terraform should not keep managing it)."
+breaks_function:
+  value: true
+  note: "Unsigned callers (browsers, webhooks, curl) get 403 Forbidden; signed callers need lambda:InvokeFunctionUrl from their IAM policy or invoker_arns."

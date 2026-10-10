@@ -1,0 +1,168 @@
+[
+  {"id": "s3-rw-bucket", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_s3_rw-bucket.html",
+   "CallerArn": "arn:aws:iam::111122223333:user/alice", "ResourceOwner": "arn:aws:iam::111122223333:root",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [
+     {"Sid": "ListObjectsInBucket", "Effect": "Allow", "Action": ["s3:ListBucket"], "Resource": ["arn:aws:s3:::bucket-name"]},
+     {"Sid": "AllObjectActions", "Effect": "Allow", "Action": "s3:*Object", "Resource": ["arn:aws:s3:::bucket-name/*"]}]}],
+   "EvaluationResults": [
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::bucket-name/report.csv", "EvalDecision": "allowed"},
+     {"EvalActionName": "s3:PutObject", "EvalResourceName": "arn:aws:s3:::bucket-name/report.csv", "EvalDecision": "allowed"},
+     {"EvalActionName": "s3:ListBucket", "EvalResourceName": "arn:aws:s3:::bucket-name", "EvalDecision": "allowed"},
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::other-bucket/report.csv", "EvalDecision": "implicitDeny"},
+     {"EvalActionName": "s3:PutBucketPolicy", "EvalResourceName": "arn:aws:s3:::bucket-name", "EvalDecision": "implicitDeny"}]},
+
+  {"id": "explicit-deny-overrides", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html#policy-eval-denyallow",
+   "CallerArn": "arn:aws:iam::111122223333:role/intake", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [
+     {"Sid": "AllS3", "Effect": "Allow", "Action": "s3:*", "Resource": "*"},
+     {"Sid": "NoRead", "Effect": "Deny", "Action": "s3:GetObject", "Resource": "arn:aws:s3:::claims/*"}]}],
+   "EvaluationResults": [
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::claims/c1.json", "EvalDecision": "explicitDeny"},
+     {"EvalActionName": "s3:PutObject", "EvalResourceName": "arn:aws:s3:::claims/c1.json", "EvalDecision": "allowed"},
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::public-assets/logo.png", "EvalDecision": "allowed"}]},
+
+  {"id": "notaction-everything-but-iam", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html",
+   "CallerArn": "arn:aws:iam::111122223333:user/dev", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "NotAction": "iam:*", "Resource": "*"}]}],
+   "EvaluationResults": [
+     {"EvalActionName": "iam:CreateUser", "EvalResourceName": "arn:aws:iam::111122223333:user/new", "EvalDecision": "implicitDeny"},
+     {"EvalActionName": "ec2:DescribeInstances", "EvalResourceName": "*", "EvalDecision": "allowed"}]},
+
+  {"id": "mfa-present", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_mfa-dates.html",
+   "CallerArn": "arn:aws:iam::111122223333:user/ops", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["ec2:StopInstances", "ec2:TerminateInstances"], "Resource": "*", "Condition": {"Bool": {"aws:MultiFactorAuthPresent": "true"}}}]}],
+   "ContextEntries": [{"ContextKeyName": "aws:MultiFactorAuthPresent", "ContextKeyValues": ["true"], "ContextKeyType": "boolean"}],
+   "EvaluationResults": [
+     {"EvalActionName": "ec2:StopInstances", "EvalResourceName": "arn:aws:ec2:us-east-1:111122223333:instance/i-1", "EvalDecision": "allowed"}]},
+
+  {"id": "mfa-absent", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_mfa-dates.html",
+   "CallerArn": "arn:aws:iam::111122223333:user/ops", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["ec2:StopInstances", "ec2:TerminateInstances"], "Resource": "*", "Condition": {"Bool": {"aws:MultiFactorAuthPresent": "true"}}}]}],
+   "EvaluationResults": [
+     {"EvalActionName": "ec2:TerminateInstances", "EvalResourceName": "arn:aws:ec2:us-east-1:111122223333:instance/i-1", "EvalDecision": "implicitDeny"}]},
+
+  {"id": "deny-outside-ip-range-outside", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_deny-ip.html",
+   "CallerArn": "arn:aws:iam::111122223333:user/remote", "ResourceOwner": "111122223333",
+   "PolicyInputList": [
+     {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "s3:*", "Resource": "*"}]},
+     {"Version": "2012-10-17", "Statement": {"Effect": "Deny", "Action": "*", "Resource": "*", "Condition": {"NotIpAddress": {"aws:SourceIp": ["192.0.2.0/24", "203.0.113.0/24"]}, "Bool": {"aws:ViaAWSService": "false"}}}}],
+   "ContextEntries": [{"ContextKeyName": "aws:SourceIp", "ContextKeyValues": ["198.51.100.7"], "ContextKeyType": "ip"}, {"ContextKeyName": "aws:ViaAWSService", "ContextKeyValues": ["false"], "ContextKeyType": "boolean"}],
+   "EvaluationResults": [
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::data/x", "EvalDecision": "explicitDeny"}]},
+
+  {"id": "deny-outside-ip-range-inside", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_deny-ip.html",
+   "CallerArn": "arn:aws:iam::111122223333:user/remote", "ResourceOwner": "111122223333",
+   "PolicyInputList": [
+     {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "s3:*", "Resource": "*"}]},
+     {"Version": "2012-10-17", "Statement": {"Effect": "Deny", "Action": "*", "Resource": "*", "Condition": {"NotIpAddress": {"aws:SourceIp": ["192.0.2.0/24", "203.0.113.0/24"]}, "Bool": {"aws:ViaAWSService": "false"}}}}],
+   "ContextEntries": [{"ContextKeyName": "aws:SourceIp", "ContextKeyValues": ["192.0.2.44"], "ContextKeyType": "ip"}, {"ContextKeyName": "aws:ViaAWSService", "ContextKeyValues": ["false"], "ContextKeyType": "boolean"}],
+   "EvaluationResults": [
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::data/x", "EvalDecision": "allowed"}]},
+
+  {"id": "permissions-boundary", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html",
+   "CallerArn": "arn:aws:iam::111122223333:user/shirley", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "iam:CreateUser", "Resource": "*"}]}],
+   "PermissionsBoundaryPolicyInputList": [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["s3:*", "cloudwatch:*", "ec2:*"], "Resource": "*"}]}],
+   "EvaluationResults": [
+     {"EvalActionName": "iam:CreateUser", "EvalResourceName": "arn:aws:iam::111122223333:user/new", "EvalDecision": "implicitDeny"},
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::b/k", "EvalDecision": "implicitDeny"}]},
+
+  {"id": "scp-deny-list", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps_evaluation.html",
+   "CallerArn": "arn:aws:iam::111122223333:role/admin", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}],
+   "OrganizationsPolicies": [
+     [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}],
+     [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]},
+      {"Version": "2012-10-17", "Statement": [{"Sid": "DenyLeaveOrg", "Effect": "Deny", "Action": ["organizations:LeaveOrganization", "cloudtrail:StopLogging"], "Resource": "*"}]}]],
+   "EvaluationResults": [
+     {"EvalActionName": "cloudtrail:StopLogging", "EvalResourceName": "arn:aws:cloudtrail:us-east-1:111122223333:trail/main", "EvalDecision": "explicitDeny"},
+     {"EvalActionName": "s3:ListBucket", "EvalResourceName": "arn:aws:s3:::b", "EvalDecision": "allowed"}]},
+
+  {"id": "scp-allow-list-ou", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps_evaluation.html#how_scps_allow",
+   "CallerArn": "arn:aws:iam::111122223333:role/admin", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}],
+   "OrganizationsPolicies": [
+     [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}],
+     [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["s3:*", "ec2:*"], "Resource": "*"}]}]],
+   "EvaluationResults": [
+     {"EvalActionName": "ec2:DescribeInstances", "EvalResourceName": "*", "EvalDecision": "allowed"},
+     {"EvalActionName": "dynamodb:Scan", "EvalResourceName": "arn:aws:dynamodb:us-east-1:111122223333:table/t", "EvalDecision": "implicitDeny"}]},
+
+  {"id": "policy-variable-home-prefix", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html",
+   "CallerArn": "arn:aws:iam::111122223333:user/alice", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [
+     {"Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::amzn-s3-demo-bucket", "Condition": {"StringLike": {"s3:prefix": ["home/${aws:username}/*"]}}},
+     {"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject"], "Resource": "arn:aws:s3:::amzn-s3-demo-bucket/home/${aws:username}/*"}]}],
+   "ContextEntries": [{"ContextKeyName": "s3:prefix", "ContextKeyValues": ["home/alice/docs"], "ContextKeyType": "string"}],
+   "EvaluationResults": [
+     {"EvalActionName": "s3:ListBucket", "EvalResourceName": "arn:aws:s3:::amzn-s3-demo-bucket", "EvalDecision": "allowed"},
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::amzn-s3-demo-bucket/home/alice/cv.pdf", "EvalDecision": "allowed"},
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::amzn-s3-demo-bucket/home/bob/cv.pdf", "EvalDecision": "implicitDeny"}]},
+
+  {"id": "cross-account-bucket-policy", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies-cross-account-resource-access.html",
+   "CallerArn": "arn:aws:iam::444455556666:user/bob", "ResourceOwner": "arn:aws:iam::111122223333:root",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "s3:GetObject", "Resource": "*"}]}],
+   "ResourcePolicy": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::444455556666:root"}, "Action": "s3:GetObject", "Resource": "arn:aws:s3:::shared/*"}]},
+   "EvaluationResults": [
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::shared/data.csv", "EvalDecision": "allowed"},
+     {"EvalActionName": "s3:PutObject", "EvalResourceName": "arn:aws:s3:::shared/data.csv", "EvalDecision": "implicitDeny"}]},
+
+  {"id": "cross-account-no-resource-policy", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic-cross-account.html",
+   "CallerArn": "arn:aws:iam::444455556666:user/bob", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "s3:*", "Resource": "*"}]}],
+   "EvaluationResults": [
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::private/data.csv", "EvalDecision": "implicitDeny"}]},
+
+  {"id": "notresource-deny", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html",
+   "CallerArn": "arn:aws:iam::111122223333:user/analyst", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [
+     {"Effect": "Allow", "Action": "s3:*", "Resource": "*"},
+     {"Effect": "Deny", "Action": "s3:*", "NotResource": ["arn:aws:s3:::HRBucket/Payroll", "arn:aws:s3:::HRBucket/Payroll/*"]}]}],
+   "EvaluationResults": [
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::HRBucket/Payroll/june.csv", "EvalDecision": "allowed"},
+     {"EvalActionName": "s3:GetObject", "EvalResourceName": "arn:aws:s3:::Marketing/plan.docx", "EvalDecision": "explicitDeny"}]},
+
+  {"id": "requested-region-deny", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_deny-requested-region.html",
+   "CallerArn": "arn:aws:iam::111122223333:role/builder", "ResourceOwner": "111122223333",
+   "PolicyInputList": [
+     {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "ec2:*", "Resource": "*"}]},
+     {"Version": "2012-10-17", "Statement": [{"Sid": "DenyAllOutsideRequestedRegions", "Effect": "Deny", "NotAction": ["iam:*", "sts:*"], "Resource": "*", "Condition": {"StringNotEquals": {"aws:RequestedRegion": ["eu-central-1", "eu-west-1"]}}}]}],
+   "ContextEntries": [{"ContextKeyName": "aws:RequestedRegion", "ContextKeyValues": ["us-east-1"], "ContextKeyType": "string"}],
+   "EvaluationResults": [
+     {"EvalActionName": "ec2:RunInstances", "EvalResourceName": "arn:aws:ec2:us-east-1:111122223333:instance/*", "EvalDecision": "explicitDeny"}]},
+
+  {"id": "kms-key-policy-required", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html",
+   "CallerArn": "arn:aws:iam::111122223333:role/app", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "kms:Decrypt", "Resource": "*"}]}],
+   "ResourcePolicy": {"Version": "2012-10-17", "Statement": [{"Sid": "Enable IAM User Permissions", "Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::111122223333:root"}, "Action": "kms:*", "Resource": "*"}]},
+   "EvaluationResults": [
+     {"EvalActionName": "kms:Decrypt", "EvalResourceName": "arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", "EvalDecision": "allowed"},
+     {"EvalActionName": "kms:ScheduleKeyDeletion", "EvalResourceName": "arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab", "EvalDecision": "implicitDeny"}]},
+
+  {"id": "passrole-scoped", "provenance": "authored, not recorded live",
+   "source": "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_passrole.html",
+   "CallerArn": "arn:aws:iam::111122223333:user/dev", "ResourceOwner": "111122223333",
+   "PolicyInputList": [{"Version": "2012-10-17", "Statement": [
+     {"Effect": "Allow", "Action": ["ec2:RunInstances", "ec2:DescribeInstances"], "Resource": "*"},
+     {"Effect": "Allow", "Action": "iam:PassRole", "Resource": "arn:aws:iam::111122223333:role/EC2-roles-for-XYZ-*"}]}],
+   "EvaluationResults": [
+     {"EvalActionName": "iam:PassRole", "EvalResourceName": "arn:aws:iam::111122223333:role/EC2-roles-for-XYZ-web", "EvalDecision": "allowed"},
+     {"EvalActionName": "iam:PassRole", "EvalResourceName": "arn:aws:iam::111122223333:role/admin", "EvalDecision": "implicitDeny"},
+     {"EvalActionName": "ec2:RunInstances", "EvalResourceName": "arn:aws:ec2:us-east-1:111122223333:instance/*", "EvalDecision": "allowed"}]}
+]

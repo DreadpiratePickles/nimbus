@@ -1,0 +1,62 @@
+{
+  "_fixture_note": "SYNTHETIC single ConfigAuditReport object shaped after trivy-operator aquasecurity.github.io/v1alpha1 (https://aquasecurity.github.io/trivy-operator/latest/docs/crds/configaudit-report/). Not real cluster output.",
+  "apiVersion": "aquasecurity.github.io/v1alpha1",
+  "kind": "ConfigAuditReport",
+  "metadata": {
+    "name": "statefulset-orders-db",
+    "namespace": "data",
+    "labels": {
+      "plugin-config-hash": "659b7b9c46",
+      "resource-spec-hash": "5d6f9bc8b4",
+      "trivy-operator.resource.kind": "StatefulSet",
+      "trivy-operator.resource.name": "orders-db",
+      "trivy-operator.resource.namespace": "data"
+    }
+  },
+  "report": {
+    "scanner": {"name": "Trivy", "vendor": "Aqua Security", "version": "0.50.1"},
+    "summary": {"criticalCount": 0, "highCount": 1, "mediumCount": 1, "lowCount": 1},
+    "updateTimestamp": "2026-01-14T09:32:00Z",
+    "checks": [
+      {
+        "checkID": "KSV001",
+        "title": "Process can elevate its own privileges",
+        "description": "A program inside the container can elevate its own privileges and run as root, which might give the program control over the container and node.",
+        "severity": "MEDIUM",
+        "category": "Kubernetes Security Check",
+        "success": false,
+        "messages": ["Container 'postgres' of StatefulSet 'orders-db' should set 'securityContext.allowPrivilegeEscalation' to false"],
+        "remediation": "Set 'set containers[].securityContext.allowPrivilegeEscalation' to 'false'."
+      },
+      {
+        "checkID": "KSV017",
+        "title": "Privileged container",
+        "description": "Privileged containers share namespaces with the host system and do not offer any security.",
+        "severity": "HIGH",
+        "category": "Kubernetes Security Check",
+        "success": true,
+        "remediation": "Change 'containers[].securityContext.privileged' to 'false'."
+      },
+      {
+        "checkID": "KSV023",
+        "title": "hostPath volumes mounted",
+        "description": "HostPath volumes must be forbidden.",
+        "severity": "MEDIUM",
+        "category": "Kubernetes Security Check",
+        "success": false,
+        "messages": ["StatefulSet 'orders-db' should not set 'spec.template.volumes.hostPath'"],
+        "remediation": "Do not set 'spec.volumes[*].hostPath'."
+      },
+      {
+        "checkID": "KSV106",
+        "title": "Container capabilities must only include NET_BIND_SERVICE",
+        "description": "Containers must drop ALL capabilities, and are only permitted to add back the NET_BIND_SERVICE capability.",
+        "severity": "LOW",
+        "category": "Kubernetes Security Check",
+        "success": false,
+        "messages": ["container should drop all"],
+        "remediation": "Set 'spec.containers[*].securityContext.capabilities.drop' to 'ALL' and only add 'NET_BIND_SERVICE' to 'spec.containers[*].securityContext.capabilities.add'."
+      }
+    ]
+  }
+}

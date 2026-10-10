@@ -1,0 +1,96 @@
+id: zz-cond-right-service
+title: EC2 Instance Launch with Privileged Role (EC2-001)
+description: The principal may pass an EC2-trusting role and launch instances, so
+  it can obtain that role's permissions through a workload it controls. Restrict iam:PassRole
+  to the roles the principal genuinely needs.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-ec2-privesc-passrole-iam
+  upstream: pathfinding.cloud - EC2-001 - iam:PassRole + ec2:RunInstances
+  upstream_url: https://pathfinding.cloud/paths/ec2-001
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM
+    evaluator
+anchor:
+  types:
+  - aws_iam_user
+  - aws_iam_role
+match:
+  join: permission
+  requires_permissions:
+  - action: iam:PassRole
+    resource: target
+  - action: ec2:RunInstances
+    resource: arn:aws:ec2:{region}:{account}:instance/*
+  target:
+    types:
+    - aws_iam_role
+    trusts_service: ec2.amazonaws.com
+    exclude_self: true
+verified_by_edge:
+  kind: can_assume
+  technique: iam:PassRole+ec2:RunInstances
+tests:
+  fixture:
+    nodes:
+    - id: arn:aws:iam::123456789012:user/dev
+      type: aws_iam_user
+      account: '123456789012'
+      attributes:
+        inline_policy_document:
+          Version: '2012-10-17'
+          Statement:
+          - &id001
+            Effect: Allow
+            Action:
+            - ec2:RunInstances
+            Resource: '*'
+          - Effect: Allow
+            Action: iam:PassRole
+            Resource: arn:aws:iam::123456789012:role/admin
+            Condition:
+              StringEquals:
+                iam:PassedToService: ec2.amazonaws.com
+    - id: arn:aws:iam::123456789012:role/admin
+      type: aws_iam_role
+      account: '123456789012'
+      attributes:
+        trust_principals:
+        - ec2.amazonaws.com
+        instance_profile: arn:aws:iam::123456789012:instance-profile/admin
+        attached_policies:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+    - id: arn:aws:iam::123456789012:user/ctl
+      type: aws_iam_user
+      account: '123456789012'
+      attributes:
+        inline_policy_document:
+          Version: '2012-10-17'
+          Statement:
+          - *id001
+          - Effect: Allow
+            Action: iam:PassRole
+            Resource: arn:aws:iam::123456789012:role/admin
+    - id: arn:aws:iam::123456789012:user/nobody
+      type: aws_iam_user
+      account: '123456789012'
+      attributes:
+        inline_policy_document:
+          Version: '2012-10-17'
+          Statement:
+          - *id001
+  expect:
+  - anchor: arn:aws:iam::123456789012:user/ctl
+    target: arn:aws:iam::123456789012:role/admin
+    match: true
+    confidence: verified
+  - anchor: arn:aws:iam::123456789012:user/nobody
+    target: arn:aws:iam::123456789012:role/admin
+    match: false
+  - anchor: arn:aws:iam::123456789012:user/dev
+    target: arn:aws:iam::123456789012:role/admin
+    match: true
+    confidence: verified

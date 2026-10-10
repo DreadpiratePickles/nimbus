@@ -1,0 +1,19 @@
+# Remediation plan metadata for gcp_default_sa.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "iam.serviceAccounts.create"
+  - "iam.serviceAccounts.actAs"
+  - "compute.instances.get"
+  - "compute.instances.setServiceAccount"
+  - "compute.instances.stop"
+  - "compute.instances.start"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Remove the Editor role from the default compute service account, or narrow the instance's access scopes."
+effort: M
+confidence: low
+rollback: "gcloud compute instances set-service-account <instance> --service-account=<previous SA> --scopes=<previous scopes> (needs a stop)."
+breaks_function:
+  value: true
+  note: "The instance is stopped and restarted, and the new service account has no roles: grant the roles the workload needs before applying or its API calls fail."

@@ -12,7 +12,7 @@ S3_PUBLIC_BUCKET:
   weaknesses: [PUBLIC_DATA_STORE]
   aliases:
     prowler: [s3_bucket_public_access, s3_bucket_policy_public_write_access, s3_bucket_public_write_acl, s3_bucket_public_list_acl, s3_account_level_public_access_blocks, cloudtrail_logs_s3_bucket_is_not_publicly_accessible]
-    checkov: [CKV_AWS_53, CKV_AWS_54, CKV_AWS_55, CKV_AWS_56, CKV2_AWS_6, CKV_AWS_20, CKV_AWS_57]
+    checkov: [CKV_AWS_53, CKV_AWS_54, CKV_AWS_55, CKV_AWS_56, CKV2_AWS_6, CKV_AWS_20, CKV_AWS_57, CKV_AWS_70]
     trivy: [AVD-AWS-0086, AVD-AWS-0087, AVD-AWS-0091, AVD-AWS-0092, AVD-AWS-0093, AVD-AWS-0094]
     scoutsuite: [s3-bucket-AllUsers-read, s3-bucket-AllUsers-write, s3-bucket-AllUsers-read_acp, s3-bucket-AllUsers-write_acp, s3-bucket-AuthenticatedUsers-read, s3-bucket-AuthenticatedUsers-write, s3-bucket-world-policy-star, s3-bucket-world-policy-arn-star]
     steampipe: [s3_bucket_restrict_public_read_access, s3_bucket_restrict_public_write_access, s3_public_access_block_bucket, s3_bucket_policy_restrict_public_access]
@@ -125,12 +125,25 @@ EC2_SG_OPEN_ALL:
   weaknesses: [PUBLIC_NETWORK_EXPOSURE]
   aliases:
     prowler: [ec2_securitygroup_allow_ingress_from_internet_to_any_port, ec2_securitygroup_allow_wide_open_public_ipv4, ec2_securitygroup_default_restrict_traffic]
-    checkov: [CKV_AWS_277, CKV_AWS_260]
+    checkov: [CKV_AWS_277]
     scoutsuite: [ec2-security-group-opens-all-ports-to-all]
     steampipe: [vpc_security_group_restrict_ingress_common_ports_all, vpc_security_group_restrict_ingress_tcp_udp_all]
   compliance:
     cis_aws: ["5.2", "5.3"]
     nist_800_53: [SC-7]
+    pci_dss: ["1.2.1", "1.3.1"]
+  remediation: [sg_open_port.tf, sg_open_port.cfn.yaml]
+
+EC2_SG_OPEN_HTTP:
+  title: Security group allows HTTP (80) from the internet
+  provider: aws
+  severity: MEDIUM
+  resource_type: aws_security_group
+  weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+  aliases:
+    checkov: [CKV_AWS_260]
+  compliance:
+    nist_800_53: [SC-7, SC-8]
     pci_dss: ["1.2.1", "1.3.1"]
   remediation: [sg_open_port.tf, sg_open_port.cfn.yaml]
 
@@ -177,7 +190,7 @@ EBS_UNENCRYPTED:
   weaknesses: [UNENCRYPTED_AT_REST]
   aliases:
     prowler: [ec2_ebs_volume_encryption, ec2_ebs_default_encryption, efs_encryption_at_rest_enabled]
-    checkov: [CKV_AWS_3, CKV_AWS_189]
+    checkov: [CKV_AWS_3, CKV_AWS_189, CKV_AWS_8]
     trivy: [AVD-AWS-0026, AVD-AWS-0131]
     scoutsuite: [ec2-ebs-volume-not-encrypted]
     steampipe: [ebs_attached_volume_encryption_enabled, ebs_volume_encryption_at_rest_enabled]
@@ -229,8 +242,8 @@ IAM_ADMIN_POLICY:
   weaknesses: [OVERPRIVILEGED_IDENTITY]
   aliases:
     prowler: [iam_aws_attached_policy_no_administrative_privileges, iam_customer_attached_policy_no_administrative_privileges, iam_inline_policy_no_administrative_privileges, iam_policy_allows_privilege_escalation]
-    checkov: [CKV_AWS_1, CKV_AWS_62, CKV_AWS_63, CKV_AWS_107, CKV_AWS_108, CKV_AWS_109, CKV_AWS_110, CKV_AWS_111]
-    trivy: [AVD-AWS-0057, AVD-AWS-0342, AVD-AWS-0345]
+    checkov: [CKV_AWS_1, CKV_AWS_62, CKV_AWS_63, CKV_AWS_107, CKV_AWS_108, CKV_AWS_109, CKV_AWS_110, CKV_AWS_111, CKV_AWS_274]
+    trivy: [AVD-AWS-0057]
     scoutsuite: [iam-managed-policy-allows-full-privileges, iam-inline-policy-allows-full-privileges, iam-managed-policy-allows-NotActions, iam-inline-policy-allows-NotActions]
     steampipe: [iam_policy_no_star_star, iam_policy_custom_no_blocked_kms_actions, iam_all_policy_no_service_wild_card]
   compliance:
@@ -281,7 +294,7 @@ RDS_PUBLIC:
   aliases:
     prowler: [rds_instance_no_public_access, rds_snapshots_public_access]
     checkov: [CKV_AWS_17]
-    trivy: [AVD-AWS-0082]
+    trivy: [AVD-AWS-0082, AVD-AWS-0180]
     scoutsuite: [rds-instance-publicly-accessible, rds-snapshot-public]
     steampipe: [rds_db_instance_prohibit_public_access, rds_db_snapshot_prohibit_public_access]
   compliance:
@@ -375,7 +388,7 @@ LAMBDA_PUBLIC:
   weaknesses: [PUBLIC_NETWORK_EXPOSURE]
   aliases:
     prowler: [awslambda_function_url_public, awslambda_function_not_publicly_accessible]
-    checkov: [CKV_AWS_364]
+    checkov: [CKV_AWS_364, CKV_AWS_258]
     trivy: [AVD-AWS-0067]
     steampipe: [lambda_function_restrict_public_access, lambda_function_restrict_public_url]
   compliance:
@@ -412,6 +425,17 @@ SECRET_HARDCODED:
     pci_dss: ["6.3.1", "8.2.1"]
     gdpr: ["Art.32"]
 
+IAC_PARSE_LIMIT:
+  # An ERROR-status finding, not a misconfiguration: the file exceeded the parser's size or
+  # nesting limits and was not scanned (coverage gap; no weakness, no compliance mapping).
+  title: "IaC file not scanned: file exceeded parse limits"
+  provider: iac
+  severity: INFO
+  resource_type: file
+  weaknesses: []
+  aliases:
+    nimbus-iac: [IAC_PARSE_LIMIT]
+
 # ---------------------------------------------------------------- Azure
 AZ_STORAGE_PUBLIC_BLOB:
   title: Storage account allows anonymous blob access
@@ -420,11 +444,11 @@ AZ_STORAGE_PUBLIC_BLOB:
   resource_type: azure_storage_account
   weaknesses: [PUBLIC_DATA_STORE]
   aliases:
-    prowler: [storage_blob_public_access_level_is_disabled, storage_ensure_minimum_tls_version_12]
-    checkov: [CKV_AZURE_190, CKV_AZURE_59]
-    trivy: [AVD-AZU-0007, AVD-AZU-0012]
-    scoutsuite: [storageaccounts-public-blob-access, storageaccounts-public-traffic-allowed]
-    steampipe: [storage_account_blob_public_access_disabled, storage_account_default_network_access_rule_denied]
+    prowler: [storage_blob_public_access_level_is_disabled]
+    checkov: [CKV_AZURE_190, CKV_AZURE_34, CKV2_AZURE_47]
+    trivy: [AVD-AZU-0007]
+    scoutsuite: [storageaccounts-public-blob-access]
+    steampipe: [storage_account_blob_public_access_disabled]
   compliance:
     cis_azure: ["3.7"]
     nist_800_53: [AC-3, SC-7]
@@ -432,6 +456,39 @@ AZ_STORAGE_PUBLIC_BLOB:
     hipaa: ["164.312(a)(1)"]
     gdpr: ["Art.32"]
   remediation: [az_storage_public_blob.tf, az_storage_public_blob.bicep]
+
+# P1-ENGINE noise round (decision 5): these checks used to be aliases of AZ_STORAGE_PUBLIC_BLOB,
+# whose PUBLIC_DATA_STORE weakness the attack-path engine reads as "readable by anyone". A
+# minimum-TLS check and a network-rule check say nothing about anonymous read.
+AZ_STORAGE_TLS_MIN_VERSION:
+  title: Storage account allows TLS versions below 1.2
+  provider: azure
+  severity: MEDIUM
+  resource_type: azure_storage_account
+  weaknesses: [WEAK_TLS]
+  aliases:
+    prowler: [storage_ensure_minimum_tls_version_12]
+    checkov: [CKV_AZURE_44]
+    trivy: [AVD-AZU-0011]
+  compliance:
+    cis_azure: ["3.15"]
+    nist_800_53: [SC-8, SC-13]
+    pci_dss: ["4.1"]
+
+AZ_STORAGE_NETWORK_UNRESTRICTED:
+  title: Storage account network rules allow access from all networks
+  provider: azure
+  severity: MEDIUM
+  resource_type: azure_storage_account
+  weaknesses: []
+  aliases:
+    checkov: [CKV_AZURE_59]
+    trivy: [AVD-AZU-0012]
+    scoutsuite: [storageaccounts-public-traffic-allowed]
+    steampipe: [storage_account_default_network_access_rule_denied]
+  compliance:
+    cis_azure: ["3.8"]
+    nist_800_53: [SC-7]
 
 AZ_STORAGE_HTTP_ALLOWED:
   title: Storage account does not require HTTPS
@@ -460,7 +517,7 @@ AZ_NSG_OPEN_SSH:
   aliases:
     prowler: [network_ssh_internet_access_restricted]
     checkov: [CKV_AZURE_10]
-    trivy: [AVD-AZU-0047]
+    trivy: [AVD-AZU-0050]
     scoutsuite: [network-security-groups-rule-inbound-ssh]
     steampipe: [network_security_group_ssh_access_restricted]
   compliance:
@@ -487,6 +544,23 @@ AZ_NSG_OPEN_RDP:
     pci_dss: ["1.2.1"]
   remediation: [az_nsg_open_port.tf, az_nsg_open_port.bicep]
 
+# W7-ENGINE (verification 7 defect 9): Trivy AVD-AZU-0047 flags an inbound rule whose SOURCE is
+# unrestricted (*, 0.0.0.0/0, Internet) on whatever port that rule opens - not "any port". The
+# management-port checks (AZU-0048 RDP, AZU-0050 SSH) say which port; this one does not, so it
+# carries no RDP/SSH control and is HIGH, not CRITICAL.
+AZ_NSG_UNRESTRICTED_SOURCE:
+  title: Network security group rule allows inbound traffic from any source address
+  provider: azure
+  severity: HIGH
+  resource_type: azure_network_security_group
+  weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+  aliases:
+    trivy: [AVD-AZU-0047]
+  compliance:
+    nist_800_53: [SC-7, AC-4]
+    pci_dss: ["1.3.1"]
+  remediation: [az_nsg_open_port.tf, az_nsg_open_port.bicep]
+
 AZ_SQL_PUBLIC:
   title: Azure SQL server allows public network access
   provider: azure
@@ -496,7 +570,7 @@ AZ_SQL_PUBLIC:
   aliases:
     prowler: [sqlserver_firewall_rules_no_ingress_from_internet]
     checkov: [CKV_AZURE_35, CKV_AZURE_112]
-    trivy: [AVD-AZU-0025, AVD-AZU-0046]
+    trivy: [AVD-AZU-0022, AVD-AZU-0029]
     scoutsuite: [sqldatabase-firewall-allows-all]
     steampipe: [sql_server_public_network_access_disabled]
   compliance:
@@ -565,7 +639,7 @@ AZ_AKS_RBAC_DISABLED:
   aliases:
     prowler: [aks_cluster_rbac_enabled, aks_clusters_public_access_disabled]
     checkov: [CKV_AZURE_5, CKV_AZURE_115]
-    trivy: [AVD-AZU-0042, AVD-AZU-0040]
+    trivy: [AVD-AZU-0042]
     steampipe: [kubernetes_cluster_rbac_enabled]
   compliance:
     cis_azure: ["8.1"]
@@ -596,17 +670,33 @@ GCP_BUCKET_PUBLIC:
   weaknesses: [PUBLIC_DATA_STORE]
   aliases:
     prowler: [cloudstorage_bucket_public_access]
-    checkov: [CKV_GCP_28, CKV_GCP_29]
-    trivy: [AVD-GCP-0001, AVD-GCP-0002]
+    checkov: [CKV_GCP_28]
+    trivy: [AVD-GCP-0001]
     scoutsuite: [cloudstorage-bucket-allUsers, cloudstorage-bucket-allAuthenticatedUsers]
-    steampipe: [storage_bucket_not_publicly_accessible, storage_bucket_uniform_access_enabled]
+    steampipe: [storage_bucket_not_publicly_accessible]
   compliance:
-    cis_gcp: ["5.1", "5.2"]
+    cis_gcp: ["5.1"]
     nist_800_53: [AC-3, SC-7]
     pci_dss: ["1.3.1"]
     hipaa: ["164.312(a)(1)"]
     gdpr: ["Art.32"]
   remediation: [gcp_bucket_public.tf]
+
+# P1-ENGINE noise round (decision 5): uniform bucket-level access (CIS GCP 5.2) was aliased to
+# GCP_BUCKET_PUBLIC (PUBLIC_DATA_STORE); it is an access-model hygiene check, not public read.
+GCP_BUCKET_UNIFORM_ACCESS_DISABLED:
+  title: Cloud Storage bucket does not use uniform bucket-level access
+  provider: gcp
+  severity: MEDIUM
+  resource_type: gcp_storage_bucket
+  weaknesses: []
+  aliases:
+    checkov: [CKV_GCP_29]
+    trivy: [AVD-GCP-0002]
+    steampipe: [storage_bucket_uniform_access_enabled]
+  compliance:
+    cis_gcp: ["5.2"]
+    nist_800_53: [AC-3]
 
 GCP_FIREWALL_OPEN_SSH:
   title: VPC firewall allows SSH from the internet
@@ -617,7 +707,7 @@ GCP_FIREWALL_OPEN_SSH:
   aliases:
     prowler: [compute_firewall_ssh_access_from_the_internet_allowed]
     checkov: [CKV_GCP_2]
-    trivy: [AVD-GCP-0027]
+    trivy: [AVD-GCP-0027, AVD-GCP-0071]
     scoutsuite: [computeengine-firewall-rule-opens-all-ports-to-all, computeengine-firewall-rule-allows-internal-traffic-ssh]
     steampipe: [compute_firewall_rule_ssh_access_restricted]
   compliance:
@@ -635,7 +725,7 @@ GCP_FIREWALL_OPEN_RDP:
   aliases:
     prowler: [compute_firewall_rdp_access_from_the_internet_allowed]
     checkov: [CKV_GCP_3]
-    trivy: [AVD-GCP-0028]
+    trivy: [AVD-GCP-0028, AVD-GCP-0070]
     scoutsuite: [computeengine-firewall-rule-allows-internal-traffic-rdp]
     steampipe: [compute_firewall_rule_rdp_access_restricted]
   compliance:
@@ -653,7 +743,7 @@ GCP_SQL_PUBLIC:
   aliases:
     prowler: [cloudsql_instance_public_ip, cloudsql_instance_public_access]
     checkov: [CKV_GCP_11, CKV_GCP_60]
-    trivy: [AVD-GCP-0017, AVD-GCP-0018]
+    trivy: [AVD-GCP-0017]
     scoutsuite: [cloudsql-instances-public-ip, cloudsql-allows-root-login-from-any-host]
     steampipe: [sql_instance_not_publicly_accessible, sql_instance_authorized_networks_restricted]
   compliance:
@@ -688,8 +778,8 @@ GCP_DEFAULT_SA_FULL_ACCESS:
   weaknesses: [OVERPRIVILEGED_IDENTITY, DEFAULT_SERVICE_ACCOUNT]
   aliases:
     prowler: [compute_instance_default_service_account_in_use, compute_instance_default_service_account_in_use_with_full_api_access]
-    checkov: [CKV_GCP_30, CKV_GCP_32]
-    trivy: [AVD-GCP-0044, AVD-GCP-0045]
+    checkov: [CKV_GCP_30]
+    trivy: [AVD-GCP-0044]
     scoutsuite: [computeengine-instance-default-service-account, computeengine-instance-full-api-access]
     steampipe: [compute_instance_with_no_default_service_account, compute_instance_with_no_default_service_account_with_full_access]
   compliance:
@@ -714,6 +804,22 @@ GCP_VM_SERIAL_PORT:
     cis_gcp: ["4.5"]
     nist_800_53: [AC-17]
 
+GCP_INSTANCE_PUBLIC_IP:
+  title: Compute instance has an external (public) IP address
+  provider: gcp
+  severity: MEDIUM
+  resource_type: gcp_compute_instance
+  weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+  aliases:
+    prowler: [compute_instance_public_ip]
+    checkov: [CKV_GCP_40]
+    trivy: [AVD-GCP-0031]
+  compliance:
+    cis_gcp: ["4.9"]
+    nist_800_53: [SC-7]
+    pci_dss: ["1.3.2"]
+  remediation: [gcp_instance_no_public_ip.tf]
+
 GCP_IAM_PRIMITIVE_ROLE:
   title: Primitive Owner/Editor role granted to a user or service account
   provider: gcp
@@ -722,8 +828,8 @@ GCP_IAM_PRIMITIVE_ROLE:
   weaknesses: [OVERPRIVILEGED_IDENTITY]
   aliases:
     prowler: [iam_sa_user_managed_key_rotation, iam_no_service_roles_at_project_level, iam_role_assigned_to_user_or_sa_primitive]
-    checkov: [CKV_GCP_41, CKV_GCP_42, CKV_GCP_44, CKV_GCP_49]
-    trivy: [AVD-GCP-0004, AVD-GCP-0005, AVD-GCP-0007, AVD-GCP-0011]
+    checkov: [CKV_GCP_42, CKV_GCP_117]
+    trivy: [AVD-GCP-0007]
     scoutsuite: [iam-primitive-role-in-use, iam-sa-has-admin-privileges]
     steampipe: [iam_user_uses_corporate_login_credentials, iam_service_account_without_admin_privilege, iam_user_not_assigned_service_account_user_role_project_level]
   compliance:
@@ -740,7 +846,7 @@ GCP_GKE_LEGACY_ABAC:
   aliases:
     prowler: [gke_cluster_legacy_abac_disabled, gke_cluster_no_legacy_abac]
     checkov: [CKV_GCP_7, CKV_GCP_64]
-    trivy: [AVD-GCP-0062, AVD-GCP-0053]
+    trivy: [AVD-GCP-0062]
     scoutsuite: [kubernetesengine-cluster-legacy-abac-enabled, kubernetesengine-cluster-legacy-metadata-endpoints-enabled]
     steampipe: [kubernetes_cluster_legacy_abac_disabled]
   compliance:
@@ -756,7 +862,6 @@ OCI_BUCKET_PUBLIC:
   weaknesses: [PUBLIC_DATA_STORE]
   aliases:
     checkov: [CKV_OCI_10]
-    trivy: [AVD-OCI-0001]
     steampipe: [objectstorage_bucket_public_access_blocked]
   compliance:
     nist_800_53: [AC-3]
@@ -799,6 +904,8 @@ K8S_PRIVILEGED_CONTAINER:
   aliases:
     checkov: [CKV_K8S_16]
     trivy: [KSV017, AVD-KSV-0017]
+    kubescape: [C-0057]
+    kube-bench: ["cis-1.8:5.2.2"]
     prowler: [core_minimize_privileged_containers, core_pod_privileged]
     steampipe: [pod_container_privilege_disabled, pod_security_policy_container_privilege_disabled]
   compliance:
@@ -816,6 +923,8 @@ K8S_HOST_NETWORK:
   aliases:
     checkov: [CKV_K8S_17, CKV_K8S_18, CKV_K8S_19]
     trivy: [KSV008, KSV009, KSV010, AVD-KSV-0008, AVD-KSV-0009, AVD-KSV-0010]
+    kubescape: [C-0038, C-0041]
+    kube-bench: ["cis-1.8:5.2.3", "cis-1.8:5.2.4", "cis-1.8:5.2.5"]
     steampipe: [pod_host_network_access_disabled, pod_host_pid_access_disabled, pod_host_ipc_access_disabled]
   compliance:
     cis_k8s: ["5.2.3", "5.2.4", "5.2.5"]
@@ -831,6 +940,8 @@ K8S_HOST_PATH:
   aliases:
     checkov: [CKV_K8S_27]
     trivy: [KSV023, AVD-KSV-0023]
+    kubescape: [C-0048]
+    kube-bench: ["cis-1.8:5.2.12"]
     steampipe: [pod_volume_host_path]
   compliance:
     cis_k8s: ["5.2.1"]
@@ -845,6 +956,8 @@ K8S_RUN_AS_ROOT:
   aliases:
     checkov: [CKV_K8S_23, CKV_K8S_6, CKV_K8S_40]
     trivy: [KSV012, KSV020, KSV021, AVD-KSV-0012]
+    kubescape: [C-0013]
+    kube-bench: ["cis-1.8:5.2.7"]
     steampipe: [pod_non_root_container, pod_container_non_root_user]
   compliance:
     cis_k8s: ["5.2.6"]
@@ -860,6 +973,8 @@ K8S_PRIVILEGE_ESCALATION:
   aliases:
     checkov: [CKV_K8S_20]
     trivy: [KSV001, AVD-KSV-0001]
+    kubescape: [C-0016]
+    kube-bench: ["cis-1.8:5.2.6"]
     steampipe: [pod_container_privilege_escalation_disabled]
   compliance:
     cis_k8s: ["5.2.5"]
@@ -875,6 +990,7 @@ K8S_NO_RESOURCE_LIMITS:
   aliases:
     checkov: [CKV_K8S_10, CKV_K8S_11, CKV_K8S_12, CKV_K8S_13]
     trivy: [KSV011, KSV015, KSV016, KSV018]
+    kubescape: [C-0009, C-0270, C-0271]
     steampipe: [pod_container_cpu_limit, pod_container_memory_limit]
   compliance:
     nist_800_53: [SC-5, SC-6]
@@ -887,8 +1003,10 @@ K8S_DEFAULT_SA_TOKEN:
   resource_type: k8s_pod
   weaknesses: [SERVICE_ACCOUNT_TOKEN]
   aliases:
-    checkov: [CKV_K8S_38, CKV_K8S_21]
+    checkov: [CKV_K8S_38]
     trivy: [KSV036, AVD-KSV-0036]
+    kubescape: [C-0034]
+    kube-bench: ["cis-1.8:5.1.6"]
     steampipe: [pod_service_account_token_disabled, service_account_token_disabled]
   compliance:
     cis_k8s: ["5.1.5", "5.1.6"]
@@ -904,6 +1022,8 @@ K8S_NO_NETWORK_POLICY:
   aliases:
     checkov: [CKV2_K8S_6]
     trivy: [KSV038, AVD-KSV-0038]
+    kubescape: [C-0260]
+    kube-bench: ["cis-1.8:5.3.2"]
     steampipe: [namespace_network_policy_defined, network_policy_default_deny_ingress, network_policy_default_deny_egress]
   compliance:
     cis_k8s: ["5.3.2"]
@@ -918,7 +1038,7 @@ K8S_SECRETS_IN_ENV:
   weaknesses: [SECRET_EXPOSURE]
   aliases:
     checkov: [CKV_K8S_35]
-    trivy: [KSV043]
+    kube-bench: ["cis-1.8:5.4.1"]
     steampipe: [pod_container_secrets_not_in_env]
   compliance:
     cis_k8s: ["5.4.1"]
@@ -932,7 +1052,9 @@ K8S_CLUSTER_ADMIN_BINDING:
   weaknesses: [CLUSTER_ADMIN, OVERPRIVILEGED_IDENTITY]
   aliases:
     checkov: [CKV_K8S_1, CKV_K8S_156, CKV2_K8S_5]
-    trivy: [KSV044, KSV045, KSV046, KSV047, AVD-KSV-0044]
+    trivy: [KSV044, KSV045, KSV046, AVD-KSV-0044, AVD-KSV-0111]
+    kubescape: [C-0035, C-0185]
+    kube-bench: ["cis-1.8:5.1.1", "cis-1.8:5.1.3"]
     steampipe: [cluster_role_binding_cluster_admin_disabled, role_with_wildcards_used, cluster_role_with_wildcards_used]
   compliance:
     cis_k8s: ["5.1.1", "5.1.3"]
@@ -1217,3 +1339,459 @@ THREAT_DETECTION_DISABLED:
     cis_aws: ["4.16"]
     nist_800_53: [SI-4, RA-5]
     pci_dss: ["11.5"]
+
+# ---------------------------------------------------------------- scanner alias tranche 2
+# Competitive delta 2026-10-09-r2 shortfall #15: canonicals for checks that Checkov 3.3.26 and Trivy
+# 0.75.0 both raise on lab/terraform (lab/golden/), meanings checked against check_name / Title.
+EC2_SG_NO_DESCRIPTION:
+  title: Security group or rule has no description
+  provider: aws
+  severity: LOW
+  resource_type: aws_security_group
+  weaknesses: []
+  aliases:
+    checkov: [CKV_AWS_23]
+    trivy: [AVD-AWS-0099, AVD-AWS-0124]
+  compliance:
+    nist_800_53: [CM-6, CM-8]
+
+EC2_SG_OPEN_EGRESS:
+  title: Security group allows unrestricted egress to the internet
+  provider: aws
+  severity: LOW
+  resource_type: aws_security_group
+  weaknesses: []
+  aliases:
+    checkov: [CKV_AWS_382]
+    trivy: [AVD-AWS-0104]
+  compliance:
+    nist_800_53: [SC-7, SC-7(5)]
+    pci_dss: ["1.3.2"]
+
+RDS_NO_DELETION_PROTECTION:
+  title: RDS instance has deletion protection disabled
+  provider: aws
+  severity: LOW
+  resource_type: aws_db_instance
+  weaknesses: [NO_BACKUP, DATABASE]
+  aliases:
+    checkov: [CKV_AWS_293]
+    trivy: [AVD-AWS-0177]
+  compliance:
+    nist_800_53: [CP-9, CM-3]
+
+RDS_NO_IAM_AUTH:
+  title: RDS instance does not use IAM database authentication
+  provider: aws
+  severity: LOW
+  resource_type: aws_db_instance
+  weaknesses: [WEAK_AUTH, DATABASE]
+  aliases:
+    checkov: [CKV_AWS_161]
+    trivy: [AVD-AWS-0176]
+  compliance:
+    nist_800_53: [IA-2, AC-2]
+
+RDS_BACKUP_RETENTION_LOW:
+  title: RDS backup retention is at the 1-day default or disabled
+  provider: aws
+  severity: LOW
+  resource_type: aws_db_instance
+  weaknesses: [NO_BACKUP, DATABASE]
+  aliases:
+    trivy: [AVD-AWS-0077]
+  compliance:
+    nist_800_53: [CP-9]
+
+RDS_LOGGING_DISABLED:
+  title: RDS instance does not export database logs
+  provider: aws
+  severity: LOW
+  resource_type: aws_db_instance
+  weaknesses: [NO_LOGGING, DATABASE]
+  aliases:
+    checkov: [CKV_AWS_129, CKV2_AWS_30]
+  compliance:
+    nist_800_53: [AU-2, AU-12]
+    pci_dss: ["10.2"]
+
+S3_NO_CMK:
+  title: S3 bucket default encryption does not use a KMS customer-managed key
+  provider: aws
+  severity: LOW
+  resource_type: aws_s3_bucket
+  weaknesses: []
+  aliases:
+    checkov: [CKV_AWS_145]
+    trivy: [AVD-AWS-0132]
+  compliance:
+    nist_800_53: [SC-12, SC-28]
+
+IAM_POLICY_ON_USER:
+  title: IAM policy attached directly to a user instead of a group or role
+  provider: aws
+  severity: LOW
+  resource_type: aws_iam_user
+  weaknesses: []
+  aliases:
+    checkov: [CKV_AWS_40]
+    trivy: [AVD-AWS-0143]
+  compliance:
+    cis_aws: ["1.15"]
+    nist_800_53: [AC-2, AC-6]
+
+LAMBDA_NO_TRACING:
+  title: Lambda function has X-Ray tracing disabled
+  provider: aws
+  severity: LOW
+  resource_type: aws_lambda_function
+  weaknesses: []
+  aliases:
+    checkov: [CKV_AWS_50]
+    trivy: [AVD-AWS-0066]
+  compliance:
+    nist_800_53: [AU-12, SI-4]
+
+LAMBDA_NOT_IN_VPC:
+  title: Lambda function is not attached to a VPC
+  provider: aws
+  severity: LOW
+  resource_type: aws_lambda_function
+  weaknesses: []
+  aliases:
+    checkov: [CKV_AWS_117]
+  compliance:
+    nist_800_53: [SC-7]
+
+LAMBDA_NO_CODE_SIGNING:
+  title: Lambda function does not validate code signing
+  provider: aws
+  severity: LOW
+  resource_type: aws_lambda_function
+  weaknesses: []
+  aliases:
+    checkov: [CKV_AWS_272]
+  compliance:
+    nist_800_53: [CM-14, SI-7]
+
+K8S_CAPABILITIES_NOT_DROPPED:
+  title: Container does not drop Linux capabilities (keeps NET_RAW or others)
+  provider: kubernetes
+  severity: MEDIUM
+  resource_type: k8s_pod
+  weaknesses: []
+  aliases:
+    checkov: [CKV_K8S_28, CKV_K8S_37]
+    trivy: [AVD-KSV-0003, AVD-KSV-0004, AVD-KSV-0106]
+  compliance:
+    nist_800_53: [AC-6, CM-7]
+
+K8S_WRITABLE_ROOT_FS:
+  title: Container root filesystem is writable
+  provider: kubernetes
+  severity: LOW
+  resource_type: k8s_pod
+  weaknesses: []
+  aliases:
+    checkov: [CKV_K8S_22]
+    trivy: [AVD-KSV-0014]
+    kubescape: [C-0017]
+  compliance:
+    nist_800_53: [CM-7, SI-7]
+
+K8S_NO_SECCOMP:
+  title: Container runs without a RuntimeDefault seccomp profile
+  provider: kubernetes
+  severity: LOW
+  resource_type: k8s_pod
+  weaknesses: []
+  aliases:
+    checkov: [CKV_K8S_31]
+    trivy: [AVD-KSV-0030, AVD-KSV-0104]
+  compliance:
+    nist_800_53: [CM-7, SC-39]
+
+K8S_NO_SECURITY_CONTEXT:
+  title: Pod or container has no security context
+  provider: kubernetes
+  severity: LOW
+  resource_type: k8s_pod
+  weaknesses: []
+  aliases:
+    checkov: [CKV_K8S_29, CKV_K8S_30]
+    trivy: [AVD-KSV-0118]
+  compliance:
+    nist_800_53: [CM-6, CM-7]
+
+AZ_STORAGE_NO_CMK:
+  title: Storage account is not encrypted with a customer-managed key
+  provider: azure
+  severity: LOW
+  resource_type: azure_storage_account
+  weaknesses: []
+  aliases:
+    checkov: [CKV2_AZURE_1]
+    trivy: [AVD-AZU-0060]
+  compliance:
+    nist_800_53: [SC-12, SC-28]
+
+AZ_STORAGE_LOGGING_DISABLED:
+  title: Storage account service logging (blob / queue) disabled
+  provider: azure
+  severity: LOW
+  resource_type: azure_storage_account
+  weaknesses: [NO_LOGGING]
+  aliases:
+    checkov: [CKV2_AZURE_21, CKV_AZURE_33]
+    trivy: [AVD-AZU-0057]
+  compliance:
+    nist_800_53: [AU-2, AU-12]
+
+GCP_PROJECT_SSH_KEYS_ALLOWED:
+  title: Compute instance accepts project-wide SSH keys
+  provider: gcp
+  severity: MEDIUM
+  resource_type: gcp_compute_instance
+  weaknesses: []
+  aliases:
+    checkov: [CKV_GCP_32]
+    trivy: [AVD-GCP-0030]
+  compliance:
+    cis_gcp: ["4.3"]
+    nist_800_53: [AC-3, IA-5]
+
+GCP_SHIELDED_VM_DISABLED:
+  title: Compute instance does not use Shielded VM (secure boot, vTPM, integrity monitoring)
+  provider: gcp
+  severity: LOW
+  resource_type: gcp_compute_instance
+  weaknesses: []
+  aliases:
+    checkov: [CKV_GCP_39]
+    trivy: [AVD-GCP-0041, AVD-GCP-0045, AVD-GCP-0067]
+  compliance:
+    cis_gcp: ["4.8"]
+    nist_800_53: [SI-7]
+
+GCP_DISK_NO_CSEK:
+  title: Compute disk is not encrypted with a customer-supplied key (CSEK)
+  provider: gcp
+  severity: LOW
+  resource_type: gcp_compute_instance
+  weaknesses: []
+  aliases:
+    checkov: [CKV_GCP_38]
+    trivy: [AVD-GCP-0033]
+  compliance:
+    cis_gcp: ["4.7"]
+    nist_800_53: [SC-12, SC-28]
+
+# Alias batch 3 (competitive delta 2026-10-09-r2 shortfall #15): lab IaC golden checks with no canonical.
+EC2_NO_DETAILED_MONITORING:
+  title: EC2 instance detailed (1-minute) CloudWatch monitoring disabled
+  provider: aws
+  severity: LOW
+  resource_type: aws_instance
+  weaknesses: []
+  aliases:
+    prowler: [ec2_instance_detailed_monitoring_enabled]
+    checkov: [CKV_AWS_126]
+  compliance:
+    nist_800_53: [SI-4]
+
+RDS_NO_PERFORMANCE_INSIGHTS:
+  title: RDS instance does not have Performance Insights enabled
+  provider: aws
+  severity: LOW
+  resource_type: aws_db_instance
+  weaknesses: []
+  aliases:
+    checkov: [CKV_AWS_353]
+    trivy: [AVD-AWS-0133]
+  compliance:
+    nist_800_53: [SI-4]
+
+IAM_USER_NOT_FEDERATED:
+  title: Access managed through IAM users instead of SSO / identity federation
+  provider: aws
+  severity: LOW
+  resource_type: aws_iam_user
+  weaknesses: []
+  aliases:
+    checkov: [CKV_AWS_273]
+  compliance:
+    cis_aws: ["1.21"]
+    nist_800_53: [AC-2, IA-2]
+
+AZ_STORAGE_SHARED_KEY_ENABLED:
+  title: Storage account allows Shared Key (account key) authorization
+  provider: azure
+  severity: MEDIUM
+  resource_type: azure_storage_account
+  weaknesses: []
+  aliases:
+    checkov: [CKV2_AZURE_40]
+  compliance:
+    nist_800_53: [IA-2, IA-5]
+
+AZ_STORAGE_SAS_NO_EXPIRATION:
+  title: Storage account has no SAS expiration policy
+  provider: azure
+  severity: LOW
+  resource_type: azure_storage_account
+  weaknesses: []
+  aliases:
+    checkov: [CKV2_AZURE_41]
+  compliance:
+    nist_800_53: [AC-2, IA-5]
+
+AZ_STORAGE_NO_PRIVATE_ENDPOINT:
+  title: Storage account is not reached through a private endpoint
+  provider: azure
+  severity: LOW
+  resource_type: azure_storage_account
+  weaknesses: []
+  aliases:
+    checkov: [CKV2_AZURE_33]
+  compliance:
+    nist_800_53: [SC-7]
+
+GCP_SA_IMPERSONATION_ROLE:
+  title: Service Account User / Token Creator (impersonation) role granted at project level
+  provider: gcp
+  severity: HIGH
+  resource_type: gcp_iam_binding
+  weaknesses: [OVERPRIVILEGED_IDENTITY]
+  aliases:
+    checkov: [CKV_GCP_41, CKV_GCP_49]
+  compliance:
+    cis_gcp: ["1.6"]
+    nist_800_53: [AC-6]
+    pci_dss: ["7.1.2"]
+
+GCP_DEFAULT_SA_PROJECT_ROLE:
+  title: Default compute / App Engine service account granted a project-level role
+  provider: gcp
+  severity: MEDIUM
+  resource_type: gcp_iam_binding
+  weaknesses: [DEFAULT_SERVICE_ACCOUNT]
+  aliases:
+    checkov: [CKV_GCP_46]
+  compliance:
+    nist_800_53: [AC-6]
+
+K8S_IMAGE_NOT_PINNED_BY_DIGEST:
+  title: Container image is referenced by tag, not pinned by digest
+  provider: kubernetes
+  severity: LOW
+  resource_type: k8s_pod
+  weaknesses: []
+  aliases:
+    checkov: [CKV_K8S_43]
+  compliance:
+    nist_800_53: [CM-2, SI-7]
+
+K8S_IMAGE_PULL_POLICY_NOT_ALWAYS:
+  title: Container imagePullPolicy is not Always
+  provider: kubernetes
+  severity: LOW
+  resource_type: k8s_pod
+  weaknesses: []
+  aliases:
+    checkov: [CKV_K8S_15]
+  compliance:
+    nist_800_53: [CM-2]
+
+# ---------------------------------------------------------------- W6-ENGINE: lab-native checks (r4 #9)
+# The lab estate's native check ids (source nimbus-lab; the EC2 instance ones are Prowler ids)
+# had no canonical id, so `plan` rendered generic stubs for them. Weaknesses equal the ones the
+# lab findings already carry (mapping adds no weakness, so no path changes).
+EC2_INSTANCE_PORT_EXPOSED:
+  title: EC2 instance reachable on an administrative or service port from the internet
+  provider: aws
+  severity: HIGH
+  resource_type: aws_instance
+  weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+  aliases:
+    prowler: [ec2_instance_port_ssh_exposed_to_internet, ec2_instance_port_rdp_exposed_to_internet, ec2_instance_port_https_exposed_to_internet, ec2_instance_port_http_exposed_to_internet, ec2_instance_port_telnet_exposed_to_internet, ec2_instance_port_ftp_exposed_to_internet]
+  compliance:
+    nist_800_53: [SC-7, AC-4]
+    pci_dss: ["1.2.1", "1.3.1"]
+  remediation: [ec2_instance_port_exposed.tf]
+
+IAM_OIDC_TRUST_NO_SUBJECT:
+  title: Role trusts GitHub Actions OIDC tokens without a subject (repository / branch) condition
+  provider: aws
+  severity: CRITICAL
+  resource_type: aws_iam_role
+  weaknesses: [CROSS_ACCOUNT_TRUST]
+  aliases:
+    nimbus-lab: [iam_role_github_oidc_trust_without_subject_condition]
+  compliance:
+    nist_800_53: [AC-3, IA-8]
+    iso_27001: [A.9.4.1]
+  remediation: [iam_github_oidc_subject.tf]
+
+BEDROCK_AGENT_PUBLIC:
+  title: Bedrock agent is invoked by an unauthenticated public endpoint
+  provider: aws
+  severity: HIGH
+  resource_type: aws_bedrockagent_agent
+  weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+  aliases:
+    nimbus-lab: [bedrock_agent_publicly_invocable]
+  compliance:
+    nist_800_53: [AC-3, SC-7]
+  remediation: [bedrock_agent_private.tf]
+
+OKTA_SIGNON_MFA_EXEMPT:
+  title: Okta user signs in under a sign-on rule that does not require MFA
+  provider: okta
+  severity: HIGH
+  resource_type: okta_user
+  weaknesses: [NO_MFA]
+  aliases:
+    nimbus-lab: [okta_signon_rule_mfa_exempt]
+  compliance:
+    nist_800_53: [IA-2(1)]
+    pci_dss: ["8.3.1"]
+    hipaa: ["164.312(d)"]
+  remediation: [okta_signon_mfa.tf]
+
+K8S_SERVICE_PUBLIC_LB:
+  title: Workload exposed to the internet by a LoadBalancer service
+  provider: kubernetes
+  severity: HIGH
+  resource_type: k8s_service
+  weaknesses: [PUBLIC_NETWORK_EXPOSURE]
+  aliases:
+    nimbus-lab: [service_type_loadbalancer_public]
+  compliance:
+    nist_800_53: [SC-7]
+    cis_k8s: ["5.7.4"]
+  remediation: [k8s_service_internal_lb.k8s.yaml]
+
+K8S_SECRETS_RBAC_WIDE:
+  title: Subject can get / list secrets in every namespace
+  provider: kubernetes
+  severity: HIGH
+  resource_type: k8s_clusterrolebinding
+  weaknesses: [OVERPRIVILEGED_IDENTITY]
+  aliases:
+    nimbus-lab: [rbac_minimize_secret_access]
+  compliance:
+    cis_k8s: ["5.1.2"]
+    nist_800_53: [AC-6]
+  remediation: [k8s_rbac_secrets.k8s.yaml]
+
+K8S_RBAC_WILDCARD:
+  title: Role or ClusterRole grants wildcard verbs or resources
+  provider: kubernetes
+  severity: HIGH
+  resource_type: k8s_cluster_role
+  weaknesses: [OVERPRIVILEGED_IDENTITY]
+  aliases:
+    prowler: [rbac_minimize_wildcard_use_roles]
+  compliance:
+    cis_k8s: ["5.1.3"]
+    nist_800_53: [AC-6]

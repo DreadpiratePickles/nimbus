@@ -1,0 +1,26 @@
+# Keep the build context to what the Go build needs; never ship local state or secrets.
+.git
+.github
+.planning
+.venv
+**/.venv
+python/.venv
+.cloud-posture
+cloud-posture-report
+cloud-posture-remediation
+reports
+**/node_modules
+tools/ui-smoke/node_modules
+vscode-extension/node_modules
+bin
+build
+**/__pycache__
+**/*.pyc
+.pytest_cache
+*.env
+.env
+*.db
+*.sqlite
+docs
+testdata
+dist

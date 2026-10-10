@@ -1,0 +1,23 @@
+# Remediation plan metadata for cloudtrail_disabled.cfn.yaml (schema: internal/remediation/metadata.go).
+actions_required:
+  - "cloudformation:CreateChangeSet"
+  - "cloudformation:DescribeChangeSet"
+  - "cloudformation:ExecuteChangeSet"
+  - "cloudformation:DescribeStacks"
+  - "cloudtrail:CreateTrail"
+  - "cloudtrail:StartLogging"
+  - "cloudtrail:GetTrailStatus"
+  - "s3:CreateBucket"
+  - "s3:PutBucketPolicy"
+  - "s3:PutBucketPublicAccessBlock"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Use CloudTrail Event history (90 days, management events) and GuardDuty while the trail is set up."
+effort: S
+confidence: high
+rollback: "aws cloudformation delete-stack; the log bucket has no DeletionPolicy, so a non-empty bucket blocks deletion and the logs are kept."
+breaks_function:
+  value: false
+  note: "Adds a trail and a log bucket only. Cost: S3 storage, and a second copy of management events is charged if another trail already exists."

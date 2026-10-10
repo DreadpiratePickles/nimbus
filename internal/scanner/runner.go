@@ -5,6 +5,7 @@ package scanner
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -23,14 +24,20 @@ type Output struct {
 	Account string
 	Path    string
 	Run     model.ToolRun
+	// Root is the IaC path this output was scanned from (RunIaC); "" for accounts.
+	Root string
 }
 
 type Options struct {
-	WorkDir  string
-	Timeout  time.Duration
-	Python   string
-	Logf     func(format string, args ...any)
-	IaCPaths []string
+	WorkDir string
+	Timeout time.Duration
+	Python  string
+	// PythonDir is the trusted source checkout holding the nimbus package (cli
+	// pythonDir(): $NIMBUS_PYTHON_DIR or python/ beside the executable). The Python
+	// checks never import from the working directory; "" means the installed package.
+	PythonDir string
+	Logf      func(format string, args ...any)
+	IaCPaths  []string
 }
 
 func (o Options) logf(format string, args ...any) {
@@ -91,19 +98,19 @@ func RunIaC(ctx context.Context, paths []string, opts Options) []Output {
 		if _, err := exec.LookPath("checkov"); err == nil {
 			out := filepath.Join(work, fmt.Sprintf("checkov_%d", i))
 			os.MkdirAll(out, 0o755)
-			run := execTool(ctx, opts, "checkov", "-d", p, "-o", "json", "--output-file-path", out, "--quiet", "--compact", "--skip-download")
+			run := execTool(ctx, opts, filepath.Join(out, "results_json.json"), "checkov", "-d", p, "-o", "json", "--output-file-path", out, "--quiet", "--compact", "--skip-download")
 			run.Account = "iac"
-			outs = append(outs, Output{Tool: "checkov", Source: "checkov", Account: "iac", Path: filepath.Join(out, "results_json.json"), Run: run})
+			outs = append(outs, Output{Tool: "checkov", Source: "checkov", Account: "iac", Path: filepath.Join(out, "results_json.json"), Run: run, Root: p})
 		}
 		if _, err := exec.LookPath("trivy"); err == nil {
 			out := filepath.Join(work, fmt.Sprintf("trivy_config_%d.json", i))
-			run := execTool(ctx, opts, "trivy", "config", "-f", "json", "-o", out, "--quiet", p)
+			run := execTool(ctx, opts, out, "trivy", "config", "-f", "json", "-o", out, "--quiet", p)
 			run.Account = "iac"
-			outs = append(outs, Output{Tool: "trivy", Source: "trivy", Account: "iac", Path: out, Run: run})
+			outs = append(outs, Output{Tool: "trivy", Source: "trivy", Account: "iac", Path: out, Run: run, Root: p})
 			secrets := filepath.Join(work, fmt.Sprintf("trivy_fs_%d.json", i))
-			run2 := execTool(ctx, opts, "trivy", "fs", "--scanners", "secret,misconfig", "-f", "json", "-o", secrets, "--quiet", p)
+			run2 := execTool(ctx, opts, secrets, "trivy", "fs", "--scanners", "secret,misconfig", "-f", "json", "-o", secrets, "--quiet", p)
 			run2.Account = "iac"
-			outs = append(outs, Output{Tool: "trivy", Source: "trivy", Account: "iac", Path: secrets, Run: run2})
+			outs = append(outs, Output{Tool: "trivy", Source: "trivy", Account: "iac", Path: secrets, Run: run2, Root: p})
 		}
 	}
 	return outs
@@ -173,7 +180,7 @@ func runProwler(ctx context.Context, a *config.Account, work string, opts Option
 			args = append(args, "--organization", a.Org)
 		}
 	}
-	run := execTool(ctx, opts, "prowler", args...)
+	run := execTool(ctx, opts, filepath.Join(work, "prowler.ocsf.json"), "prowler", args...)
 	run.Account = a.Name
 	return Output{Tool: "prowler", Source: "prowler", Account: a.Name, Path: filepath.Join(work, "prowler.ocsf.json"), Run: run}
 }
@@ -197,7 +204,7 @@ func runScout(ctx context.Context, a *config.Account, work string, opts Options)
 			args = append(args, "--project-id", a.ProjectID)
 		}
 	}
-	run := execTool(ctx, opts, "scout", args...)
+	run := execTool(ctx, opts, filepath.Join(dir, "scoutsuite-results", "scoutsuite_results_scout.js"), "scout", args...)
 	run.Account = a.Name
 	return Output{Tool: "scoutsuite", Source: "scoutsuite", Account: a.Name, Path: filepath.Join(dir, "scoutsuite-results", "scoutsuite_results_scout.js"), Run: run}
 }
@@ -211,9 +218,9 @@ func runSteampipe(ctx context.Context, a *config.Account, work string, opts Opti
 	mod := map[string]string{"aws": "aws_compliance", "azure": "azure_compliance", "gcp": "gcp_compliance", "oci": "oci_compliance", "kubernetes": "kubernetes_compliance", "github": "github_compliance", "okta": "okta_compliance", "m365": "microsoft365_compliance"}[a.Provider]
 	var run model.ToolRun
 	if bin == "powerpipe" {
-		run = execTool(ctx, opts, bin, "benchmark", "run", "all", "--export", "json:"+out, "--mod-location", filepath.Join(os.Getenv("HOME"), ".cloud-posture", "mods", mod))
+		run = execTool(ctx, opts, out, bin, "benchmark", "run", "all", "--export", "json:"+out, "--mod-location", filepath.Join(os.Getenv("HOME"), ".cloud-posture", "mods", mod))
 	} else {
-		run = execTool(ctx, opts, bin, "check", "all", "--export", "json="+out, "--workspace-chdir", filepath.Join(os.Getenv("HOME"), ".cloud-posture", "mods", mod))
+		run = execTool(ctx, opts, out, bin, "check", "all", "--export", "json="+out, "--workspace-chdir", filepath.Join(os.Getenv("HOME"), ".cloud-posture", "mods", mod))
 	}
 	run.Account = a.Name
 	return Output{Tool: "steampipe", Source: "steampipe", Account: a.Name, Path: out, Run: run}
@@ -228,7 +235,7 @@ func runTrivy(ctx context.Context, a *config.Account, work string, opts Options)
 	if a.KubeContext != "" {
 		args = append(args, "--kubeconfig", os.Getenv("KUBECONFIG"), "--context", a.KubeContext)
 	}
-	run := execTool(ctx, opts, "trivy", args...)
+	run := execTool(ctx, opts, out, "trivy", args...)
 	run.Account = a.Name
 	return []Output{{Tool: "trivy", Source: "trivy", Account: a.Name, Path: out, Run: run}}
 }
@@ -250,7 +257,7 @@ func runCheckovK8s(ctx context.Context, a *config.Account, work string, opts Opt
 	}
 	out := filepath.Join(work, "checkov")
 	os.MkdirAll(out, 0o755)
-	run = execTool(ctx, opts, "checkov", "-f", dump, "--framework", "kubernetes", "-o", "json", "--output-file-path", out, "--quiet", "--compact")
+	run = execTool(ctx, opts, filepath.Join(out, "results_json.json"), "checkov", "-f", dump, "--framework", "kubernetes", "-o", "json", "--output-file-path", out, "--quiet", "--compact")
 	run.Account = a.Name
 	return Output{Tool: "checkov", Source: "checkov", Account: a.Name, Path: filepath.Join(out, "results_json.json"), Run: run}
 }
@@ -263,7 +270,11 @@ func runPythonChecks(ctx context.Context, a *config.Account, work string, opts O
 	if py == "" {
 		py = "python3"
 	}
-	out := filepath.Join(work, "nimbus-checks.findings.json")
+	// The module runs from an empty directory, so every path argument must be absolute.
+	out, err := filepath.Abs(filepath.Join(work, "nimbus-checks.findings.json"))
+	if err != nil {
+		return Output{Tool: "python-checks", Run: model.ToolRun{Tool: "python-checks", Account: a.Name, Status: "failed", Message: err.Error()}}
+	}
 	args := []string{"-m", "nimbus.checks", "--provider", "aws", "--output", out}
 	if a.Profile != "" {
 		args = append(args, "--profile", a.Profile)
@@ -274,16 +285,51 @@ func runPythonChecks(ctx context.Context, a *config.Account, work string, opts O
 	if len(a.Regions) > 0 {
 		args = append(args, "--regions", strings.Join(a.Regions, ","))
 	}
-	run := execTool(ctx, opts, py, args...)
+	// Never resolve nimbus from the process working directory (inventory defect 12): run
+	// from a fresh private directory with PYTHONSAFEPATH=1, and put only the trusted
+	// PythonDir on PYTHONPATH — the same discovery as cli.pythonDir/runPython.
+	neutral, err := os.MkdirTemp("", "cloud-posture-py-")
+	if err != nil {
+		return Output{Tool: "python-checks", Run: model.ToolRun{Tool: "python-checks", Account: a.Name, Status: "failed", Message: err.Error()}}
+	}
+	defer os.RemoveAll(neutral)
+	env := append(os.Environ(), "PYTHONSAFEPATH=1")
+	if opts.PythonDir != "" {
+		pp := opts.PythonDir
+		if cur := os.Getenv("PYTHONPATH"); cur != "" {
+			pp += string(os.PathListSeparator) + cur
+		}
+		env = append(env, "PYTHONPATH="+pp)
+	}
+	run := runExec(ctx, opts, execSpec{artifact: out, dir: neutral, env: env}, py, args...)
 	run.Tool, run.Account = "python-checks", a.Name
 	return Output{Tool: "python-checks", Source: "native", Account: a.Name, Path: out, Run: run}
 }
 
-func execTool(ctx context.Context, opts Options, bin string, args ...string) model.ToolRun {
-	return execToolToFile(ctx, opts, "", bin, args...)
+// execSpec describes one tool invocation. artifact is the output file the tool is
+// expected to produce; it decides whether a non-zero exit still produced usable output.
+type execSpec struct {
+	stdoutFile string
+	artifact   string
+	dir        string
+	env        []string
+}
+
+func execTool(ctx context.Context, opts Options, artifact, bin string, args ...string) model.ToolRun {
+	return runExec(ctx, opts, execSpec{artifact: artifact}, bin, args...)
 }
 
 func execToolToFile(ctx context.Context, opts Options, stdoutFile string, bin string, args ...string) model.ToolRun {
+	return runExec(ctx, opts, execSpec{stdoutFile: stdoutFile, artifact: stdoutFile}, bin, args...)
+}
+
+// runExec runs one tool. Failure is decided by the exit status, a timeout, or a missing
+// output artifact — never by words on stderr (inventory defect 19: prowler/checkov/trivy
+// print "error" in warnings while writing valid output). Prowler, checkov and trivy exit
+// non-zero when findings exist, so a non-zero exit (< 100) that still produced a
+// non-empty artifact is ok; the adapter then rejects output it cannot parse. stderr is
+// kept on the run, and its last line is the failure reason.
+func runExec(ctx context.Context, opts Options, spec execSpec, bin string, args ...string) model.ToolRun {
 	run := model.ToolRun{Tool: bin, Status: "ok"}
 	if _, err := exec.LookPath(bin); err != nil {
 		run.Status, run.Message = "skipped", bin+" not installed"
@@ -296,11 +342,15 @@ func execToolToFile(ctx context.Context, opts Options, stdoutFile string, bin st
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(cctx, bin, args...)
+	cmd.Dir = spec.dir
+	if spec.env != nil {
+		cmd.Env = spec.env
+	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	opts.logf("▶ %s %s", bin, strings.Join(args, " "))
-	if stdoutFile != "" {
-		f, err := os.Create(stdoutFile)
+	if spec.stdoutFile != "" {
+		f, err := os.Create(spec.stdoutFile)
 		if err != nil {
 			run.Status, run.Message = "failed", err.Error()
 			return run
@@ -312,15 +362,50 @@ func execToolToFile(ctx context.Context, opts Options, stdoutFile string, bin st
 	}
 	err := cmd.Run()
 	run.Output = truncate(stderr.String(), 2000)
-	if err != nil {
-		// Prowler/checkov/trivy exit non-zero when findings exist; treat as ok when output was produced.
-		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() != 0 && ee.ExitCode() < 100 && !strings.Contains(strings.ToLower(stderr.String()), "error") {
+	reason := lastLine(stderr.String())
+	switch {
+	case err == nil:
+		return run
+	case errors.Is(cctx.Err(), context.DeadlineExceeded):
+		run.Status, run.Message = "failed", fmt.Sprintf("timeout after %s", timeout)
+	case errors.Is(ctx.Err(), context.Canceled):
+		run.Status, run.Message = "failed", "canceled"
+	default:
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && ee.ExitCode() > 0 && ee.ExitCode() < 100 && nonEmptyFile(spec.artifact) {
 			run.Message = fmt.Sprintf("exit %d (findings present)", ee.ExitCode())
 			return run
 		}
 		run.Status, run.Message = "failed", err.Error()
+		if spec.artifact != "" && !nonEmptyFile(spec.artifact) {
+			run.Message += ", no output produced"
+		}
+	}
+	if reason != "" {
+		run.Message += ": " + reason
 	}
 	return run
+}
+
+func nonEmptyFile(path string) bool {
+	if path == "" {
+		return false
+	}
+	st, err := os.Stat(path)
+	return err == nil && !st.IsDir() && st.Size() > 0
+}
+
+func lastLine(s string) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if l := strings.TrimSpace(lines[i]); l != "" {
+			if len(l) > 300 {
+				l = l[:300]
+			}
+			return l
+		}
+	}
+	return ""
 }
 
 func sanitize(s string) string {

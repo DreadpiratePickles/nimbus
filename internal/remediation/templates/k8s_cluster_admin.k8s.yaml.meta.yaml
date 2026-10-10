@@ -1,0 +1,16 @@
+# Remediation plan metadata for k8s_cluster_admin.k8s.yaml (schema: internal/remediation/metadata.go).
+actions_required:
+  - "rbac.authorization.k8s.io/roles:create"
+  - "rbac.authorization.k8s.io/rolebindings:create"
+  - "rbac.authorization.k8s.io/clusterrolebindings:delete"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Bind cluster-admin to a dedicated service account only, and alert on its use in the audit log."
+effort: M
+confidence: low
+rollback: "Save the binding first (kubectl get clusterrolebinding <name> -o yaml > crb.yaml) and kubectl apply -f crb.yaml to restore it."
+breaks_function:
+  value: true
+  note: "The scoped Role is read-only on a few resource types; anything else the subject did fails once step 3 removes the old binding."

@@ -1,0 +1,68 @@
+{
+  "blocks": [
+    {
+      "text": {
+        "text": "Governance digest: payments@example.com",
+        "type": "plain_text"
+      },
+      "type": "header"
+    },
+    {
+      "text": {
+        "text": "2 overdue · 1 open critical · 1 open high · 1 resolved this period · 5 open in total",
+        "type": "mrkdwn"
+      },
+      "type": "section"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "text": {
+        "text": "*Overdue (2)*\n• [CRITICAL] i-crit-overdue Public S3 bucket payments-logs (aws/aws-prod) - due 2026-10-03, 6d overdue\n    fix: `cloud-posture fix --issue i-crit-overdue --apply`\n• [LOW] i-low-overdue Log retention below 90 days (aws/aws-prod) - due 2026-10-08, 1d overdue",
+        "type": "mrkdwn"
+      },
+      "type": "section"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "text": {
+        "text": "*Open critical (1)*\n• [CRITICAL] i-crit-open Lambda &lt;script&gt; &amp; admin role (aws/aws-prod) - due 2026-10-14 (in 5d)\n    fix: `cloud-posture fix --issue i-crit-open`",
+        "type": "mrkdwn"
+      },
+      "type": "section"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "text": {
+        "text": "*Open high (1)*\n• [HIGH] i-high-open Security group open to 0.0.0.0/0 on 22 (aws/aws-prod) - due 2026-10-20 (in 11d)",
+        "type": "mrkdwn"
+      },
+      "type": "section"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "text": {
+        "text": "*Resolved this period (1)*\n• [HIGH] i-resolved IAM user without MFA (aws/aws-prod) - resolved 2026-10-05",
+        "type": "mrkdwn"
+      },
+      "type": "section"
+    },
+    {
+      "elements": [
+        {
+          "text": "Period 2026-10-02 to 2026-10-09 · `cloud-posture issues --overdue` for the full list",
+          "type": "mrkdwn"
+        }
+      ],
+      "type": "context"
+    }
+  ],
+  "text": "Governance digest for payments@example.com: 2 overdue · 1 open critical · 1 open high · 1 resolved this period · 5 open in total"
+}

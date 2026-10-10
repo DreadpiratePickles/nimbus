@@ -1,0 +1,67 @@
+# Ground-truth benchmark (docs/benchmark.md): the labelled lab + the independently authored noise
+# estate (`make groundtruth`) and the Checkov/Trivy golden ingest test (`make groundtruth-golden`),
+# with the tables published as the job summary. No cloud credentials; the goldens are committed raw
+# outputs (lab/golden/), so the scanners themselves are not installed here.
+# The strict run (GROUNDTRUTH_STRICT=1) is informational until lab/known_gaps.yaml is empty
+# (plan v3 §4 P1-LAB L4 makes it a required check).
+name: benchmark
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  groundtruth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUD_POSTURE_NO_NETWORK: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with: {go-version: '1.26'}
+      - name: Ground truth (labelled lab + noise estate, known gaps tolerated)
+        env:
+          GROUNDTRUTH_REPORT: ${{ runner.temp }}/lab.md
+          GROUNDTRUTH_NOISE_REPORT: ${{ runner.temp }}/noise.md
+          GOLDEN_REPORT: ${{ runner.temp }}/interop.md
+        run: make groundtruth
+      - name: Golden scanner-interop test (Checkov / Trivy goldens through the real adapters)
+        run: make groundtruth-golden
+      - name: Strict run (informational until lab/known_gaps.yaml is empty)
+        id: strict
+        continue-on-error: true
+        run: GROUNDTRUTH_STRICT=1 go test ./tests/groundtruth -count=1 2>&1 | tee "$RUNNER_TEMP/strict.txt"; exit "${PIPESTATUS[0]}"
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Ground-truth benchmark"
+            echo "Precision and recall in two views: **labelled** (a reported pending-feature path counts as a hit) and **real-world** (any path matching a false_positive or pending-feature label is a false positive). Quote real-world. No live-cloud run yet (O1)."
+            echo
+            j=lab/local/out/benchmark.json
+            if [ -s "$j" ]; then
+              echo "| estate | precision labelled | precision real-world | precision@7 labelled | precision@7 real-world | recall@7 labelled | recall@7 real-world |"
+              echo "|---|---|---|---|---|---|---|"
+              jq -r 'def f: "\(if .value == null then "n/a" else ((.value*1000|round)/10|tostring) + "%" end) (\(.num)/\(.den))";
+                .estates | to_entries[] | "| \(.key) | \(.value.labelled.precision|f) | \(.value.real_world.precision|f) | \(.value.labelled.precision_at_threshold|f) | \(.value.real_world.precision_at_threshold|f) | \(.value.labelled.recall_at_threshold|f) | \(.value.real_world.recall_at_threshold|f) |"' "$j" || echo "_benchmark.json unreadable_"
+            else
+              echo "_benchmark.json not produced_"
+            fi
+            echo
+            for f in lab noise interop; do
+              p="$RUNNER_TEMP/$f.md"
+              case $f in lab) echo "### Labelled lab (lab/ground_truth.yaml)";; noise) echo "### Noise estate (lab/noise_truth.yaml)";; interop) echo "### Scanner interop (lab/golden)";; esac
+              if [ -s "$p" ]; then cat "$p"; else echo "_not produced_"; fi
+              echo
+            done
+            echo "### Strict mode (GROUNDTRUTH_STRICT=1): ${{ steps.strict.outcome }}"
+            echo '```'
+            grep -E '\[strict\]' "$RUNNER_TEMP/strict.txt" 2>/dev/null | sed -E 's/^ +//' | cut -c1-200 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

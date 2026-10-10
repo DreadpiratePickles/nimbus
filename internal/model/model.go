@@ -106,7 +106,10 @@ type Resource struct {
 	Name       string         `json:"name"`
 	Attributes map[string]any `json:"attributes,omitempty"`
 	// Related lists IDs of resources this one is attached to (instance -> role, pod -> service account).
+	// On the wire an entry may also be a typed object {id, kind, attr}; see relation.go.
 	Related []string `json:"related,omitempty"`
+	// Relations are the typed entries of `related` (their IDs are also in Related).
+	Relations []Relation `json:"relations,omitempty"`
 }
 
 type Finding struct {
@@ -207,6 +210,9 @@ type AttackPath struct {
 	Steps      []Step   `json:"steps"`
 	Narrative  string   `json:"narrative"`
 	FindingIDs []string `json:"finding_ids"`
+	// WeakLink marks a rule chain joined by `same_account` only (no graph edge between two
+	// steps); such paths are allowed only when the rule justifies it and score x0.5.
+	WeakLink bool `json:"weak_link,omitempty"`
 }
 
 type Step struct {
@@ -217,6 +223,13 @@ type Step struct {
 	Resource  string `json:"resource"`
 	Title     string `json:"title"`
 	Summary   string `json:"summary"`
+	// WeaknessOn is the node that carries Weakness (the source of the edge for IMDSv1,
+	// the binding for CLUSTER_ADMIN), so fixes are credited to the right resource.
+	WeaknessOn string `json:"weakness_on,omitempty"`
+	// Because says why this hop is possible (the rule, statement, binding or role that
+	// enables it); Evidence holds the collector attributes it was derived from.
+	Because  string         `json:"because,omitempty"`
+	Evidence map[string]any `json:"evidence,omitempty"`
 }
 
 type ScanSummary struct {

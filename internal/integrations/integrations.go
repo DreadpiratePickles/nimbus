@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -19,7 +18,8 @@ import (
 type Result struct {
 	Channel   string `json:"channel"`
 	FindingID string `json:"finding_id"`
-	Ref       string `json:"ref,omitempty"` // issue URL, event id...
+	IssueID   string `json:"issue_id,omitempty"` // set by DispatchIssues (one ticket per Issue)
+	Ref       string `json:"ref,omitempty"`      // issue URL, event id...
 	Err       string `json:"error,omitempty"`
 	Skipped   bool   `json:"skipped,omitempty"`
 }
@@ -30,7 +30,7 @@ type Sink interface {
 	Deliver(ctx context.Context, f model.Finding, paths []model.AttackPath) (ref string, err error)
 }
 
-var httpClient = &http.Client{Timeout: 20 * time.Second}
+var httpClient = &redactingClient{c: newSinkHTTPClient()}
 
 func envOr(envName, literal string) string {
 	if literal != "" {
@@ -47,7 +47,7 @@ func postJSON(ctx context.Context, url string, headers map[string]string, body a
 	if err != nil {
 		return nil, 0, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(buf))
+	req, err := newRequest(ctx, http.MethodPost, url, bytes.NewReader(buf))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -184,7 +184,7 @@ func (g *GitHubIssues) Close(ctx context.Context, f model.Finding, ref string) e
 		return err
 	}
 	body, _ := json.Marshal(map[string]any{"state": "closed", "state_reason": "completed"})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(body))
+	req, err := newRequest(ctx, http.MethodPatch, url, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func (g *GitHubIssues) Close(ctx context.Context, f model.Finding, ref string) e
 
 func (g *GitHubIssues) findExisting(ctx context.Context, marker string) (string, bool) {
 	q := fmt.Sprintf("repo:%s in:body \"%s\"", g.Repo, marker)
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, g.api()+"/search/issues?per_page=1&q="+urlEncode(q), nil)
+	req, _ := newRequest(ctx, http.MethodGet, g.api()+"/search/issues?per_page=1&q="+urlEncode(q), nil)
 	for k, v := range g.headers() {
 		req.Header.Set(k, v)
 	}
@@ -227,7 +227,7 @@ func (g *GitHubIssues) findExisting(ctx context.Context, marker string) (string,
 
 // Whoami validates a token; used by `cloud-posture alert --check`.
 func (g *GitHubIssues) Whoami(ctx context.Context) (string, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, g.api()+"/user", nil)
+	req, _ := newRequest(ctx, http.MethodGet, g.api()+"/user", nil)
 	for k, v := range g.headers() {
 		req.Header.Set(k, v)
 	}
@@ -315,7 +315,7 @@ func (s *SIEM) Deliver(ctx context.Context, f model.Finding, paths []model.Attac
 		if s.Token != "" {
 			headers["Authorization"] = "ApiKey " + s.Token
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(mustJSON(event)))
+		req, err := newRequest(ctx, http.MethodPut, url, bytes.NewReader(mustJSON(event)))
 		if err != nil {
 			return "", err
 		}
@@ -358,7 +358,7 @@ func (s *SIEM) Deliver(ctx context.Context, f model.Finding, paths []model.Attac
 			network, addr = "tcp", strings.TrimPrefix(addr, "tcp://")
 		}
 		addr = strings.TrimPrefix(addr, "udp://")
-		conn, err := net.DialTimeout(network, addr, 5*time.Second)
+		conn, err := dialSyslog(ctx, network, addr)
 		if err != nil {
 			return "", err
 		}
@@ -375,25 +375,25 @@ func (s *SIEM) Deliver(ctx context.Context, f model.Finding, paths []model.Attac
 // Event is the flat JSON shape pushed to SIEMs (OCSF-flavoured field names).
 func Event(f model.Finding, paths []model.AttackPath) map[string]any {
 	ev := map[string]any{
-		"event_type":     "cloud_posture.finding",
-		"finding_id":     f.ID,
-		"canonical_id":   f.CanonicalID,
-		"source":         f.Source,
-		"check_id":       f.CheckID,
-		"title":          f.Title,
-		"severity":       f.Severity,
-		"status":         f.Status,
-		"provider":       f.Provider,
-		"account":        f.Account,
-		"region":         f.Region,
-		"resource_id":    f.Resource.ID,
-		"resource_type":  f.Resource.Type,
-		"resource_name":  f.Resource.Name,
-		"weaknesses":     f.Weaknesses,
-		"compliance":     f.Compliance,
-		"first_seen":     f.FirstSeen,
-		"last_seen":      f.LastSeen,
-		"remediation":    f.Remediation,
+		"event_type":    "cloud_posture.finding",
+		"finding_id":    f.ID,
+		"canonical_id":  f.CanonicalID,
+		"source":        f.Source,
+		"check_id":      f.CheckID,
+		"title":         f.Title,
+		"severity":      f.Severity,
+		"status":        f.Status,
+		"provider":      f.Provider,
+		"account":       f.Account,
+		"region":        f.Region,
+		"resource_id":   f.Resource.ID,
+		"resource_type": f.Resource.Type,
+		"resource_name": f.Resource.Name,
+		"weaknesses":    f.Weaknesses,
+		"compliance":    f.Compliance,
+		"first_seen":    f.FirstSeen,
+		"last_seen":     f.LastSeen,
+		"remediation":   f.Remediation,
 	}
 	if f.File != "" {
 		ev["file"] = f.File

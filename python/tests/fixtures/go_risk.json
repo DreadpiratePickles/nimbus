@@ -1,0 +1,1691 @@
+[
+ {
+  "finding": {
+   "id": "30d4dab2c537224b353747f9635897c6",
+   "source": "prowler",
+   "check_id": "rds_instance_no_public_access",
+   "canonical_id": "RDS_PUBLIC",
+   "title": "RDS instance is publicly accessible",
+   "severity": "CRITICAL",
+   "status": "FAIL",
+   "provider": "aws",
+   "account": "111111111111",
+   "region": "us-east-1",
+   "resource": {
+    "id": "arn:aws:rds:us-east-1:111111111111:db:orders",
+    "type": "aws_db_instance",
+    "name": "orders"
+   },
+   "weaknesses": [
+    "PUBLIC_NETWORK_EXPOSURE",
+    "DATABASE"
+   ],
+   "compliance": {
+    "cis_aws": [
+     "2.3.3"
+    ],
+    "pci_dss": [
+     "1.3.6"
+    ]
+   },
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 10,
+  "band": "Critical",
+  "score_version": "2.4.0",
+  "reasons": [
+   "CRITICAL severity",
+   "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+   "sensitive data (graph marks the resource sensitive)",
+   "production workload",
+   "changed in the last 24h",
+   "on 1 attack path(s), max score 9.5"
+  ],
+  "explanation": {
+   "score": 10,
+   "version": "2.4.0",
+   "base": 7,
+   "base_reason": "CRITICAL severity",
+   "raw": 42.042,
+   "combination": "raw 42.04 \u003e knee 7.0: score = 7.0 + 3.0 × (1 − e^(−(42.04 − 7.0) / 4.5)) = 10.00 (diminishing returns, bounded by 10)",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1.4,
+     "status": "scored",
+     "reason": "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+     "evidence": [
+      "weakness PUBLIC_NETWORK_EXPOSURE (no width data; treated as wide); reachability unknown: reachability not evaluated (no network verdict on this route)"
+     ]
+    },
+    {
+     "name": "identity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no identity weakness or privileged identity found"
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1.5,
+     "status": "scored",
+     "reason": "sensitive data (graph marks the resource sensitive)",
+     "evidence": [
+      "node sensitive=true"
+     ]
+    },
+    {
+     "name": "criticality",
+     "multiplier": 1.3,
+     "status": "scored",
+     "reason": "production workload",
+     "evidence": [
+      "node criticality=production"
+     ]
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no CVE data on this finding"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "in scope for cis_aws, pci_dss (no regulated framework)",
+     "evidence": [
+      "cis_aws",
+      "pci_dss"
+     ]
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1.1,
+     "status": "scored",
+     "reason": "changed in the last 24h",
+     "evidence": [
+      "modified_at 2026-10-09T20:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no owner tag (orphaned)"
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 2,
+     "status": "scored",
+     "reason": "on 1 attack path(s), max score 9.5",
+     "evidence": [
+      "path ap-db"
+     ]
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "on a complete attack path",
+     "evidence": [
+      "resource arn:aws:rds:us-east-1:111111111111:db:orders"
+     ]
+    },
+    {
+     "name": "combination",
+     "multiplier": 0.23782776388937849,
+     "status": "scored",
+     "reason": "diminishing returns above 7.0: raw 42.04 → 10.00 (bounded combination, 2.2.0; replaces the flat cap at 10)"
+    },
+    {
+     "name": "rounding",
+     "multiplier": 1.0001245305622048,
+     "status": "scored",
+     "reason": "9.9988 rounded to one decimal"
+    }
+   ],
+   "top_paths": [
+    {
+     "id": "ap-db",
+     "name": "Internet-reachable database holding unencrypted data",
+     "score": 9.5
+    }
+   ],
+   "missing": [
+    "exploitability (no CVE data on this finding)"
+   ]
+  },
+  "attack_paths": 1,
+  "max_path_score": 9.5,
+  "owner": "",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ },
+ {
+  "finding": {
+   "id": "fa73574ee440407ea13a4912ea811ff0",
+   "source": "prowler",
+   "check_id": "rds_instance_storage_encrypted",
+   "canonical_id": "RDS_UNENCRYPTED",
+   "title": "RDS storage not encrypted",
+   "severity": "HIGH",
+   "status": "FAIL",
+   "provider": "aws",
+   "account": "111111111111",
+   "region": "us-east-1",
+   "resource": {
+    "id": "arn:aws:rds:us-east-1:111111111111:db:orders",
+    "type": "aws_db_instance",
+    "name": "orders"
+   },
+   "weaknesses": [
+    "UNENCRYPTED_AT_REST",
+    "DATABASE"
+   ],
+   "compliance": {
+    "cis_aws": [
+     "2.3.1"
+    ]
+   },
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 10,
+  "band": "Critical",
+  "score_version": "2.4.0",
+  "reasons": [
+   "HIGH severity",
+   "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+   "sensitive data (graph marks the resource sensitive)",
+   "production workload",
+   "changed in the last 24h",
+   "on 1 attack path(s), max score 9.5"
+  ],
+  "explanation": {
+   "score": 10,
+   "version": "2.4.0",
+   "base": 5.5,
+   "base_reason": "HIGH severity",
+   "raw": 33.033,
+   "combination": "raw 33.03 \u003e knee 7.0: score = 7.0 + 3.0 × (1 − e^(−(33.03 − 7.0) / 4.5)) = 9.99 (diminishing returns, bounded by 10)",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1.4,
+     "status": "scored",
+     "reason": "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+     "evidence": [
+      "graph edge from the internet (no width data; treated as wide); reachability unknown: reachability not evaluated (no network verdict on this route)"
+     ]
+    },
+    {
+     "name": "identity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no identity weakness or privileged identity found"
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1.5,
+     "status": "scored",
+     "reason": "sensitive data (graph marks the resource sensitive)",
+     "evidence": [
+      "node sensitive=true"
+     ]
+    },
+    {
+     "name": "criticality",
+     "multiplier": 1.3,
+     "status": "scored",
+     "reason": "production workload",
+     "evidence": [
+      "node criticality=production"
+     ]
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no CVE data on this finding"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "in scope for cis_aws (no regulated framework)",
+     "evidence": [
+      "cis_aws"
+     ]
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1.1,
+     "status": "scored",
+     "reason": "changed in the last 24h",
+     "evidence": [
+      "modified_at 2026-10-09T20:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no owner tag (orphaned)"
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 2,
+     "status": "scored",
+     "reason": "on 1 attack path(s), max score 9.5",
+     "evidence": [
+      "path ap-db"
+     ]
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "on a complete attack path",
+     "evidence": [
+      "resource arn:aws:rds:us-east-1:111111111111:db:orders"
+     ]
+    },
+    {
+     "name": "combination",
+     "multiplier": 0.3024484937260397,
+     "status": "scored",
+     "reason": "diminishing returns above 7.0: raw 33.03 → 9.99 (bounded combination, 2.2.0; replaces the flat cap at 10)"
+    },
+    {
+     "name": "rounding",
+     "multiplier": 1.0009227413414108,
+     "status": "scored",
+     "reason": "9.9908 rounded to one decimal"
+    }
+   ],
+   "top_paths": [
+    {
+     "id": "ap-db",
+     "name": "Internet-reachable database holding unencrypted data",
+     "score": 9.5
+    }
+   ],
+   "missing": [
+    "exploitability (no CVE data on this finding)"
+   ]
+  },
+  "attack_paths": 1,
+  "max_path_score": 9.5,
+  "owner": "",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ },
+ {
+  "finding": {
+   "id": "c89c6fc4d4456fd055f8fe6f516a0bdd",
+   "source": "prowler",
+   "check_id": "ec2_instance_imdsv2_enabled",
+   "canonical_id": "EC2_IMDSV1",
+   "title": "EC2 instance allows IMDSv1",
+   "severity": "HIGH",
+   "status": "FAIL",
+   "provider": "aws",
+   "account": "111111111111",
+   "region": "us-east-1",
+   "resource": {
+    "id": "i-0abc",
+    "type": "aws_instance",
+    "name": "web-1"
+   },
+   "weaknesses": [
+    "IMDSV1_ENABLED"
+   ],
+   "compliance": {
+    "cis_aws": [
+     "5.6"
+    ]
+   },
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 9.9,
+  "band": "Critical",
+  "score_version": "2.4.0",
+  "reasons": [
+   "HIGH severity",
+   "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+   "credential theft vector",
+   "production workload",
+   "on 1 attack path(s), max score 8.0"
+  ],
+  "explanation": {
+   "score": 9.9,
+   "version": "2.4.0",
+   "base": 5.5,
+   "base_reason": "HIGH severity",
+   "raw": 21.581560000000003,
+   "combination": "raw 21.58 \u003e knee 7.0: score = 7.0 + 3.0 × (1 − e^(−(21.58 − 7.0) / 4.5)) = 9.88 (diminishing returns, bounded by 10)",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1.4,
+     "status": "scored",
+     "reason": "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+     "evidence": [
+      "graph edge from the internet (no width data; treated as wide); reachability unknown: reachability not evaluated (no network verdict on this route)"
+     ]
+    },
+    {
+     "name": "identity",
+     "multiplier": 1.1,
+     "status": "scored",
+     "reason": "credential theft vector",
+     "evidence": [
+      "weakness IMDSV1_ENABLED"
+     ]
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not a data store",
+     "evidence": [
+      "class compute"
+     ]
+    },
+    {
+     "name": "criticality",
+     "multiplier": 1.3,
+     "status": "scored",
+     "reason": "production workload",
+     "evidence": [
+      "node criticality=production"
+     ]
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: 12 CVE(s) counted on the resource but no CVE IDs to look up in KEV/EPSS"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "in scope for cis_aws (no regulated framework)",
+     "evidence": [
+      "cis_aws"
+     ]
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "new finding (first seen \u003c 24h)",
+     "evidence": [
+      "first_seen 2026-10-09T22:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no owner tag (orphaned)"
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 1.96,
+     "status": "scored",
+     "reason": "on 1 attack path(s), max score 8.0",
+     "evidence": [
+      "path ap-admin"
+     ]
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "on a complete attack path",
+     "evidence": [
+      "resource i-0abc"
+     ]
+    },
+    {
+     "name": "combination",
+     "multiplier": 0.4579163433085844,
+     "status": "scored",
+     "reason": "diminishing returns above 7.0: raw 21.58 → 9.88 (bounded combination, 2.2.0; replaces the flat cap at 10)"
+    },
+    {
+     "name": "rounding",
+     "multiplier": 1.0017658361054338,
+     "status": "scored",
+     "reason": "9.8825 rounded to one decimal"
+    }
+   ],
+   "top_paths": [
+    {
+     "id": "ap-admin",
+     "name": "Internet-exposed compute to account admin via metadata credentials",
+     "score": 8
+    }
+   ],
+   "missing": [
+    "exploitability (12 CVE(s) counted on the resource but no CVE IDs to look up in KEV/EPSS)"
+   ]
+  },
+  "attack_paths": 1,
+  "max_path_score": 8,
+  "owner": "",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ },
+ {
+  "finding": {
+   "id": "b81c21b4818c5f364b0139d9d0d5f463",
+   "source": "prowler",
+   "check_id": "s3_bucket_public_access",
+   "canonical_id": "S3_PUBLIC_BUCKET",
+   "title": "S3 bucket allows public access",
+   "severity": "HIGH",
+   "status": "FAIL",
+   "provider": "aws",
+   "account": "111111111111",
+   "region": "us-east-1",
+   "resource": {
+    "id": "arn:aws:s3:::customer-pii",
+    "type": "aws_s3_bucket",
+    "name": "customer-pii"
+   },
+   "remediation": "Enable S3 Block Public Access.",
+   "weaknesses": [
+    "PUBLIC_DATA_STORE"
+   ],
+   "compliance": {
+    "cis_aws": [
+     "2.1.4"
+    ],
+    "gdpr": [
+     "Art.32"
+    ],
+    "pci_dss": [
+     "1.3.1"
+    ]
+   },
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 9.5,
+  "band": "Critical",
+  "score_version": "2.4.0",
+  "reasons": [
+   "HIGH severity",
+   "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+   "sensitive data (graph marks the resource sensitive)",
+   "production workload"
+  ],
+  "explanation": {
+   "score": 9.5,
+   "version": "2.4.0",
+   "base": 5.5,
+   "base_reason": "HIGH severity",
+   "raw": 15.014999999999999,
+   "combination": "raw 15.01 \u003e knee 7.0: score = 7.0 + 3.0 × (1 − e^(−(15.01 − 7.0) / 4.5)) = 9.49 (diminishing returns, bounded by 10)",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1.4,
+     "status": "scored",
+     "reason": "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+     "evidence": [
+      "weakness PUBLIC_DATA_STORE (no width data; treated as wide); reachability unknown: reachability not evaluated (no network verdict on this route)"
+     ]
+    },
+    {
+     "name": "identity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no identity weakness or privileged identity found"
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1.5,
+     "status": "scored",
+     "reason": "sensitive data (graph marks the resource sensitive)",
+     "evidence": [
+      "node sensitive=true"
+     ]
+    },
+    {
+     "name": "criticality",
+     "multiplier": 1.3,
+     "status": "scored",
+     "reason": "production workload",
+     "evidence": [
+      "node criticality=production"
+     ]
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no CVE data on this finding"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "in scope for cis_aws, gdpr, pci_dss (no regulated framework)",
+     "evidence": [
+      "cis_aws",
+      "gdpr",
+      "pci_dss"
+     ]
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "new finding (first seen \u003c 24h)",
+     "evidence": [
+      "first_seen 2026-10-09T22:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "owned by data-team",
+     "evidence": [
+      "owner=data-team"
+     ]
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not on any attack path"
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "on no attack path, but the resource is an impact target (sensitive data store): not capped",
+     "evidence": [
+      "not a step of any of 2 complete path(s)"
+     ]
+    },
+    {
+     "name": "combination",
+     "multiplier": 0.6323441473975719,
+     "status": "scored",
+     "reason": "diminishing returns above 7.0: raw 15.01 → 9.49 (bounded combination, 2.2.0; replaces the flat cap at 10)"
+    },
+    {
+     "name": "rounding",
+     "multiplier": 1.0005637520399737,
+     "status": "scored",
+     "reason": "9.4946 rounded to one decimal"
+    }
+   ],
+   "missing": [
+    "exploitability (no CVE data on this finding)"
+   ]
+  },
+  "attack_paths": 0,
+  "max_path_score": 0,
+  "owner": "data-team",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ },
+ {
+  "finding": {
+   "id": "b1b0355864bc09f6ed49f7858694bbf7",
+   "source": "prowler",
+   "check_id": "ec2_instance_public_ip",
+   "canonical_id": "EC2_PUBLIC_IP",
+   "title": "EC2 instance has a public IP address",
+   "severity": "MEDIUM",
+   "status": "FAIL",
+   "provider": "aws",
+   "account": "111111111111",
+   "region": "us-east-1",
+   "resource": {
+    "id": "i-0abc",
+    "type": "aws_instance",
+    "name": "web-1"
+   },
+   "weaknesses": [
+    "PUBLIC_NETWORK_EXPOSURE"
+   ],
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 9.4,
+  "band": "Critical",
+  "score_version": "2.4.0",
+  "reasons": [
+   "MEDIUM severity",
+   "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+   "production workload",
+   "on 1 attack path(s), max score 8.0"
+  ],
+  "explanation": {
+   "score": 9.4,
+   "version": "2.4.0",
+   "base": 4,
+   "base_reason": "MEDIUM severity",
+   "raw": 14.268799999999999,
+   "combination": "raw 14.27 \u003e knee 7.0: score = 7.0 + 3.0 × (1 − e^(−(14.27 − 7.0) / 4.5)) = 9.40 (diminishing returns, bounded by 10)",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1.4,
+     "status": "scored",
+     "reason": "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+     "evidence": [
+      "weakness PUBLIC_NETWORK_EXPOSURE (no width data; treated as wide); reachability unknown: reachability not evaluated (no network verdict on this route)"
+     ]
+    },
+    {
+     "name": "identity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no identity weakness or privileged identity found"
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not a data store",
+     "evidence": [
+      "class compute"
+     ]
+    },
+    {
+     "name": "criticality",
+     "multiplier": 1.3,
+     "status": "scored",
+     "reason": "production workload",
+     "evidence": [
+      "node criticality=production"
+     ]
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: 12 CVE(s) counted on the resource but no CVE IDs to look up in KEV/EPSS"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compliance framework mapped"
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "new finding (first seen \u003c 24h)",
+     "evidence": [
+      "first_seen 2026-10-09T22:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no owner tag (orphaned)"
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 1.96,
+     "status": "scored",
+     "reason": "on 1 attack path(s), max score 8.0",
+     "evidence": [
+      "path ap-admin"
+     ]
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "on a complete attack path",
+     "evidence": [
+      "resource i-0abc"
+     ]
+    },
+    {
+     "name": "combination",
+     "multiplier": 0.6590253094651376,
+     "status": "scored",
+     "reason": "diminishing returns above 7.0: raw 14.27 → 9.40 (bounded combination, 2.2.0; replaces the flat cap at 10)"
+    },
+    {
+     "name": "rounding",
+     "multiplier": 0.9996277624744834,
+     "status": "scored",
+     "reason": "9.4035 rounded to one decimal"
+    }
+   ],
+   "top_paths": [
+    {
+     "id": "ap-admin",
+     "name": "Internet-exposed compute to account admin via metadata credentials",
+     "score": 8
+    }
+   ],
+   "missing": [
+    "exploitability (12 CVE(s) counted on the resource but no CVE IDs to look up in KEV/EPSS)"
+   ]
+  },
+  "attack_paths": 1,
+  "max_path_score": 8,
+  "owner": "",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ },
+ {
+  "finding": {
+   "id": "a2e51218b4a35665cd245367e9e24f6b",
+   "source": "prowler",
+   "check_id": "iam_policy_no_administrative_privileges",
+   "canonical_id": "IAM_ADMIN_POLICY",
+   "title": "IAM policy grants full administrative privileges (*:*)",
+   "severity": "HIGH",
+   "status": "FAIL",
+   "provider": "aws",
+   "account": "111111111111",
+   "region": "us-east-1",
+   "resource": {
+    "id": "arn:aws:iam::111111111111:user/deploy",
+    "type": "aws_iam_user",
+    "name": "deploy"
+   },
+   "weaknesses": [
+    "OVERPRIVILEGED_IDENTITY"
+   ],
+   "compliance": {
+    "cis_aws": [
+     "1.16"
+    ]
+   },
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 9.3,
+  "band": "Critical",
+  "score_version": "2.4.0",
+  "reasons": [
+   "HIGH severity",
+   "administrative privileges",
+   "on 1 attack path(s), max score 8.0"
+  ],
+  "explanation": {
+   "score": 9.3,
+   "version": "2.4.0",
+   "base": 5.5,
+   "base_reason": "HIGH severity",
+   "raw": 13.475,
+   "combination": "raw 13.47 \u003e knee 7.0: score = 7.0 + 3.0 × (1 − e^(−(13.47 − 7.0) / 4.5)) = 9.29 (diminishing returns, bounded by 10)",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no exposure data for the resource"
+    },
+    {
+     "name": "identity",
+     "multiplier": 1.25,
+     "status": "scored",
+     "reason": "administrative privileges",
+     "evidence": [
+      "weakness OVERPRIVILEGED_IDENTITY"
+     ]
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not a data store",
+     "evidence": [
+      "class identity"
+     ]
+    },
+    {
+     "name": "criticality",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no graph node, no crown-jewel match"
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no CVE data on this finding"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "in scope for cis_aws (no regulated framework)",
+     "evidence": [
+      "cis_aws"
+     ]
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "new finding (first seen \u003c 24h)",
+     "evidence": [
+      "first_seen 2026-10-09T22:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no owner tag (orphaned)"
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 1.96,
+     "status": "scored",
+     "reason": "on 1 attack path(s), max score 8.0",
+     "evidence": [
+      "path ap-admin"
+     ]
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "on a complete attack path",
+     "evidence": [
+      "resource arn:aws:iam::111111111111:user/deploy"
+     ]
+    },
+    {
+     "name": "combination",
+     "multiplier": 0.6893080909714562,
+     "status": "scored",
+     "reason": "diminishing returns above 7.0: raw 13.47 → 9.29 (bounded combination, 2.2.0; replaces the flat cap at 10)"
+    },
+    {
+     "name": "rounding",
+     "multiplier": 1.0012460101963914,
+     "status": "scored",
+     "reason": "9.2884 rounded to one decimal"
+    }
+   ],
+   "top_paths": [
+    {
+     "id": "ap-admin",
+     "name": "Internet-exposed compute to account admin via metadata credentials",
+     "score": 8
+    }
+   ],
+   "missing": [
+    "exposure (no exposure data for the resource)",
+    "criticality (no graph node, no crown-jewel match)",
+    "exploitability (no CVE data on this finding)"
+   ]
+  },
+  "attack_paths": 1,
+  "max_path_score": 8,
+  "owner": "",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ },
+ {
+  "finding": {
+   "id": "6fafb96837328e5b2b0ba7de7007e719",
+   "source": "prowler",
+   "check_id": "s3_bucket_default_encryption",
+   "canonical_id": "S3_UNENCRYPTED",
+   "title": "S3 bucket has no default encryption",
+   "severity": "MEDIUM",
+   "status": "FAIL",
+   "provider": "aws",
+   "account": "111111111111",
+   "region": "us-east-1",
+   "resource": {
+    "id": "arn:aws:s3:::customer-pii",
+    "type": "aws_s3_bucket",
+    "name": "customer-pii"
+   },
+   "weaknesses": [
+    "UNENCRYPTED_AT_REST"
+   ],
+   "compliance": {
+    "cis_aws": [
+     "2.1.1"
+    ],
+    "hipaa": [
+     "164.312(a)(2)(iv)"
+    ]
+   },
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 8.7,
+  "band": "High",
+  "score_version": "2.4.0",
+  "reasons": [
+   "MEDIUM severity",
+   "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+   "sensitive data (graph marks the resource sensitive)",
+   "production workload"
+  ],
+  "explanation": {
+   "score": 8.7,
+   "version": "2.4.0",
+   "base": 4,
+   "base_reason": "MEDIUM severity",
+   "raw": 10.919999999999998,
+   "combination": "raw 10.92 \u003e knee 7.0: score = 7.0 + 3.0 × (1 − e^(−(10.92 − 7.0) / 4.5)) = 8.74 (diminishing returns, bounded by 10)",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1.4,
+     "status": "scored",
+     "reason": "internet exposed (wide, inferred: reachability unknown — reachability not evaluated (no network verdict on this route))",
+     "evidence": [
+      "graph edge from the internet (no width data; treated as wide); reachability unknown: reachability not evaluated (no network verdict on this route)"
+     ]
+    },
+    {
+     "name": "identity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no identity weakness or privileged identity found"
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1.5,
+     "status": "scored",
+     "reason": "sensitive data (graph marks the resource sensitive)",
+     "evidence": [
+      "node sensitive=true"
+     ]
+    },
+    {
+     "name": "criticality",
+     "multiplier": 1.3,
+     "status": "scored",
+     "reason": "production workload",
+     "evidence": [
+      "node criticality=production"
+     ]
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no CVE data on this finding"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "in scope for cis_aws, hipaa (no regulated framework)",
+     "evidence": [
+      "cis_aws",
+      "hipaa"
+     ]
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "new finding (first seen \u003c 24h)",
+     "evidence": [
+      "first_seen 2026-10-09T22:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "owned by data-team",
+     "evidence": [
+      "owner=data-team"
+     ]
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not on any attack path"
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "on no attack path, but the resource is an impact target (sensitive data store): not capped",
+     "evidence": [
+      "not a step of any of 2 complete path(s)"
+     ]
+    },
+    {
+     "name": "combination",
+     "multiplier": 0.800782150354607,
+     "status": "scored",
+     "reason": "diminishing returns above 7.0: raw 10.92 → 8.74 (bounded combination, 2.2.0; replaces the flat cap at 10)"
+    },
+    {
+     "name": "rounding",
+     "multiplier": 0.9949064128745828,
+     "status": "scored",
+     "reason": "8.7445 rounded to one decimal"
+    }
+   ],
+   "missing": [
+    "exploitability (no CVE data on this finding)"
+   ]
+  },
+  "attack_paths": 0,
+  "max_path_score": 0,
+  "owner": "data-team",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ },
+ {
+  "finding": {
+   "id": "b461facb441b955b4b0e3f99d46da622",
+   "source": "prowler",
+   "check_id": "iam_user_mfa_enabled_console_access",
+   "canonical_id": "IAM_USER_NO_MFA",
+   "title": "IAM user with console access has no MFA",
+   "severity": "HIGH",
+   "status": "FAIL",
+   "provider": "aws",
+   "account": "111111111111",
+   "region": "us-east-1",
+   "resource": {
+    "id": "arn:aws:iam::111111111111:user/alice",
+    "type": "aws_iam_user",
+    "name": "alice"
+   },
+   "weaknesses": [
+    "NO_MFA"
+   ],
+   "compliance": {
+    "cis_aws": [
+     "1.10"
+    ]
+   },
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 3.3,
+  "band": "Low",
+  "score_version": "2.4.0",
+  "reasons": [
+   "HIGH severity",
+   "weak or long-lived identity",
+   "no attack path reaches an impact target from this resource"
+  ],
+  "explanation": {
+   "score": 3.3,
+   "version": "2.4.0",
+   "base": 5.5,
+   "base_reason": "HIGH severity",
+   "raw": 3.3,
+   "combination": "off path: score = min(raw, 6.9) = 3.30",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no exposure data for the resource"
+    },
+    {
+     "name": "identity",
+     "multiplier": 1.2,
+     "status": "scored",
+     "reason": "weak or long-lived identity",
+     "evidence": [
+      "weakness NO_MFA"
+     ]
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not a data store",
+     "evidence": [
+      "class identity"
+     ]
+    },
+    {
+     "name": "criticality",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no graph node, no crown-jewel match"
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no CVE data on this finding"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "in scope for cis_aws (no regulated framework)",
+     "evidence": [
+      "cis_aws"
+     ]
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "new finding (first seen \u003c 24h)",
+     "evidence": [
+      "first_seen 2026-10-09T22:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no owner tag (orphaned)"
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not on any attack path"
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 0.5,
+     "status": "scored",
+     "reason": "no attack path reaches an impact target from this resource",
+     "evidence": [
+      "not a step of any of 2 complete path(s)",
+      "score capped at 6.9 (Medium)"
+     ]
+    }
+   ],
+   "missing": [
+    "exposure (no exposure data for the resource)",
+    "criticality (no graph node, no crown-jewel match)",
+    "exploitability (no CVE data on this finding)"
+   ]
+  },
+  "attack_paths": 0,
+  "max_path_score": 0,
+  "owner": "",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ },
+ {
+  "finding": {
+   "id": "fe539c4d720b44047aee8f5071fd6477",
+   "source": "checkov",
+   "check_id": "CKV_K8S_16",
+   "canonical_id": "K8S_PRIVILEGED_CONTAINER",
+   "title": "Privileged container",
+   "severity": "HIGH",
+   "status": "FAIL",
+   "provider": "kubernetes",
+   "account": "prod-cluster",
+   "resource": {
+    "id": "k8s:payments/api-0",
+    "type": "k8s_pod",
+    "name": "api-0",
+    "attributes": {
+     "namespace": "payments"
+    }
+   },
+   "weaknesses": [
+    "PRIVILEGED_CONTAINER"
+   ],
+   "compliance": {
+    "cis_k8s": [
+     "5.2.2"
+    ]
+   },
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 2.8,
+  "band": "Low",
+  "score_version": "2.4.0",
+  "reasons": [
+   "HIGH severity",
+   "no attack path reaches an impact target from this resource"
+  ],
+  "explanation": {
+   "score": 2.8,
+   "version": "2.4.0",
+   "base": 5.5,
+   "base_reason": "HIGH severity",
+   "raw": 2.75,
+   "combination": "off path: score = min(raw, 6.9) = 2.75",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no exposure data for the resource"
+    },
+    {
+     "name": "identity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no identity weakness or privileged identity found"
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not a data store",
+     "evidence": [
+      "class compute"
+     ]
+    },
+    {
+     "name": "criticality",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no graph node, no crown-jewel match"
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no CVE data on this finding"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "in scope for cis_k8s (no regulated framework)",
+     "evidence": [
+      "cis_k8s"
+     ]
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "new finding (first seen \u003c 24h)",
+     "evidence": [
+      "first_seen 2026-10-09T22:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no owner tag (orphaned)"
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not on any attack path"
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 0.5,
+     "status": "scored",
+     "reason": "no attack path reaches an impact target from this resource",
+     "evidence": [
+      "not a step of any of 2 complete path(s)",
+      "score capped at 6.9 (Medium)"
+     ]
+    },
+    {
+     "name": "rounding",
+     "multiplier": 1.018181818181818,
+     "status": "scored",
+     "reason": "2.7500 rounded to one decimal"
+    }
+   ],
+   "missing": [
+    "exposure (no exposure data for the resource)",
+    "criticality (no graph node, no crown-jewel match)",
+    "exploitability (no CVE data on this finding)"
+   ]
+  },
+  "attack_paths": 0,
+  "max_path_score": 0,
+  "owner": "",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ },
+ {
+  "finding": {
+   "id": "8eecc49b31b03a1f9dcd5769d6403975",
+   "source": "prowler",
+   "check_id": "iam_rotate_access_key_90_days",
+   "canonical_id": "IAM_STALE_KEYS",
+   "title": "IAM access key unused or older than 90 days",
+   "severity": "MEDIUM",
+   "status": "FAIL",
+   "provider": "aws",
+   "account": "111111111111",
+   "region": "us-east-1",
+   "resource": {
+    "id": "arn:aws:iam::111111111111:user/deploy/AKIAOLD",
+    "type": "aws_iam_access_key",
+    "name": "deploy"
+   },
+   "weaknesses": [
+    "STALE_CREDENTIALS"
+   ],
+   "compliance": {
+    "cis_aws": [
+     "1.14"
+    ]
+   },
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 2.4,
+  "band": "Low",
+  "score_version": "2.4.0",
+  "reasons": [
+   "MEDIUM severity",
+   "weak or long-lived identity",
+   "no attack path reaches an impact target from this resource"
+  ],
+  "explanation": {
+   "score": 2.4,
+   "version": "2.4.0",
+   "base": 4,
+   "base_reason": "MEDIUM severity",
+   "raw": 2.4,
+   "combination": "off path: score = min(raw, 6.9) = 2.40",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no exposure data for the resource"
+    },
+    {
+     "name": "identity",
+     "multiplier": 1.2,
+     "status": "scored",
+     "reason": "weak or long-lived identity",
+     "evidence": [
+      "weakness STALE_CREDENTIALS"
+     ]
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not a data store",
+     "evidence": [
+      "class identity"
+     ]
+    },
+    {
+     "name": "criticality",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no graph node, no crown-jewel match"
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no CVE data on this finding"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "in scope for cis_aws (no regulated framework)",
+     "evidence": [
+      "cis_aws"
+     ]
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "new finding (first seen \u003c 24h)",
+     "evidence": [
+      "first_seen 2026-10-09T22:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no owner tag (orphaned)"
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not on any attack path"
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 0.5,
+     "status": "scored",
+     "reason": "no attack path reaches an impact target from this resource",
+     "evidence": [
+      "not a step of any of 2 complete path(s)",
+      "score capped at 6.9 (Medium)"
+     ]
+    }
+   ],
+   "missing": [
+    "exposure (no exposure data for the resource)",
+    "criticality (no graph node, no crown-jewel match)",
+    "exploitability (no CVE data on this finding)"
+   ]
+  },
+  "attack_paths": 0,
+  "max_path_score": 0,
+  "owner": "",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ },
+ {
+  "finding": {
+   "id": "0ab4c7d2a1046ed890b11714f61efd13",
+   "source": "trivy",
+   "check_id": "AVD-AWS-0001",
+   "canonical_id": "TRIVY:LOW_THING",
+   "title": "Low thing",
+   "severity": "LOW",
+   "status": "FAIL",
+   "provider": "gcp",
+   "account": "proj-dev",
+   "region": "us-east-1",
+   "resource": {
+    "id": "gcp:bucket/logs",
+    "type": "gcp_storage_bucket",
+    "name": "logs-dev"
+   },
+   "weaknesses": [
+    "NO_LOGGING"
+   ],
+   "first_seen": "2026-10-09T22:29:03Z",
+   "last_seen": "2026-10-09T22:29:03Z"
+  },
+  "risk_score": 1,
+  "band": "Low",
+  "score_version": "2.4.0",
+  "reasons": [
+   "LOW severity",
+   "non-production workload (dev)",
+   "no attack path reaches an impact target from this resource"
+  ],
+  "explanation": {
+   "score": 1,
+   "version": "2.4.0",
+   "base": 2.5,
+   "base_reason": "LOW severity",
+   "raw": 1,
+   "combination": "off path: score = min(raw, 6.9) = 1.00",
+   "factors": [
+    {
+     "name": "exposure",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no exposure data for the resource"
+    },
+    {
+     "name": "identity",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no identity weakness or privileged identity found"
+    },
+    {
+     "name": "data_sensitivity",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: data store without a classification or DSPM label"
+    },
+    {
+     "name": "criticality",
+     "multiplier": 0.8,
+     "status": "scored",
+     "reason": "non-production workload (dev)",
+     "evidence": [
+      "node criticality=dev"
+     ]
+    },
+    {
+     "name": "exploitability",
+     "multiplier": 1,
+     "status": "not scored",
+     "reason": "not scored: no CVE data on this finding"
+    },
+    {
+     "name": "compliance_scope",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compliance framework mapped"
+    },
+    {
+     "name": "recent_change",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "new finding (first seen \u003c 24h)",
+     "evidence": [
+      "first_seen 2026-10-09T22:29:03Z"
+     ]
+    },
+    {
+     "name": "ownership",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "owned by ops",
+     "evidence": [
+      "owner=ops"
+     ]
+    },
+    {
+     "name": "attack_path",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "not on any attack path"
+    },
+    {
+     "name": "compensating_controls",
+     "multiplier": 1,
+     "status": "scored",
+     "reason": "no compensating control recorded"
+    },
+    {
+     "name": "off_path",
+     "multiplier": 0.5,
+     "status": "scored",
+     "reason": "no attack path reaches an impact target from this resource",
+     "evidence": [
+      "not a step of any of 2 complete path(s)",
+      "score capped at 6.9 (Medium)"
+     ]
+    }
+   ],
+   "missing": [
+    "exposure (no exposure data for the resource)",
+    "data_sensitivity (data store without a classification or DSPM label)",
+    "exploitability (no CVE data on this finding)"
+   ]
+  },
+  "attack_paths": 0,
+  "max_path_score": 0,
+  "owner": "ops",
+  "sla_days": 0,
+  "due_at": "0001-01-01T00:00:00Z"
+ }
+]

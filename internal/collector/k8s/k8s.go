@@ -455,18 +455,60 @@ func analyze(inv *inventory, spec core.AccountSpec, cluster string, now time.Tim
 		if len(svc.Spec.Selector) == 0 {
 			continue
 		}
+		if internalLoadBalancer(svc) {
+			continue // cloud-internal load balancer: not reachable from the internet
+		}
 		sel := labels.SelectorFromSet(svc.Spec.Selector)
 		var ports []string
 		for _, sp := range svc.Spec.Ports {
 			ports = append(ports, fmt.Sprint(sp.Port))
 		}
+		sources := lbSourceRanges(svc)
+		public := core.PublicSources(sources)
+		if len(sources) > 0 && len(public) == 0 {
+			continue // restricted to private ranges only
+		}
 		for _, p := range podsByNS[svc.Namespace] {
 			if sel.Matches(labels.Set(p.Labels)) {
-				g.AddEdge(graph.InternetNodeID, PodID(p.Namespace, p.Name), graph.EdgeExposes,
-					map[string]any{"via": svc.Namespace + "/service/" + svc.Name, "service_type": string(svc.Spec.Type), "ports": strings.Join(ports, ",")})
+				core.Expose(g, PodID(p.Namespace, p.Name),
+					map[string]any{"via": svc.Namespace + "/service/" + svc.Name, "service_type": string(svc.Spec.Type), "ports": strings.Join(ports, ",")},
+					public, spec.TrustedCIDRs)
 			}
 		}
 	}
+}
+
+// lbSourceRanges returns spec.loadBalancerSourceRanges, falling back to the
+// service.beta.kubernetes.io/load-balancer-source-ranges annotation.
+func lbSourceRanges(svc corev1.Service) []string {
+	if len(svc.Spec.LoadBalancerSourceRanges) > 0 {
+		return svc.Spec.LoadBalancerSourceRanges
+	}
+	var out []string
+	for _, r := range strings.Split(svc.Annotations["service.beta.kubernetes.io/load-balancer-source-ranges"], ",") {
+		if r = strings.TrimSpace(r); r != "" {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// internalLoadBalancer recognises the AWS, Azure, GCP and OCI internal-LB annotations.
+func internalLoadBalancer(svc corev1.Service) bool {
+	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		return false
+	}
+	a := svc.Annotations
+	truthy := func(k string) bool {
+		v := strings.ToLower(strings.TrimSpace(a[k]))
+		return v == "true" || v == "0.0.0.0/0"
+	}
+	return truthy("service.beta.kubernetes.io/aws-load-balancer-internal") ||
+		strings.EqualFold(a["service.beta.kubernetes.io/aws-load-balancer-scheme"], "internal") ||
+		truthy("service.beta.kubernetes.io/azure-load-balancer-internal") ||
+		strings.EqualFold(a["networking.gke.io/load-balancer-type"], "Internal") ||
+		strings.EqualFold(a["cloud.google.com/load-balancer-type"], "Internal") ||
+		truthy("service.beta.kubernetes.io/oci-load-balancer-internal")
 }
 
 func analyzePod(w *ctxw, p corev1.Pod, saAutomount map[string]*bool, deps []appsv1.Deployment) {

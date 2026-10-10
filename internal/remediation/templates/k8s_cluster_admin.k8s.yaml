@@ -1,5 +1,10 @@
-# Replace the cluster-admin binding {{ .Name }} with a namespaced, scoped role.
-# Delete the offending binding first:  kubectl delete clusterrolebinding {{ .Name }}
+# Replaces the cluster-admin binding {{ .Name }} with a namespaced Role, in this order:
+#   1. kubectl apply this file (adds access; removes nothing).
+#   2. TODO: widen the rules below to what the subject really does (audit logs, or
+#      the check below with SERVICE_ACCOUNT set) and verify the workload.
+# CLI: kubectl auth can-i --list --as=system:serviceaccount:{{ sh .Raw.Namespace }}:"$SERVICE_ACCOUNT"
+#   3. Only then remove the old binding:
+# CLI: kubectl delete clusterrolebinding -- {{ sh .Raw.Name }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

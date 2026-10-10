@@ -19,11 +19,11 @@ type Closer interface {
 
 // Rule is a notification rule: which findings a sink receives (Datadog-style, one rule covers many checks).
 type Rule struct {
-	MinSeverity model.Severity
-	Providers   []string
-	Accounts    []string
-	CanonicalIDs []string // glob patterns, e.g. "S3_*"
-	Weaknesses  []string
+	MinSeverity      model.Severity
+	Providers        []string
+	Accounts         []string
+	CanonicalIDs     []string // glob patterns, e.g. "S3_*"
+	Weaknesses       []string
 	OnlyOnAttackPath bool
 }
 

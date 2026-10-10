@@ -1,0 +1,16 @@
+# Remediation plan metadata for s3_no_logging.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "s3:GetBucketLogging"
+  - "s3:PutBucketLogging"
+  - "s3:PutBucketPolicy"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Enable CloudTrail S3 data events for the bucket."
+effort: S
+confidence: medium
+rollback: "terraform destroy -target=aws_s3_bucket_logging.<slug>"
+breaks_function:
+  value: false
+  note: "Adds access logs only. The target bucket must allow logging.s3.amazonaws.com to write (bucket policy)."

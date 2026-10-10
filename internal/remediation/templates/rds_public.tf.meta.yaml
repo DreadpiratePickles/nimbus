@@ -1,0 +1,16 @@
+# Remediation plan metadata for rds_public.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "rds:DescribeDBInstances"
+  - "rds:ModifyDBInstance"
+  - "rds:ListTagsForResource"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Remove 0.0.0.0/0 from the DB instance's security groups."
+effort: S
+confidence: medium
+rollback: "aws rds modify-db-instance --db-instance-identifier <id> --publicly-accessible --apply-immediately"
+breaks_function:
+  value: true
+  note: "Clients outside the VPC lose access. The ignore_changes list targets AWS provider v5 and was not validated with terraform; instance_class must be set when nimbus did not collect it."

@@ -1,18 +1,15 @@
-# Default-deny policy for namespace {{ .Namespace }}. Apply with:
-#   kubectl apply -f <this file>
+# First NetworkPolicy for namespace {{ .Namespace }}: pods accept ingress only from pods in the same
+# namespace. Egress is not restricted (a default-deny egress breaks DNS and every outbound call).
+# Traffic from other namespaces (ingress controllers, monitoring) is blocked: add allow policies
+# for those sources before applying, e.g. a namespaceSelector for the ingress controller.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny-all
+  name: nimbus-same-namespace-only
   namespace: {{ .Namespace }}
 spec:
   podSelector: {}
-  policyTypes: ["Ingress", "Egress"]
-  egress:
-    - to:
-        - namespaceSelector: {}
-          podSelector:
-            matchLabels: {k8s-app: kube-dns}
-      ports:
-        - protocol: UDP
-          port: 53
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector: {}

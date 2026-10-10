@@ -57,6 +57,25 @@ type fakeAWS struct {
 	credCSV   string
 	cpu       map[string]float64
 	netOutGB  map[string]float64
+	// accountPAB is the account-level S3 Block Public Access (nil = not configured).
+	accountPAB *AccountPublicAccessBlock
+	// Resource policies by bucket name / key id / function name / secret ARN.
+	bucketPolicy map[string]string
+	keyPolicy    map[string]string
+	fnPolicy     map[string]string
+	secretPolicy map[string]string
+	// org nil = the account is not in an organization.
+	org *fakeOrg
+	// net: route tables, NACLs, subnets, ENIs, gateways, ELBv2 (fake_network_test.go).
+	net fakeNet
+}
+
+type fakeOrg struct {
+	id       string // DescribeOrganization (W7)
+	parents  map[string][]OrgParent
+	attached map[string][]OrgPolicy
+	content  map[string]string
+	fail     map[string]error
 }
 
 type fakeBucket struct {
@@ -170,6 +189,20 @@ func (f *fakeAWS) GetBucketTagging(_ context.Context, in *s3.GetBucketTaggingInp
 		out.TagSet = append(out.TagSet, s3types.Tag{Key: awssdk.String(k), Value: awssdk.String(v)})
 	}
 	return out, nil
+}
+
+// S3 Control (account-level Block Public Access)
+func (f *fakeAWS) GetAccountPublicAccessBlock(_ context.Context, accountID string) (*AccountPublicAccessBlock, error) {
+	if err := f.err("GetAccountPublicAccessBlock"); err != nil {
+		return nil, err
+	}
+	if accountID != f.account {
+		return nil, errors.New("wrong account id " + accountID)
+	}
+	if f.accountPAB == nil {
+		return &AccountPublicAccessBlock{}, nil
+	}
+	return f.accountPAB, nil
 }
 
 // IAM
@@ -301,7 +334,83 @@ func (f *fakeAWS) GetKeyRotationStatus(_ context.Context, in *kms.GetKeyRotation
 }
 
 func (f *fakeAWS) clients() *Clients {
-	return &Clients{EC2: f, S3: f, IAM: f, RDS: f, STS: f, Lambda: f, EKS: f, Secrets: f, CloudWatch: f, CostExplorer: f, CloudTrail: f, KMS: f}
+	return &Clients{S3Control: f, EC2: f, S3: f, IAM: f, RDS: f, STS: f, Lambda: f, EKS: f, Secrets: f, CloudWatch: f, CostExplorer: f, CloudTrail: f, KMS: f, Org: f, ELB: f}
+}
+
+// Resource policies
+func (f *fakeAWS) GetBucketPolicy(_ context.Context, in *s3.GetBucketPolicyInput, _ ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error) {
+	if err := f.err("GetBucketPolicy"); err != nil {
+		return nil, err
+	}
+	if p, ok := f.bucketPolicy[awssdk.ToString(in.Bucket)]; ok {
+		return &s3.GetBucketPolicyOutput{Policy: awssdk.String(p)}, nil
+	}
+	return nil, apiErr("NoSuchBucketPolicy")
+}
+func (f *fakeAWS) GetKeyPolicy(_ context.Context, in *kms.GetKeyPolicyInput, _ ...func(*kms.Options)) (*kms.GetKeyPolicyOutput, error) {
+	if err := f.err("GetKeyPolicy"); err != nil {
+		return nil, err
+	}
+	if p, ok := f.keyPolicy[awssdk.ToString(in.KeyId)]; ok {
+		return &kms.GetKeyPolicyOutput{Policy: awssdk.String(p)}, nil
+	}
+	return &kms.GetKeyPolicyOutput{Policy: awssdk.String(`{"Version":"2012-10-17","Statement":[{"Sid":"Enable IAM User Permissions","Effect":"Allow","Principal":{"AWS":"arn:aws:iam::` + f.account + `:root"},"Action":"kms:*","Resource":"*"}]}`)}, nil
+}
+func (f *fakeAWS) GetResourcePolicy(_ context.Context, in *secretsmanager.GetResourcePolicyInput, _ ...func(*secretsmanager.Options)) (*secretsmanager.GetResourcePolicyOutput, error) {
+	if err := f.err("GetResourcePolicy"); err != nil {
+		return nil, err
+	}
+	out := &secretsmanager.GetResourcePolicyOutput{ARN: in.SecretId}
+	if p, ok := f.secretPolicy[awssdk.ToString(in.SecretId)]; ok {
+		out.ResourcePolicy = awssdk.String(p)
+	}
+	return out, nil
+}
+
+func (f *fakeAWS) GetFunctionPolicy(_ context.Context, name string) (string, error) {
+	if p, ok := f.fnPolicy[name]; ok {
+		return p, nil
+	}
+	return "", apiErr("ResourceNotFoundException")
+}
+
+// Organizations
+func (f *fakeAWS) orgErr(op string) error {
+	if f.org == nil {
+		return apiErr("AWSOrganizationsNotInUseException")
+	}
+	if f.org.fail != nil {
+		return f.org.fail[op]
+	}
+	return nil
+}
+func (f *fakeAWS) ListParents(_ context.Context, child string) ([]OrgParent, error) {
+	if err := f.orgErr("ListParents"); err != nil {
+		return nil, err
+	}
+	return f.org.parents[child], nil
+}
+func (f *fakeAWS) ListPoliciesForTarget(_ context.Context, target, filter string) ([]OrgPolicy, error) {
+	if err := f.orgErr("ListPoliciesForTarget"); err != nil {
+		return nil, err
+	}
+	if filter != filterSCP {
+		return nil, nil
+	}
+	return f.org.attached[target], nil
+}
+func (f *fakeAWS) DescribePolicy(_ context.Context, id string) (string, error) {
+	if err := f.orgErr("DescribePolicy"); err != nil {
+		return "", err
+	}
+	return f.org.content[id], nil
+}
+
+func (f *fakeAWS) DescribeOrganization(_ context.Context) (OrgInfo, error) {
+	if err := f.orgErr("DescribeOrganization"); err != nil {
+		return OrgInfo{}, err
+	}
+	return OrgInfo{ID: f.org.id, MasterAccountID: "999999999999"}, nil
 }
 
 func (f *fakeAWS) factory() ClientFactory {

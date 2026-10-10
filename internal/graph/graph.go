@@ -58,12 +58,23 @@ type Node struct {
 	Weaknesses []string       `json:"weaknesses,omitempty"`
 	FindingIDs []string       `json:"finding_ids,omitempty"`
 	// Context used by risk scoring (filled by collectors / heuristics).
-	Sensitive   bool   `json:"sensitive,omitempty"`   // crown jewel: PII, secrets, prod DB
-	Criticality string `json:"criticality,omitempty"` // production | staging | dev | unknown
-	Owner       string `json:"owner,omitempty"`
-	ModifiedAt  string `json:"modified_at,omitempty"` // RFC3339 when known
-	CVECount    int    `json:"cve_count,omitempty"`
+	Sensitive   bool    `json:"sensitive,omitempty"`   // crown jewel: PII, secrets, prod DB
+	Criticality string  `json:"criticality,omitempty"` // production | staging | dev | unknown
+	Owner       string  `json:"owner,omitempty"`
+	ModifiedAt  string  `json:"modified_at,omitempty"` // RFC3339 when known
+	CVECount    int     `json:"cve_count,omitempty"`
 	MonthlyCost float64 `json:"monthly_cost,omitempty"`
+
+	// Guessed: the type is not in the registry (registry.go), or the node is an edge
+	// placeholder whose type was guessed from its id; Class came from a heuristic.
+	Guessed bool `json:"guessed,omitempty"`
+
+	placeholder bool // created by AddEdge; type/class are guesses until the resource arrives
+
+	// owners: every (provider, account) pair any source reported for this node. Provider and
+	// Account are a deterministic function of the set (pickOwner), never of arrival order
+	// (verify-4 D4: path Issue provider/account flipped with ingest order).
+	owners map[[2]string]bool
 }
 
 type Edge struct {
@@ -96,6 +107,9 @@ func (g *Graph) AddNode(n *Node) *Node {
 	if n.Class == "" {
 		n.Class = ClassFor(n.Type)
 	}
+	if !n.placeholder {
+		n.Guessed = !Registered(n.Type)
+	}
 	if n.Name == "" {
 		n.Name = n.ID
 	}
@@ -106,8 +120,11 @@ func (g *Graph) AddNode(n *Node) *Node {
 		for k, v := range n.Attributes {
 			ex.Attributes[k] = v
 		}
-		if ex.Type == "" {
-			ex.Type = n.Type
+		if ex.placeholder && n.Type != "" {
+			// ex was an edge placeholder: the real resource's type and class win.
+			ex.Type, ex.Class, ex.placeholder, ex.Guessed = n.Type, n.Class, false, n.Guessed
+		} else if ex.Type == "" && n.Type != "" {
+			ex.Type, ex.Guessed = n.Type, n.Guessed
 		}
 		if ex.Class == "" || ex.Class == ClassAccount && n.Class != "" {
 			ex.Class = n.Class
@@ -118,9 +135,7 @@ func (g *Graph) AddNode(n *Node) *Node {
 		if n.Region != "" {
 			ex.Region = n.Region
 		}
-		if n.Account != "" {
-			ex.Account = n.Account
-		}
+		ex.mergeOwner(n.Provider, n.Account)
 		if n.Sensitive {
 			ex.Sensitive = true
 		}
@@ -145,8 +160,98 @@ func (g *Graph) AddNode(n *Node) *Node {
 		ex.FindingIDs = appendUnique(ex.FindingIDs, n.FindingIDs...)
 		return ex
 	}
+	n.owners = nil
+	n.mergeOwner(n.Provider, n.Account)
 	g.nodes[n.ID] = n
 	return n
+}
+
+// mergeOwner records a reported (provider, account) pair and re-derives Provider / Account
+// from every pair seen (order-independent; see pickOwner).
+func (n *Node) mergeOwner(provider, account string) {
+	if n.owners == nil {
+		n.owners = map[[2]string]bool{}
+	}
+	for _, p := range [][2]string{{n.Provider, n.Account}, {provider, account}} {
+		if p[0] != "" || p[1] != "" {
+			n.owners[p] = true
+		}
+	}
+	if len(n.owners) > 0 {
+		n.Provider, n.Account = pickOwner(n.ID, n.owners)
+	}
+}
+
+// pickOwner chooses a node's provider and account from the pairs reported for it, with a
+// stable tie-break: the provider / account the resource id itself names (an ARN's partition
+// and account, a GCP project, an Azure subscription) wins; otherwise the lexicographically
+// smallest non-empty value. The account is chosen among pairs of the chosen provider (or of
+// no provider). "any" (the internet node) is used only when nothing else is known.
+func pickOwner(id string, pairs map[[2]string]bool) (string, string) {
+	hp, ha := OwnerFromID(id)
+	provider := ""
+	for p := range pairs {
+		v := p[0]
+		if v == "" || v == "any" && provider != "" {
+			continue
+		}
+		switch {
+		case provider == "", provider == "any":
+			provider = v
+		case hp != "" && v == hp:
+			provider = v
+		case hp != "" && provider == hp:
+		case v < provider:
+			provider = v
+		}
+	}
+	account := ""
+	for p := range pairs {
+		v := p[1]
+		if v == "" || p[0] != "" && p[0] != provider {
+			continue
+		}
+		switch {
+		case account == "":
+			account = v
+		case ha != "" && v == ha:
+			account = v
+		case ha != "" && account == ha:
+		case v < account:
+			account = v
+		}
+	}
+	return provider, account
+}
+
+// OwnerFromID returns the provider and account a resource id names, when it names one:
+// arn:<partition>:<svc>:<region>:<account>:… → aws/<account>; //….googleapis.com/projects/<p>/…
+// → gcp/<p>; /subscriptions/<s>/… → azure/<s>. Otherwise "", "".
+func OwnerFromID(id string) (provider, account string) {
+	switch {
+	case strings.HasPrefix(id, "arn:aws"):
+		parts := strings.SplitN(id, ":", 6)
+		if len(parts) >= 5 {
+			return "aws", parts[4]
+		}
+		return "aws", ""
+	case strings.HasPrefix(id, "//") && strings.Contains(id, ".googleapis.com/"):
+		if i := strings.Index(id, "/projects/"); i >= 0 {
+			rest := id[i+len("/projects/"):]
+			if j := strings.IndexByte(rest, '/'); j >= 0 {
+				rest = rest[:j]
+			}
+			return "gcp", rest
+		}
+		return "gcp", ""
+	case strings.HasPrefix(strings.ToLower(id), "/subscriptions/"):
+		rest := id[len("/subscriptions/"):]
+		if j := strings.IndexByte(rest, '/'); j >= 0 {
+			rest = rest[:j]
+		}
+		return "azure", rest
+	}
+	return "", ""
 }
 
 func (n *Node) addWeakness(w string) {
@@ -181,12 +286,102 @@ func (g *Graph) AddEdge(from, to, kind string, attr map[string]any) {
 	// Auto-create placeholder nodes so references to not-yet-collected resources still link.
 	for _, id := range []string{from, to} {
 		if _, ok := g.nodes[id]; !ok {
-			g.nodes[id] = &Node{ID: id, Name: lastSegment(id), Type: GuessType(id), Class: ClassFor(GuessType(id))}
+			g.nodes[id] = &Node{ID: id, Name: lastSegment(id), Type: GuessType(id), Class: ClassFor(GuessType(id)), Guessed: true, placeholder: true}
 		}
 	}
-	e := &Edge{From: from, To: to, Kind: kind, Attr: attr}
+	// Every edge says why it exists (O4). The caller's map is copied, never mutated.
+	cp := make(map[string]any, len(attr)+1)
+	for k, v := range attr {
+		cp[k] = v
+	}
+	if b, _ := cp["because"].(string); b == "" {
+		cp["because"] = DescribeEdge(g.nodes[from], g.nodes[to], kind, attr)
+	}
+	e := &Edge{From: from, To: to, Kind: kind, Attr: cp}
 	g.out[from] = append(g.out[from], e)
 	g.in[to] = append(g.in[to], e)
+}
+
+// Clone deep-copies nodes (weakness and finding slices included) and edges, so callers can
+// apply what-if fixes without touching the original.
+func (g *Graph) Clone() *Graph {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	c := &Graph{nodes: make(map[string]*Node, len(g.nodes)), out: make(map[string][]*Edge, len(g.out)), in: make(map[string][]*Edge, len(g.in))}
+	for id, n := range g.nodes {
+		nn := *n
+		nn.Weaknesses = append([]string(nil), n.Weaknesses...)
+		nn.FindingIDs = append([]string(nil), n.FindingIDs...)
+		if n.owners != nil {
+			nn.owners = make(map[[2]string]bool, len(n.owners))
+			for k := range n.owners {
+				nn.owners[k] = true
+			}
+		}
+		c.nodes[id] = &nn
+	}
+	for from, es := range g.out {
+		for _, e := range es {
+			ne := &Edge{From: e.From, To: e.To, Kind: e.Kind, Attr: e.Attr}
+			c.out[from] = append(c.out[from], ne)
+			c.in[e.To] = append(c.in[e.To], ne)
+		}
+	}
+	return c
+}
+
+// RemoveEdge deletes the edge from→to of the given kind; it reports whether one existed.
+func (g *Graph) RemoveEdge(from, to, kind string) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	found := false
+	keep := g.out[from][:0:0]
+	for _, e := range g.out[from] {
+		if e.To == to && e.Kind == kind {
+			found = true
+			continue
+		}
+		keep = append(keep, e)
+	}
+	g.out[from] = keep
+	keepIn := g.in[to][:0:0]
+	for _, e := range g.in[to] {
+		if e.From == from && e.Kind == kind {
+			continue
+		}
+		keepIn = append(keepIn, e)
+	}
+	g.in[to] = keepIn
+	return found
+}
+
+// RemoveNode deletes a node and every edge touching it.
+func (g *Graph) RemoveNode(id string) {
+	for _, e := range append(append([]*Edge{}, g.Out(id)...), g.In(id)...) {
+		g.RemoveEdge(e.From, e.To, e.Kind)
+	}
+	g.mu.Lock()
+	delete(g.nodes, id)
+	delete(g.out, id)
+	delete(g.in, id)
+	g.mu.Unlock()
+}
+
+// RemoveWeakness drops one weakness from a node (a what-if fix); it reports whether it was present.
+func (g *Graph) RemoveWeakness(id, w string) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	n, ok := g.nodes[id]
+	if !ok {
+		return false
+	}
+	for i, x := range n.Weaknesses {
+		if x == w {
+			n.Weaknesses = append(append([]string(nil), n.Weaknesses[:i]...), n.Weaknesses[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 func (g *Graph) Node(id string) (*Node, bool) {
@@ -228,7 +423,7 @@ func (g *Graph) Edges() []*Edge {
 
 func (g *Graph) Out(id string) []*Edge { g.mu.RLock(); defer g.mu.RUnlock(); return g.out[id] }
 func (g *Graph) In(id string) []*Edge  { g.mu.RLock(); defer g.mu.RUnlock(); return g.in[id] }
-func (g *Graph) Len() int             { g.mu.RLock(); defer g.mu.RUnlock(); return len(g.nodes) }
+func (g *Graph) Len() int              { g.mu.RLock(); defer g.mu.RUnlock(); return len(g.nodes) }
 
 // Merge copies another graph in (used to combine per-provider collector results).
 func (g *Graph) Merge(other *Graph) {
@@ -270,19 +465,40 @@ func (g *Graph) AttachFindings(findings []model.Finding) {
 		acct := accountNodeID(f.Provider, f.Account)
 		if f.Account != "" {
 			g.AddNode(&Node{ID: acct, Type: f.Provider + "_account", Class: ClassAccount, Name: f.Account, Provider: f.Provider, Account: f.Account})
-			g.AddEdge(acct, node.ID, EdgeContains, nil)
+			g.AddEdge(acct, node.ID, EdgeContains, map[string]any{"because": fmt.Sprintf("finding %s reports %s in %s account %s", f.CanonicalID, node.Name, f.Provider, f.Account), "finding_id": f.ID})
 		}
 		if f.Status == model.Fail {
 			for _, w := range f.Weaknesses {
 				if w == "PUBLIC_NETWORK_EXPOSURE" || w == "PUBLIC_DATA_STORE" {
-					g.AddEdge(InternetNodeID, node.ID, EdgeExposes, map[string]any{"via": f.CanonicalID})
+					attr := map[string]any{"via": f.CanonicalID, "check_id": f.CheckID, "finding_id": f.ID, "weakness": w,
+						"because": fmt.Sprintf("finding %s (%s) reports %s on %s", f.CanonicalID, f.Title, w, node.Name)}
+					// Exposure width input (O10): the public sources the scanner saw. Width
+					// against trusted_cidrs is decided at analysis time (attackpath).
+					if cidrs := exposureCIDRs(f.Resource.Attributes); len(cidrs) > 0 {
+						attr["exposure_cidrs"] = cidrs
+						attr["because"] = attr["because"].(string) + " from " + strings.Join(cidrs, ", ")
+					}
+					if ex, _ := f.Resource.Attributes["exposure"].(string); ex != "" {
+						attr["exposure"] = ex
+					}
+					g.AddEdge(InternetNodeID, node.ID, EdgeExposes, attr)
 				}
 			}
 		}
+		typed := g.attachRelations(f, node)
 		for _, r := range f.Resource.Related {
-			g.AddEdge(node.ID, r, EdgeAttachedTo, map[string]any{"hint": true})
+			if typed[r] {
+				continue
+			}
+			g.AddEdge(node.ID, r, EdgeAttachedTo, map[string]any{"hint": true, "finding_id": f.ID,
+				"because": fmt.Sprintf("finding %s lists %s as related to %s (scanner hint, attachment not verified)", f.CanonicalID, r, node.Name)})
 		}
 	}
+	// Permission-bearing edges from the IAM evaluator (permissions.go); idempotent.
+	g.EvaluatePermissions()
+	// Effective internet reachability on every internet edge / exposed node (reachability.go,
+	// P2-REACH); idempotent.
+	g.AnnotateReachability()
 }
 
 func accountNodeID(provider, account string) string { return provider + ":account:" + account }
@@ -356,12 +572,39 @@ func lastSegment(s string) string {
 	return s
 }
 
-// ClassFor derives a node class from a resource type string from any tool.
-func ClassFor(t string) string {
+// classByType pins types whose names would otherwise hit the wrong substring rule
+// (a service account is an identity and a storage account a data store, not an account).
+var classByType = map[string]string{
+	"internet":                 ClassInternet,
+	"k8s_service_account":      ClassIdentity,
+	"gcp_service_account":      ClassIdentity,
+	"serviceaccount":           ClassIdentity,
+	"azure_storage_account":    ClassDataStore,
+	"aws_account":              ClassAccount,
+	"gcp_project":              ClassAccount,
+	"azure_subscription":       ClassAccount,
+	"k8s_cluster_account":      ClassAccount,
+	"m365_tenant":              ClassAccount,
+	"okta_tenant":              ClassAccount,
+	"github_account":           ClassAccount,
+	"k8s_cluster_role":         ClassIdentity,
+	"k8s_cluster_role_binding": ClassIdentity,
+	"k8s_role":                 ClassIdentity,
+}
+
+// legacyClassFor is the pre-registry heuristic: an explicit type table first, then substring
+// rules in which service/storage accounts are matched before the generic "account" rule.
+// ClassFor (registry.go) falls back to it only for unregistered types.
+func legacyClassFor(t string) string {
 	l := strings.ToLower(t)
+	if c, ok := classByType[l]; ok {
+		return c
+	}
 	switch {
-	case l == "internet":
-		return ClassInternet
+	case strings.Contains(l, "service_account") || strings.Contains(l, "serviceaccount") || strings.Contains(l, "service-account"):
+		return ClassIdentity
+	case strings.Contains(l, "storage_account") || strings.Contains(l, "storageaccount"):
+		return ClassDataStore
 	case strings.Contains(l, "account") || strings.Contains(l, "subscription") || strings.Contains(l, "project") || strings.Contains(l, "tenant"):
 		return ClassAccount
 	case strings.Contains(l, "bucket") || strings.Contains(l, "s3") || strings.Contains(l, "storage") || strings.Contains(l, "blob") || strings.Contains(l, "rds") || strings.Contains(l, "db_") || strings.Contains(l, "sql") || strings.Contains(l, "database") || strings.Contains(l, "dynamo") || strings.Contains(l, "secret") || strings.Contains(l, "kms") || strings.Contains(l, "keyvault") || strings.Contains(l, "key_vault") || strings.Contains(l, "volume") || strings.Contains(l, "disk") || strings.Contains(l, "snapshot"):
@@ -436,6 +679,12 @@ func GuessType(id string) string {
 		return "k8s_namespace"
 	case strings.Contains(l, "/pod/") || strings.HasPrefix(l, "pod/"):
 		return "k8s_pod"
+	case strings.Contains(l, "iam.googleapis.com/") || strings.HasSuffix(l, ".gserviceaccount.com"):
+		return "gcp_service_account"
+	case strings.Contains(l, "clusterrolebinding/"):
+		return "k8s_cluster_role_binding"
+	case strings.Contains(l, "clusterrole/"):
+		return "k8s_cluster_role"
 	case strings.Contains(l, "serviceaccount"):
 		return "k8s_service_account"
 	}

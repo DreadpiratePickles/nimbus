@@ -1,0 +1,65 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-bedrock-privesc-passrole-code-interpreter
+title: Bedrock Code Interpreter with Privileged Role (BEDROCK-001)
+description: >-
+  The principal may pass a role that trusts bedrock-agentcore.amazonaws.com and create a Bedrock AgentCore code interpreter with the role and run code in it, so it gains that role's
+  permissions. Scope iam:PassRole to the roles the principal genuinely needs (iam:PassedToService).
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-bedrock-privesc-passrole-code-interpreter
+  upstream: pathfinding.cloud - BEDROCK-001 - iam:PassRole + bedrock-agentcore:CreateCodeInterpreter + bedrock-agentcore:StartCodeInterpreterSession + bedrock-agentcore:InvokeCodeInterpreter
+  upstream_url: https://pathfinding.cloud/paths/bedrock-001
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator (Allow per action and resource, Deny and SCPs honoured)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:PassRole", resource: target}
+    - {action: "bedrock-agentcore:CreateCodeInterpreter", resource: "*"}
+    - {action: "bedrock-agentcore:StartCodeInterpreterSession", resource: "*"}
+    - {action: "bedrock-agentcore:InvokeCodeInterpreter", resource: "*"}
+  target:
+    types: [aws_iam_role]
+    trusts_service: bedrock-agentcore.amazonaws.com
+    exclude_self: true
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/dev
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/*"}
+              - {Effect: Allow, Action: "bedrock-agentcore:CreateCodeInterpreter", Resource: "*"}
+              - {Effect: Allow, Action: "bedrock-agentcore:StartCodeInterpreterSession", Resource: "*"}
+              - {Effect: Allow, Action: "bedrock-agentcore:InvokeCodeInterpreter", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/partial
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/*"}
+              - {Effect: Allow, Action: "bedrock-agentcore:CreateCodeInterpreter", Resource: "*"}
+              - {Effect: Allow, Action: "bedrock-agentcore:StartCodeInterpreterSession", Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/svc
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [bedrock-agentcore.amazonaws.com]}
+      - id: arn:aws:iam::123456789012:role/wrongtrust
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com]}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/svc", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/wrongtrust", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/partial", target: "arn:aws:iam::123456789012:role/svc", match: false}

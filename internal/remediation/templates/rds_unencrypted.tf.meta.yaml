@@ -1,0 +1,19 @@
+# Remediation plan metadata for rds_unencrypted.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "rds:CreateDBSnapshot"
+  - "rds:CopyDBSnapshot"
+  - "rds:RestoreDBInstanceFromDBSnapshot"
+  - "rds:DescribeDBSnapshots"
+  - "kms:CreateGrant"
+  - "kms:DescribeKey"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query. The original instance keeps failing until it is retired after cut-over."
+mitigation: "Restrict network access and snapshot sharing of the unencrypted instance until cut-over."
+effort: L
+confidence: medium
+rollback: "Point clients back at the original instance (it is never modified or deleted) and delete the -enc copy."
+breaks_function:
+  value: true
+  note: "Cut-over needs a maintenance window and an endpoint change; writes after the snapshot must be replayed (or use DMS)."

@@ -1,0 +1,63 @@
+# AWS-managed endpoints without a VPC network layer, and EKS public endpoint CIDRs.
+cases:
+  - name: lambda function url auth none
+    source: https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html (function URLs are public HTTPS endpoints; AuthType NONE = unauthenticated)
+    target: {id: arn:aws:lambda:us-east-1:111111111111:function:f, kind: function_url, auth_type: NONE}
+    expect:
+      status: reachable
+      width: wide
+      path_has: "Lambda function URL is an AWS-managed public HTTPS endpoint (no VPC network layer; AuthType NONE)"
+      port: {protocol: tcp, number: 443}
+      confidence: verified
+
+  - name: lambda function url aws_iam is still network reachable
+    source: https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html (AWS_IAM is authentication, not network; attackpath handles auth)
+    target: {id: arn:aws:lambda:us-east-1:111111111111:function:g, kind: function_url, auth_type: AWS_IAM}
+    expect:
+      status: reachable
+      path_has: "AuthType AWS_IAM"
+
+  - name: api gateway regional endpoint
+    source: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-endpoint-types.html
+    target: {id: arn:aws:apigateway:us-east-1::/restapis/abc, kind: api_gateway, endpoint_type: REGIONAL}
+    expect:
+      status: reachable
+      width: wide
+
+  - name: api gateway private endpoint
+    source: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-private-apis.html (private APIs are reachable only from VPCs through interface endpoints)
+    target: {id: arn:aws:apigateway:us-east-1::/restapis/priv, kind: api_gateway, endpoint_type: PRIVATE}
+    expect:
+      status: blocked
+      blocker: "API Gateway endpoint type PRIVATE is reachable only through an interface VPC endpoint"
+
+  - name: eks public endpoint default cidrs
+    source: https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html (public access defaults to 0.0.0.0/0)
+    target: {id: arn:aws:eks:us-east-1:111111111111:cluster/c, kind: eks_endpoint, endpoint_public: true}
+    expect:
+      status: reachable
+      width: wide
+      port: {protocol: tcp, number: 443}
+
+  - name: eks public endpoint restricted cidrs
+    source: https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html (publicAccessCidrs)
+    target: {id: arn:aws:eks:us-east-1:111111111111:cluster/c, kind: eks_endpoint, endpoint_public: true, public_access_cidrs: [203.0.113.0/24]}
+    expect:
+      status: reachable
+      width: narrow
+      sources: [203.0.113.0/24]
+
+  - name: eks private endpoint only
+    source: https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html (private-only endpoint)
+    target: {id: arn:aws:eks:us-east-1:111111111111:cluster/c, kind: eks_endpoint, endpoint_public: false}
+    expect:
+      status: blocked
+      blocker: "EKS cluster endpoint public access is disabled"
+
+  - name: s3 public bucket is a service endpoint
+    source: https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html (public buckets are served from the public S3 endpoint)
+    target: {id: arn:aws:s3:::public-bucket, kind: service_endpoint}
+    expect:
+      status: reachable
+      width: wide
+      path_has: "AWS-managed public service endpoint (no VPC network layer)"

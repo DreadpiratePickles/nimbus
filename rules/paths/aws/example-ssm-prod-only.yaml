@@ -1,0 +1,47 @@
+# EXAMPLE user path rule (loaded by `cloud-posture risk list|test --rules-dir rules/paths`, or
+# automatically when ./rules/paths exists). Copy a library rule (cloud-posture risk list) and edit
+# it, or write your own. User rules are validated with the same schema as the embedded library;
+# an id that collides with a library rule is rejected. This file is nimbus's own (not ported), so
+# it carries no credit block. Delete it or replace it with your own rules.
+id: local-ssm-send-command-prod
+title: "Local: ssm:SendCommand to a production instance role"
+description: >-
+  Example override demonstrating a user-authored path rule. Flags principals that can run SSM
+  commands on an EC2 instance carrying a role, narrowing the library SSM rule to your estate.
+severity: HIGH
+confidence: inferred
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "ssm:SendCommand", resource: target}
+  target:
+    types: [aws_instance]
+    has_edge: {edge: runs_as, to_types: [aws_iam_role]}
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/ops
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "ssm:SendCommand", Resource: "*"}
+      - id: arn:aws:ec2:us-east-1:123456789012:instance/i-withrole
+        type: aws_instance
+        account: "123456789012"
+      - id: arn:aws:ec2:us-east-1:123456789012:instance/i-norole
+        type: aws_instance
+        account: "123456789012"
+      - id: arn:aws:iam::123456789012:role/app
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com]}
+    edges:
+      - {from: arn:aws:ec2:us-east-1:123456789012:instance/i-withrole, to: arn:aws:iam::123456789012:role/app, kind: runs_as}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/ops", target: "arn:aws:ec2:us-east-1:123456789012:instance/i-withrole", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/ops", target: "arn:aws:ec2:us-east-1:123456789012:instance/i-norole", match: false}

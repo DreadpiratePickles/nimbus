@@ -1,0 +1,14 @@
+# Remediation plan metadata for k8s_network_policy.k8s.yaml (schema: internal/remediation/metadata.go).
+actions_required:
+  - "networking.k8s.io/networkpolicies:create"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Keep Services ClusterIP-only and restrict ingress controllers to the namespaces they serve."
+effort: M
+confidence: low
+rollback: "kubectl delete networkpolicy nimbus-same-namespace-only -n <namespace>"
+breaks_function:
+  value: true
+  note: "Ingress from other namespaces (ingress controllers, monitoring, service mesh) is blocked until allowed; only effective with a CNI that enforces NetworkPolicy."

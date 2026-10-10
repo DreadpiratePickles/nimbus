@@ -53,6 +53,8 @@ type inventory struct {
 	secrets   []regional[smtypes.SecretListEntry]
 	keys      []kmsKey
 	buckets   []bucket
+	// accountPAB is the account-level S3 Block Public Access (nil = unknown).
+	accountPAB *AccountPublicAccessBlock
 
 	trails       []cttypes.Trail
 	trailLogging map[string]bool
@@ -66,6 +68,18 @@ type inventory struct {
 
 	credReport []credRow
 	rootMFA    *bool
+
+	// org is the SCP / RCP chain (nil = not attempted).
+	org *orgPolicies
+	// orgID is the account's organisation id (nil = not attempted).
+	orgID *orgIdentity
+	// secretPolicies: secret ARN -> resource policy ("" = none); secretPolicyErr marks failures.
+	secretPolicies  map[string]string
+	secretPolicyErr map[string]bool
+
+	// net is the network-reachability input (route tables, NACLs, subnets, ENIs, gateways,
+	// ELBv2), network.go.
+	net netInv
 
 	cpu    map[string]float64 // instance ID -> avg CPU over lookback
 	egress map[string]float64 // instance ID -> GB out over 30 days
@@ -82,6 +96,9 @@ type lambdaFn struct {
 	Fn      lambdatypes.FunctionConfiguration
 	URL     string
 	URLAuth string
+	// Policy is the function's resource-based policy; PolicyStatus collected | none | denied | error.
+	Policy       string
+	PolicyStatus string
 }
 
 type kmsKey struct {
@@ -89,22 +106,32 @@ type kmsKey struct {
 	ARN      string
 	ID       string
 	Rotation bool
+	// Policy is the default key policy; PolicyStatus collected | denied | error.
+	Policy       string
+	PolicyStatus string
 }
 
 type bucket struct {
-	Name        string
-	Region      string
-	Created     time.Time
-	Tags        map[string]string
-	PABAll      bool // all four public access block settings on
-	PolicyPublic bool
-	ACLPublic   bool
-	Encrypted   bool
-	EncKnown    bool
+	Name    string
+	Region  string
+	Created time.Time
+	Tags    map[string]string
+	PABAll  bool // all four public access block settings on
+	// PABIgnoreACLs / PABRestrictPolicy are the bucket-level settings that neutralise
+	// an existing public ACL / public policy.
+	PABIgnoreACLs     bool
+	PABRestrictPolicy bool
+	PolicyPublic      bool
+	ACLPublic         bool
+	Encrypted         bool
+	EncKnown          bool
+	// Policy is the bucket policy JSON; PolicyStatus collected | none | denied | error.
+	Policy       string
+	PolicyStatus string
 }
 
 type policyInfo struct {
-	ARN, Name string
+	ARN, Name  string
 	AWSManaged bool
 	Document   string
 }
@@ -123,6 +150,14 @@ func apiCode(err error) string {
 		return ae.ErrorCode()
 	}
 	return ""
+}
+
+// policyErrStatus is the resource_policy_status recorded when a policy read fails.
+func policyErrStatus(err error) string {
+	if isAccessDenied(err) {
+		return "denied"
+	}
+	return "error"
 }
 
 // isAccessDenied matches the many spellings of AWS permission failures.
@@ -249,6 +284,13 @@ func fetchLambda(ctx context.Context, c LambdaAPI, region string, inv *inventory
 				rec.URLAuth = string(u.AuthType)
 			}
 		}
+		rec.Policy, rec.PolicyStatus = "", "none"
+		if pol, err := c.GetFunctionPolicy(ctx, awssdk.ToString(fn.FunctionName)); err == nil {
+			rec.Policy, rec.PolicyStatus = pol, "collected"
+		} else if apiCode(err) != "ResourceNotFoundException" {
+			rec.PolicyStatus = policyErrStatus(err)
+			errs = append(errs, fmt.Errorf("lambda:GetPolicy %s: %w", awssdk.ToString(fn.FunctionName), err))
+		}
 		inv.lock(func() { inv.functions = append(inv.functions, rec) })
 	}
 	return errors.Join(errs...)
@@ -279,19 +321,35 @@ func fetchEKS(ctx context.Context, c EKSAPI, region string, inv *inventory) erro
 }
 
 func fetchSecrets(ctx context.Context, c SecretsAPI, region string, inv *inventory) error {
+	var list []smtypes.SecretListEntry
 	p := secretsmanager.NewListSecretsPaginator(c, &secretsmanager.ListSecretsInput{})
 	for p.HasMorePages() {
 		out, err := p.NextPage(ctx)
 		if err != nil {
 			return fmt.Errorf("ListSecrets: %w", err)
 		}
+		list = append(list, out.SecretList...)
+	}
+	var errs []error
+	for _, sec := range list {
+		arn := awssdk.ToString(sec.ARN)
+		rp, err := c.GetResourcePolicy(ctx, &secretsmanager.GetResourcePolicyInput{SecretId: sec.ARN})
+		if err != nil {
+			errs = append(errs, fmt.Errorf("secretsmanager:GetResourcePolicy %s: %w", arn, err))
+		}
 		inv.lock(func() {
-			for _, s := range out.SecretList {
-				inv.secrets = append(inv.secrets, regional[smtypes.SecretListEntry]{region, s})
+			inv.secrets = append(inv.secrets, regional[smtypes.SecretListEntry]{region, sec})
+			if inv.secretPolicies == nil {
+				inv.secretPolicies, inv.secretPolicyErr = map[string]string{}, map[string]bool{}
+			}
+			if err != nil {
+				inv.secretPolicyErr[arn] = true
+			} else {
+				inv.secretPolicies[arn] = awssdk.ToString(rp.ResourcePolicy)
 			}
 		})
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func fetchKMS(ctx context.Context, c KMSAPI, region string, inv *inventory) error {
@@ -317,9 +375,14 @@ func fetchKMS(ctx context.Context, c KMSAPI, region string, inv *inventory) erro
 				errs = append(errs, fmt.Errorf("GetKeyRotationStatus %s: %w", awssdk.ToString(k.KeyId), err))
 				continue
 			}
-			inv.lock(func() {
-				inv.keys = append(inv.keys, kmsKey{Region: region, ARN: awssdk.ToString(md.Arn), ID: awssdk.ToString(md.KeyId), Rotation: rs.KeyRotationEnabled})
-			})
+			key := kmsKey{Region: region, ARN: awssdk.ToString(md.Arn), ID: awssdk.ToString(md.KeyId), Rotation: rs.KeyRotationEnabled, PolicyStatus: "collected"}
+			if kp, err := c.GetKeyPolicy(ctx, &kms.GetKeyPolicyInput{KeyId: k.KeyId, PolicyName: awssdk.String("default")}); err == nil {
+				key.Policy = awssdk.ToString(kp.Policy)
+			} else {
+				key.PolicyStatus = policyErrStatus(err)
+				errs = append(errs, fmt.Errorf("kms:GetKeyPolicy %s: %w", awssdk.ToString(k.KeyId), err))
+			}
+			inv.lock(func() { inv.keys = append(inv.keys, key) })
 		}
 	}
 	return errors.Join(errs...)
@@ -422,11 +485,20 @@ func fetchIAM(ctx context.Context, c IAMAPI, inv *inventory) error {
 			}
 		}
 	}
+	boundary := func(b *iamtypes.AttachedPermissionsBoundary) []iamtypes.AttachedPolicy {
+		if b == nil || b.PermissionsBoundaryArn == nil {
+			return nil
+		}
+		arn := awssdk.ToString(b.PermissionsBoundaryArn)
+		return []iamtypes.AttachedPolicy{{PolicyArn: b.PermissionsBoundaryArn, PolicyName: awssdk.String(arn[strings.LastIndex(arn, "/")+1:])}}
+	}
 	for _, u := range users {
 		add(u.AttachedManagedPolicies)
+		add(boundary(u.PermissionsBoundary))
 	}
 	for _, r := range roles {
 		add(r.AttachedManagedPolicies)
+		add(boundary(r.PermissionsBoundary))
 	}
 	for _, g := range groups {
 		add(g.AttachedManagedPolicies)
@@ -565,6 +637,7 @@ func describeBucket(ctx context.Context, c S3API, b s3types.Bucket) (bucket, err
 	if pab, err := c.GetPublicAccessBlock(ctx, &s3.GetPublicAccessBlockInput{Bucket: b.Name}, inRegion); err == nil && pab.PublicAccessBlockConfiguration != nil {
 		cfg := pab.PublicAccessBlockConfiguration
 		bk.PABAll = awssdk.ToBool(cfg.BlockPublicAcls) && awssdk.ToBool(cfg.IgnorePublicAcls) && awssdk.ToBool(cfg.BlockPublicPolicy) && awssdk.ToBool(cfg.RestrictPublicBuckets)
+		bk.PABIgnoreACLs, bk.PABRestrictPolicy = awssdk.ToBool(cfg.IgnorePublicAcls), awssdk.ToBool(cfg.RestrictPublicBuckets)
 	} else if err != nil && apiCode(err) != "NoSuchPublicAccessBlockConfiguration" {
 		errs = append(errs, fmt.Errorf("GetPublicAccessBlock: %w", err))
 	}
@@ -593,6 +666,13 @@ func describeBucket(ctx context.Context, c S3API, b s3types.Bucket) (bucket, err
 	} else {
 		errs = append(errs, fmt.Errorf("GetBucketEncryption: %w", err))
 	}
+	bk.PolicyStatus = "none"
+	if bp, err := c.GetBucketPolicy(ctx, &s3.GetBucketPolicyInput{Bucket: b.Name}, inRegion); err == nil {
+		bk.Policy, bk.PolicyStatus = awssdk.ToString(bp.Policy), "collected"
+	} else if apiCode(err) != "NoSuchBucketPolicy" {
+		bk.PolicyStatus = policyErrStatus(err)
+		errs = append(errs, fmt.Errorf("GetBucketPolicy: %w", err))
+	}
 	if tg, err := c.GetBucketTagging(ctx, &s3.GetBucketTaggingInput{Bucket: b.Name}, inRegion); err == nil {
 		for _, t := range tg.TagSet {
 			bk.Tags[awssdk.ToString(t.Key)] = awssdk.ToString(t.Value)
@@ -601,6 +681,18 @@ func describeBucket(ctx context.Context, c S3API, b s3types.Bucket) (bucket, err
 		errs = append(errs, fmt.Errorf("GetBucketTagging: %w", err))
 	}
 	return bk, errors.Join(errs...)
+}
+
+func fetchAccountPAB(ctx context.Context, c S3ControlAPI, inv *inventory) error {
+	if c == nil {
+		return nil
+	}
+	pab, err := c.GetAccountPublicAccessBlock(ctx, inv.account)
+	if err != nil {
+		return fmt.Errorf("GetPublicAccessBlock (account): %w", err)
+	}
+	inv.lock(func() { inv.accountPAB = pab })
+	return nil
 }
 
 func fetchCloudTrail(ctx context.Context, c CloudTrailAPI, inv *inventory) error {

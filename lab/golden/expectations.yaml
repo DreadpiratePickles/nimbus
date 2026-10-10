@@ -1,0 +1,80 @@
+# Scanner interop expectations for the goldens in lab/golden/<tool>/<version>/ (plan v3 §4 P1-LAB L2).
+#
+# Scored by tests/groundtruth/golden_test.go (TestGoldenScannerInterop):
+#   detects       every lab weakness (lab/local/estate.yaml W..) that the tool reports on the lab
+#                 Terraform, as (native check id, resource as the tool names it) and the canonical id
+#                 nimbus must map that check to (internal/catalog/catalog.yaml). Hand-written from the
+#                 tool's check titles, never copied from nimbus output. A weakness may have several rows.
+#                 The test fails hard when a listed detection is not in the raw golden; a detection
+#                 nimbus does not map to `canonical` is a gap (lab/known_gaps.yaml `golden:`).
+#   not_detected  lab weaknesses expressed in lab/terraform that the tool does not flag (with why).
+#   not_in_lab_hcl lab weaknesses with no lab/terraform twin (local-only, or needs an Organization /
+#                 a running cluster / a CVE image), so no IaC scanner can see them.
+# Resource strings: Checkov `resource` (k8s: Kind.namespace.name); Trivy CauseMetadata.Resource, or
+# the scanned file (Results[].Target) when Trivy gives none (Kubernetes manifests).
+version: 1
+tools:
+  - tool: checkov
+    version: 3.3.26
+    files: [aws.json, azure.json, gcp.json]
+    detects:
+      - {weakness: W01, check: CKV2_AWS_6, resource: aws_s3_bucket.pii, canonical: S3_PUBLIC_BUCKET}
+      - {weakness: W01, check: CKV_AWS_54, resource: aws_s3_bucket_public_access_block.pii, canonical: S3_PUBLIC_BUCKET}
+      - {weakness: W01, check: CKV_AWS_56, resource: aws_s3_bucket_public_access_block.pii, canonical: S3_PUBLIC_BUCKET}
+      - {weakness: W01, check: CKV_AWS_70, resource: aws_s3_bucket_policy.pii_public_read, canonical: S3_PUBLIC_BUCKET, note: "the Principal * GetObject policy itself"}
+      - {weakness: W02, check: CKV_AWS_277, resource: aws_security_group.web_open, canonical: EC2_SG_OPEN_ALL}
+      - {weakness: W03, check: CKV_AWS_88, resource: aws_instance.web, canonical: EC2_PUBLIC_IP}
+      - {weakness: W04, check: CKV_AWS_79, resource: aws_instance.web, canonical: EC2_IMDSV1}
+      - {weakness: W05, check: CKV_AWS_274, resource: aws_iam_role_policy_attachment.web_admin, canonical: IAM_ADMIN_POLICY}
+      - {weakness: W06, check: CKV_AWS_17, resource: "aws_db_instance.orders[0]", canonical: RDS_PUBLIC}
+      - {weakness: W08, check: CKV_AWS_274, resource: aws_iam_role_policy_attachment.vendor_admin, canonical: IAM_ADMIN_POLICY}
+      - {weakness: W11, check: CKV_AWS_274, resource: aws_iam_user_policy_attachment.ops_admin, canonical: IAM_ADMIN_POLICY}
+      - {weakness: W12, check: CKV_AWS_258, resource: aws_lambda_function_url.export, canonical: LAMBDA_PUBLIC}
+      - {weakness: W17, check: CKV_K8S_38, resource: Pod.ci.build-runner-0, canonical: K8S_DEFAULT_SA_TOKEN}
+      - {weakness: W18, check: CKV_GCP_2, resource: google_compute_firewall.ssh_any, canonical: GCP_FIREWALL_OPEN_SSH}
+      - {weakness: W19, check: CKV_GCP_40, resource: google_compute_instance.web, canonical: GCP_INSTANCE_PUBLIC_IP, note: "proposed id: the catalog has no GCE public-IP entry"}
+      - {weakness: W21, check: CKV_GCP_117, resource: google_project_iam_member.default_sa_editor, canonical: GCP_IAM_PRIMITIVE_ROLE, note: "basic role (roles/editor) at project level"}
+      - {weakness: W22, check: CKV_AZURE_190, resource: azurerm_storage_account.hr, canonical: AZ_STORAGE_PUBLIC_BLOB}
+      - {weakness: W22, check: CKV_AZURE_34, resource: azurerm_storage_container.exports, canonical: AZ_STORAGE_PUBLIC_BLOB, note: "container access level blob"}
+      - {weakness: W23, check: CKV_AZURE_9, resource: azurerm_network_security_group.jump, canonical: AZ_NSG_OPEN_RDP}
+      - {weakness: W26, check: CKV_AWS_274, resource: aws_iam_role_policy_attachment.gha_admin, canonical: IAM_ADMIN_POLICY}
+      - {weakness: W28, check: CKV_AWS_79, resource: aws_instance.corp, canonical: EC2_IMDSV1}
+    not_detected:
+      W07: "cross-account trust without ExternalId: CKV_AWS_60/61 pass on aws_iam_role.vendor (they test wildcard principals, not a missing ExternalId)"
+      W13: "EKS public endpoint: aws_eks_cluster.lab has count = 0 (enable_eks defaults to false), so no CKV_AWS_38/39 result"
+      W14: "cluster-admin ClusterRoleBinding in k8s/ci-deployer.yaml: no failed check (CKV2_K8S_5 passes)"
+      W15: "LoadBalancer exposure of the build-runner pod: no Checkov check for a public Service"
+      W20: "default compute SA with cloud-platform scope: CKV_GCP_30/31 pass because the SA email is built from var.project_number"
+      W24: "managed identity Contributor at subscription scope: no failed check on azurerm_role_assignment"
+      W27: "corporate-only SSH (203.0.113.0/24): correctly not flagged (CKV_AWS_24 passes on aws_security_group.corp_ssh)"
+      W29: "PowerUserAccess on the corp role: CKV_AWS_274 fires only for AdministratorAccess"
+    not_in_lab_hcl: [W09, W10, W16, W25, W30, W31, W32, W33, W34, W35, W36, W37, W38, W39, W40, W41, W42, W43, W44, W45, W46, W47, W48, W49, W50, W51, W52, W53, W54, W55, W56, W57, W58, W59, W60, W61, W62]
+
+  - tool: trivy
+    version: 0.75.0
+    files: [aws.json, azure.json, gcp.json]
+    detects:
+      - {weakness: W01, check: AWS-0087, resource: aws_s3_bucket_public_access_block.pii, canonical: S3_PUBLIC_BUCKET}
+      - {weakness: W01, check: AWS-0093, resource: aws_s3_bucket_public_access_block.pii, canonical: S3_PUBLIC_BUCKET}
+      - {weakness: W02, check: AWS-0107, resource: aws_security_group.web_open, canonical: EC2_SG_OPEN_SSH, note: "Trivy's ingress check covers SSH/RDP; the all-ports rule trips it"}
+      - {weakness: W04, check: AWS-0028, resource: aws_instance.web, canonical: EC2_IMDSV1}
+      - {weakness: W06, check: AWS-0180, resource: "aws_db_instance.orders[0]", canonical: RDS_PUBLIC}
+      - {weakness: W14, check: KSV-0111, resource: k8s/ci-deployer.yaml, canonical: K8S_CLUSTER_ADMIN_BINDING, note: "User with admin access (cluster-admin binding)"}
+      - {weakness: W18, check: GCP-0071, resource: google_compute_firewall.ssh_any, canonical: GCP_FIREWALL_OPEN_SSH}
+      - {weakness: W19, check: GCP-0031, resource: google_compute_instance.web, canonical: GCP_INSTANCE_PUBLIC_IP, note: "proposed id: the catalog has no GCE public-IP entry"}
+      - {weakness: W22, check: AZU-0007, resource: azurerm_storage_container.exports, canonical: AZ_STORAGE_PUBLIC_BLOB}
+      - {weakness: W23, check: AZU-0048, resource: azurerm_network_security_group.jump, canonical: AZ_NSG_OPEN_RDP}
+      - {weakness: W28, check: AWS-0028, resource: aws_instance.corp, canonical: EC2_IMDSV1}
+    not_detected:
+      W03: "public IP on aws_instance.web: no failed Trivy check (AWS-0009 targets launch configurations)"
+      W05: "AdministratorAccess attachments (W05, W08, W11, W26): Trivy checks inline/custom policy documents, not managed-policy attachments"
+      W07: "cross-account trust without ExternalId: no Trivy check"
+      W12: "Lambda function URL AuthType NONE: no failed Trivy check on aws_lambda_function_url"
+      W13: "EKS public endpoint: aws_eks_cluster.lab has count = 0"
+      W17: "SA token automount: no failed KSV check for automountServiceAccountToken in k8s/ci-deployer.yaml"
+      W20: "default compute SA: no failed Trivy check (SA email built from var.project_number)"
+      W21: "roles/editor on google_project_iam_member: no failed Trivy check"
+      W24: "managed identity Contributor: no Trivy check"
+      W27: "corporate-only SSH: correctly not flagged"
+      W29: "PowerUserAccess: no Trivy check"
+    not_in_lab_hcl: [W09, W10, W16, W25, W30, W31, W32, W33, W34, W35, W36, W37, W38, W39, W40, W41, W42, W43, W44, W45, W46, W47, W48, W49, W50, W51, W52, W53, W54, W55, W56, W57, W58, W59, W60, W61, W62]

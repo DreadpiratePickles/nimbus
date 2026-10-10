@@ -1,0 +1,185 @@
+{
+  "findings": [
+    {
+      "id": "6f1c7d0f9a3e4b5c8d2e1f0a9b8c7d6e",
+      "source": "prowler",
+      "check_id": "s3_bucket_public_access",
+      "canonical_id": "S3_PUBLIC_BUCKET",
+      "title": "S3 bucket allows public access",
+      "description": "Bucket pii-exports grants s3:GetObject to Principal \"*\".",
+      "severity": "HIGH",
+      "status": "FAIL",
+      "provider": "aws",
+      "account": "123456789012",
+      "region": "us-east-1",
+      "resource": {
+        "id": "arn:aws:s3:::pii-exports",
+        "type": "aws_s3_bucket",
+        "name": "pii-exports",
+        "attributes": {
+          "public": true,
+          "versioning": false
+        },
+        "related": [
+          "arn:aws:kms:us-east-1:123456789012:key/1111",
+          "arn:aws:iam::123456789012:role/exporter"
+        ],
+        "relations": [
+          {
+            "id": "arn:aws:iam::123456789012:role/exporter",
+            "kind": "grants_access_to",
+            "attr": {
+              "actions": "s3:GetObject",
+              "because": "bucket policy statement 1"
+            }
+          }
+        ]
+      },
+      "remediation": "Enable S3 Block Public Access on the bucket and account.",
+      "weaknesses": [
+        "PUBLIC_DATA_STORE"
+      ],
+      "compliance": {
+        "cis_aws": [
+          "2.1.4"
+        ],
+        "nist_800_53": [
+          "AC-3",
+          "AC-6",
+          "SC-7"
+        ],
+        "soc2": [
+          "CC6.1",
+          "CC6.6",
+          "C1.1"
+        ]
+      },
+      "tags": {
+        "account_label": "aws-prod",
+        "service": "s3"
+      },
+      "scan_id": "scan-2026-10-09T12:00:00Z",
+      "first_seen": "2026-10-01T08:30:00Z",
+      "last_seen": "2026-10-09T12:00:00Z"
+    },
+    {
+      "id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "source": "checkov",
+      "check_id": "CKV_AWS_24",
+      "canonical_id": "SG_OPEN_ADMIN_PORT",
+      "title": "Security group allows SSH/RDP from 0.0.0.0/0",
+      "description": "Ingress 0.0.0.0/0 on port 22 \u0026 3389 \u003cadmin\u003e.",
+      "severity": "CRITICAL",
+      "status": "FAIL",
+      "provider": "aws",
+      "account": "",
+      "resource": {
+        "id": "aws_security_group.bastion",
+        "type": "aws_security_group",
+        "name": "aws_security_group.bastion"
+      },
+      "file": "infra/network.tf",
+      "line_start": 12,
+      "line_end": 30,
+      "remediation": "Restrict ingress to 203.0.113.0/24.",
+      "weaknesses": [
+        "PUBLIC_NETWORK_EXPOSURE"
+      ],
+      "compliance": {
+        "cis_aws": [
+          "5.2"
+        ]
+      },
+      "first_seen": "2026-10-09T12:00:00Z",
+      "last_seen": "2026-10-09T12:00:00Z"
+    },
+    {
+      "id": "11112222333344445555666677778888",
+      "source": "trivy",
+      "check_id": "CVE-2024-3094",
+      "canonical_id": "CVE_VULNERABILITY",
+      "title": "xz-utils backdoor (CVE-2024-3094)",
+      "severity": "CRITICAL",
+      "status": "FAIL",
+      "provider": "kubernetes",
+      "account": "prod-cluster",
+      "resource": {
+        "id": "payments/deployment/api",
+        "type": "kubernetes_deployment",
+        "name": "payments/api"
+      },
+      "weaknesses": [
+        "UNPATCHED"
+      ],
+      "tags": {
+        "cvss": "10.0",
+        "pkg": "xz-utils",
+        "primary_url": "https://avd.aquasec.com/nvd/cve-2024-3094"
+      },
+      "first_seen": "2026-10-09T12:00:00Z",
+      "last_seen": "2026-10-09T12:00:00Z"
+    },
+    {
+      "id": "99990000aaaabbbbccccddddeeeeffff",
+      "source": "prowler",
+      "check_id": "kms_cmk_rotation_enabled",
+      "canonical_id": "KMS_ROTATION_DISABLED",
+      "title": "KMS key rotation disabled",
+      "severity": "MEDIUM",
+      "status": "PASS",
+      "provider": "aws",
+      "account": "123456789012",
+      "region": "eu-west-1",
+      "resource": {
+        "id": "arn:aws:kms:eu-west-1:123456789012:key/2222",
+        "type": "aws_kms_key",
+        "name": "2222"
+      },
+      "first_seen": "2026-10-09T12:00:00Z",
+      "last_seen": "2026-10-09T12:00:00Z"
+    },
+    {
+      "id": "abababababababababababababababab",
+      "source": "steampipe",
+      "check_id": "storage_account_secure_transfer_required_enabled",
+      "canonical_id": "AZ_STORAGE_HTTP",
+      "title": "Storage account allows HTTP",
+      "severity": "LOW",
+      "status": "SKIP",
+      "provider": "azure",
+      "account": "00000000-1111-2222-3333-444444444444",
+      "region": "westeurope",
+      "resource": {
+        "id": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/st1",
+        "type": "azurerm_storage_account",
+        "name": "st1"
+      },
+      "first_seen": "2026-10-09T12:00:00Z",
+      "last_seen": "2026-10-09T12:00:00Z"
+    },
+    {
+      "id": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "source": "cloud-posture",
+      "check_id": "IAC_PARSE_LIMIT",
+      "canonical_id": "IAC_PARSE_LIMIT",
+      "title": "IaC file not scanned",
+      "description": "syntax: infra/broken.tf:3,1-2: Argument or block definition required",
+      "severity": "HIGH",
+      "status": "ERROR",
+      "provider": "iac",
+      "account": "",
+      "resource": {
+        "id": "infra/broken.tf",
+        "type": "file",
+        "name": "infra/broken.tf"
+      },
+      "file": "infra/broken.tf",
+      "tags": {
+        "scan_gap": "syntax"
+      },
+      "first_seen": "2026-10-09T12:00:00Z",
+      "last_seen": "2026-10-09T12:00:00Z"
+    }
+  ],
+  "spec_version": "1.0.0"
+}

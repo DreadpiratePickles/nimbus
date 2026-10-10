@@ -66,7 +66,7 @@ func (s *Sentinel) Deliver(ctx context.Context, f model.Finding, paths []model.A
 		return "", err
 	}
 	endpoint := firstNonEmpty(s.Endpoint, "https://"+s.WorkspaceID+".ods.opinsights.azure.com")
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(endpoint, "/")+"/api/logs?api-version=2016-04-01", bytes.NewReader(body))
+	req, err := newRequest(ctx, http.MethodPost, strings.TrimRight(endpoint, "/")+"/api/logs?api-version=2016-04-01", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}

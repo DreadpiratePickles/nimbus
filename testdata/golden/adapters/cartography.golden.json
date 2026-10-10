@@ -1,0 +1,1608 @@
+[
+  {
+    "fixture": "cartography/apoc-export.json",
+    "count": 17,
+    "findings": [
+      {
+        "id": "72302d9c0b5cd136420101cc482cfe62",
+        "source": "cartography",
+        "check_id": "inventory:AWSAccount",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSAccount",
+        "title": "Inventory: AWSAccount synthetic-prod",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "resource": {
+          "id": "aws:account:123456789012",
+          "type": "aws_account",
+          "name": "synthetic-prod",
+          "attributes": {
+            "cartography_labels": [
+              "AWSAccount"
+            ],
+            "cartography_node_id": "0",
+            "id": "123456789012",
+            "inscope": true,
+            "lastupdated": 1768383600,
+            "name": "synthetic-prod"
+          },
+          "related": [
+            "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+            "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123456789abcdef0",
+            "arn:aws:iam::123456789012:role/web-app-role",
+            "arn:aws:iam::123456789012:user/alice",
+            "arn:aws:iam::123456789012:group/developers",
+            "arn:aws:iam::123456789012:policy/web-app-s3-read",
+            "arn:aws:s3:::synthetic-assets-bucket",
+            "arn:aws:lambda:us-east-1:123456789012:function:thumbnailer",
+            "arn:aws:rds:us-east-1:123456789012:db:orders-db",
+            "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/synthetic-alb/0123456789abcdef"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123456789abcdef0",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:role/web-app-role",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:user/alice",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:group/developers",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:policy/web-app-s3-read",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:s3:::synthetic-assets-bucket",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:lambda:us-east-1:123456789012:function:thumbnailer",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:rds:us-east-1:123456789012:db:orders-db",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/synthetic-alb/0123456789abcdef",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "AWSAccount"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "38de60a8c779ab2dc93979c9af55b302",
+        "source": "cartography",
+        "check_id": "inventory:EC2Instance",
+        "canonical_id": "CARTOGRAPHY:inventory:EC2Instance",
+        "title": "Inventory: EC2Instance i-0a1b2c3d4e5f60001",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+          "type": "aws_instance",
+          "name": "i-0a1b2c3d4e5f60001",
+          "attributes": {
+            "cartography_labels": [
+              "EC2Instance"
+            ],
+            "cartography_node_id": "1",
+            "cartography_unmapped_relationships": {
+              "TAGGED": 1
+            },
+            "exposed_internet": true,
+            "exposed_internet_type": [
+              "direct"
+            ],
+            "id": "i-0a1b2c3d4e5f60001",
+            "instanceid": "i-0a1b2c3d4e5f60001",
+            "instancetype": "t3.micro",
+            "lastupdated": 1768383600,
+            "privateipaddress": "10.0.1.15",
+            "publicipaddress": "203.0.113.10",
+            "region": "us-east-1",
+            "state": "running"
+          },
+          "related": [
+            "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123456789abcdef0",
+            "arn:aws:iam::123456789012:role/web-app-role",
+            "internet"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123456789abcdef0",
+              "kind": "attached_to",
+              "attr": {
+                "cartography_rel": "MEMBER_OF_EC2_SECURITY_GROUP"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:role/web-app-role",
+              "kind": "runs_as",
+              "attr": {
+                "cartography_rel": "STS_ASSUMEROLE_ALLOW"
+              }
+            },
+            {
+              "id": "internet",
+              "kind": "exposed_to_internet",
+              "attr": {
+                "cartography_property": "exposed_internet"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "EC2Instance"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "a05b7ee2a6f96b173add69b18bae70d7",
+        "source": "cartography",
+        "check_id": "ec2_instance_public_ip",
+        "canonical_id": "EC2_PUBLIC_IP",
+        "title": "EC2 instance is exposed to the internet",
+        "description": "Cartography marks this EC2 instance exposed_internet=true (reachable from 0.0.0.0/0 through its security groups and a public address or internet-facing load balancer). Exposure type: direct.",
+        "severity": "MEDIUM",
+        "status": "FAIL",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+          "type": "aws_instance",
+          "name": "i-0a1b2c3d4e5f60001",
+          "attributes": {
+            "cartography_labels": [
+              "EC2Instance"
+            ],
+            "cartography_node_id": "1",
+            "exposed_internet": true,
+            "exposed_internet_type": [
+              "direct"
+            ],
+            "id": "i-0a1b2c3d4e5f60001",
+            "instanceid": "i-0a1b2c3d4e5f60001",
+            "instancetype": "t3.micro",
+            "lastupdated": 1768383600,
+            "privateipaddress": "10.0.1.15",
+            "publicipaddress": "203.0.113.10",
+            "region": "us-east-1",
+            "state": "running"
+          }
+        },
+        "weaknesses": [
+          "PUBLIC_NETWORK_EXPOSURE"
+        ],
+        "compliance": {
+          "iso_27001": [
+            "A.8.20"
+          ],
+          "nist_800_53": [
+            "SC-7"
+          ],
+          "pci_dss": [
+            "1.3.2"
+          ],
+          "soc2": [
+            "CC6.6"
+          ]
+        },
+        "tags": {
+          "cartography_label": "EC2Instance",
+          "derived_from": "exposed_internet"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "fff987a4cfa405edf2488cfb15912bdc",
+        "source": "cartography",
+        "check_id": "inventory:EC2SecurityGroup",
+        "canonical_id": "CARTOGRAPHY:inventory:EC2SecurityGroup",
+        "title": "Inventory: EC2SecurityGroup web-sg",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123456789abcdef0",
+          "type": "aws_security_group",
+          "name": "web-sg",
+          "attributes": {
+            "cartography_labels": [
+              "EC2SecurityGroup"
+            ],
+            "cartography_node_id": "2",
+            "groupid": "sg-0123456789abcdef0",
+            "id": "sg-0123456789abcdef0",
+            "lastupdated": 1768383600,
+            "name": "web-sg",
+            "region": "us-east-1"
+          }
+        },
+        "tags": {
+          "cartography_label": "EC2SecurityGroup"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "282cdb100d53af712bb7f4d16d78a695",
+        "source": "cartography",
+        "check_id": "inventory:AWSRole",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSRole",
+        "title": "Inventory: AWSRole web-app-role",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "resource": {
+          "id": "arn:aws:iam::123456789012:role/web-app-role",
+          "type": "aws_iam_role",
+          "name": "web-app-role",
+          "attributes": {
+            "arn": "arn:aws:iam::123456789012:role/web-app-role",
+            "cartography_labels": [
+              "AWSPrincipal",
+              "AWSRole"
+            ],
+            "cartography_node_id": "3",
+            "lastupdated": 1768383600,
+            "name": "web-app-role",
+            "path": "/",
+            "roleid": "AROAEXAMPLEROLEID0001"
+          },
+          "related": [
+            "arn:aws:iam::210987654321:root",
+            "arn:aws:iam::123456789012:policy/web-app-s3-read"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:iam::210987654321:root",
+              "kind": "trusts",
+              "attr": {
+                "cartography_rel": "TRUSTS_AWS_PRINCIPAL"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:policy/web-app-s3-read",
+              "kind": "has_policy",
+              "attr": {
+                "cartography_rel": "POLICY"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "AWSRole"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "d033c01adc3d90623ba425318930aa81",
+        "source": "cartography",
+        "check_id": "inventory:AWSUser",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSUser",
+        "title": "Inventory: AWSUser alice",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "resource": {
+          "id": "arn:aws:iam::123456789012:user/alice",
+          "type": "aws_iam_user",
+          "name": "alice",
+          "attributes": {
+            "arn": "arn:aws:iam::123456789012:user/alice",
+            "cartography_labels": [
+              "AWSPrincipal",
+              "AWSUser"
+            ],
+            "cartography_node_id": "4",
+            "lastupdated": 1768383600,
+            "name": "alice",
+            "userid": "AIDAEXAMPLEUSERID0001"
+          },
+          "related": [
+            "arn:aws:iam::123456789012:role/web-app-role",
+            "arn:aws:iam::123456789012:group/developers"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:iam::123456789012:role/web-app-role",
+              "kind": "can_assume",
+              "attr": {
+                "cartography_rel": "STS_ASSUMEROLE_ALLOW"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:group/developers",
+              "kind": "member_of",
+              "attr": {
+                "cartography_rel": "MEMBER_AWS_GROUP"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "AWSUser"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "0437c20867ff58cfef97f9fce2f54e40",
+        "source": "cartography",
+        "check_id": "inventory:AWSGroup",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSGroup",
+        "title": "Inventory: AWSGroup developers",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "resource": {
+          "id": "arn:aws:iam::123456789012:group/developers",
+          "type": "aws_iam_group",
+          "name": "developers",
+          "attributes": {
+            "arn": "arn:aws:iam::123456789012:group/developers",
+            "cartography_labels": [
+              "AWSPrincipal",
+              "AWSGroup"
+            ],
+            "cartography_node_id": "5",
+            "lastupdated": 1768383600,
+            "name": "developers"
+          }
+        },
+        "tags": {
+          "cartography_label": "AWSGroup"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "643d8c538fd17c98c52becc0f0b705a6",
+        "source": "cartography",
+        "check_id": "inventory:AWSPolicy",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSPolicy",
+        "title": "Inventory: AWSPolicy web-app-s3-read",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "resource": {
+          "id": "arn:aws:iam::123456789012:policy/web-app-s3-read",
+          "type": "aws_iam_policy",
+          "name": "web-app-s3-read",
+          "attributes": {
+            "arn": "arn:aws:iam::123456789012:policy/web-app-s3-read",
+            "cartography_labels": [
+              "AWSPolicy"
+            ],
+            "cartography_node_id": "6",
+            "id": "arn:aws:iam::123456789012:policy/web-app-s3-read",
+            "lastupdated": 1768383600,
+            "name": "web-app-s3-read",
+            "type": "managed"
+          }
+        },
+        "tags": {
+          "cartography_label": "AWSPolicy"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "944790b0ad06aaba241b38fc9bfec5f8",
+        "source": "cartography",
+        "check_id": "inventory:S3Bucket",
+        "canonical_id": "CARTOGRAPHY:inventory:S3Bucket",
+        "title": "Inventory: S3Bucket synthetic-assets-bucket",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:s3:::synthetic-assets-bucket",
+          "type": "aws_s3_bucket",
+          "name": "synthetic-assets-bucket",
+          "attributes": {
+            "anonymous_access": false,
+            "arn": "arn:aws:s3:::synthetic-assets-bucket",
+            "cartography_labels": [
+              "S3Bucket"
+            ],
+            "cartography_node_id": "7",
+            "id": "synthetic-assets-bucket",
+            "lastupdated": 1768383600,
+            "name": "synthetic-assets-bucket",
+            "region": "us-east-1"
+          }
+        },
+        "tags": {
+          "cartography_label": "S3Bucket"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "e7be5c1d2857802e36904feafc4d9641",
+        "source": "cartography",
+        "check_id": "inventory:AWSLambda",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSLambda",
+        "title": "Inventory: AWSLambda thumbnailer",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:lambda:us-east-1:123456789012:function:thumbnailer",
+          "type": "aws_lambda_function",
+          "name": "thumbnailer",
+          "attributes": {
+            "arn": "arn:aws:lambda:us-east-1:123456789012:function:thumbnailer",
+            "cartography_labels": [
+              "AWSLambda"
+            ],
+            "cartography_node_id": "8",
+            "id": "arn:aws:lambda:us-east-1:123456789012:function:thumbnailer",
+            "lastupdated": 1768383600,
+            "name": "thumbnailer",
+            "region": "us-east-1",
+            "runtime": "python3.12"
+          },
+          "related": [
+            "arn:aws:iam::123456789012:role/web-app-role"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:iam::123456789012:role/web-app-role",
+              "kind": "runs_as",
+              "attr": {
+                "cartography_rel": "STS_ASSUMEROLE_ALLOW"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "AWSLambda"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "e27fa0c86c98792671a3180af6839cea",
+        "source": "cartography",
+        "check_id": "inventory:RDSInstance",
+        "canonical_id": "CARTOGRAPHY:inventory:RDSInstance",
+        "title": "Inventory: RDSInstance orders-db",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:rds:us-east-1:123456789012:db:orders-db",
+          "type": "aws_db_instance",
+          "name": "orders-db",
+          "attributes": {
+            "arn": "arn:aws:rds:us-east-1:123456789012:db:orders-db",
+            "cartography_labels": [
+              "RDSInstance"
+            ],
+            "cartography_node_id": "9",
+            "db_instance_identifier": "orders-db",
+            "engine": "postgres",
+            "id": "arn:aws:rds:us-east-1:123456789012:db:orders-db",
+            "lastupdated": 1768383600,
+            "publicly_accessible": false,
+            "region": "us-east-1"
+          }
+        },
+        "tags": {
+          "cartography_label": "RDSInstance"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "14215a1c7d39e2c21eb9108a118b57ff",
+        "source": "cartography",
+        "check_id": "inventory:LoadBalancerV2",
+        "canonical_id": "CARTOGRAPHY:inventory:LoadBalancerV2",
+        "title": "Inventory: LoadBalancerV2 synthetic-alb",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/synthetic-alb/0123456789abcdef",
+          "type": "aws_lb",
+          "name": "synthetic-alb",
+          "attributes": {
+            "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/synthetic-alb/0123456789abcdef",
+            "cartography_labels": [
+              "LoadBalancerV2"
+            ],
+            "cartography_node_id": "10",
+            "exposed_internet": true,
+            "id": "synthetic-alb-1234567890.us-east-1.elb.amazonaws.com",
+            "lastupdated": 1768383600,
+            "name": "synthetic-alb",
+            "region": "us-east-1",
+            "scheme": "internet-facing"
+          },
+          "related": [
+            "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+            "internet"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+              "kind": "allows_traffic_to",
+              "attr": {
+                "cartography_rel": "EXPOSE"
+              }
+            },
+            {
+              "id": "internet",
+              "kind": "exposed_to_internet",
+              "attr": {
+                "cartography_property": "exposed_internet"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "LoadBalancerV2"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "1a0baf6829b93b04e1d70e3a5bb75bce",
+        "source": "cartography",
+        "check_id": "inventory:AWSPrincipal",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSPrincipal",
+        "title": "Inventory: AWSPrincipal arn:aws:iam::210987654321:root",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "210987654321",
+        "resource": {
+          "id": "arn:aws:iam::210987654321:root",
+          "type": "aws_iam_principal",
+          "name": "arn:aws:iam::210987654321:root",
+          "attributes": {
+            "arn": "arn:aws:iam::210987654321:root",
+            "cartography_labels": [
+              "AWSPrincipal"
+            ],
+            "cartography_node_id": "11",
+            "lastupdated": 1768383600,
+            "type": "AWS"
+          }
+        },
+        "tags": {
+          "cartography_label": "AWSPrincipal"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "781c29b7bc1fb00e099933abccd28b40",
+        "source": "cartography",
+        "check_id": "inventory:AWSTag",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSTag",
+        "title": "Inventory: AWSTag Environment:prod",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "",
+        "region": "us-east-1",
+        "resource": {
+          "id": "Environment:prod",
+          "type": "cartography:AWSTag",
+          "name": "Environment:prod",
+          "attributes": {
+            "cartography_labels": [
+              "AWSTag"
+            ],
+            "cartography_node_id": "12",
+            "id": "Environment:prod",
+            "key": "Environment",
+            "lastupdated": 1768383600,
+            "region": "us-east-1",
+            "value": "prod"
+          }
+        },
+        "tags": {
+          "cartography_label": "AWSTag"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "f36620c35d60adbffea7e3f2c70b7c7c",
+        "source": "cartography",
+        "check_id": "inventory:KubernetesCluster",
+        "canonical_id": "CARTOGRAPHY:inventory:KubernetesCluster",
+        "title": "Inventory: KubernetesCluster synthetic-eks",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "arn:aws:eks:us-east-1:123456789012:cluster/synthetic-eks",
+          "type": "k8s_cluster",
+          "name": "synthetic-eks",
+          "attributes": {
+            "cartography_labels": [
+              "KubernetesCluster"
+            ],
+            "cartography_node_id": "13",
+            "id": "arn:aws:eks:us-east-1:123456789012:cluster/synthetic-eks",
+            "lastupdated": 1768383600,
+            "name": "synthetic-eks",
+            "version": "1.29"
+          },
+          "related": [
+            "namespace/shop"
+          ],
+          "relations": [
+            {
+              "id": "namespace/shop",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "KubernetesCluster"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "2b8e3658e9073eaf3ccff1f66351b6c6",
+        "source": "cartography",
+        "check_id": "inventory:KubernetesNamespace",
+        "canonical_id": "CARTOGRAPHY:inventory:KubernetesNamespace",
+        "title": "Inventory: KubernetesNamespace shop",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "namespace/shop",
+          "type": "k8s_namespace",
+          "name": "shop",
+          "attributes": {
+            "cartography_labels": [
+              "KubernetesNamespace"
+            ],
+            "cartography_node_id": "14",
+            "cluster_name": "synthetic-eks",
+            "id": "00000000-0000-4000-8000-0000000000a1",
+            "lastupdated": 1768383600,
+            "name": "shop"
+          },
+          "related": [
+            "shop/pod/storefront-6d4cf56db6-x7k2p"
+          ],
+          "relations": [
+            {
+              "id": "shop/pod/storefront-6d4cf56db6-x7k2p",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "CONTAINS"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "KubernetesNamespace"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "75e59a9e22745a9c87c0b527f38b1042",
+        "source": "cartography",
+        "check_id": "inventory:KubernetesPod",
+        "canonical_id": "CARTOGRAPHY:inventory:KubernetesPod",
+        "title": "Inventory: KubernetesPod storefront-6d4cf56db6-x7k2p",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "shop/pod/storefront-6d4cf56db6-x7k2p",
+          "type": "k8s_pod",
+          "name": "storefront-6d4cf56db6-x7k2p",
+          "attributes": {
+            "cartography_labels": [
+              "KubernetesPod"
+            ],
+            "cartography_node_id": "15",
+            "cluster_name": "synthetic-eks",
+            "id": "00000000-0000-4000-8000-0000000000b1",
+            "lastupdated": 1768383600,
+            "name": "storefront-6d4cf56db6-x7k2p",
+            "namespace": "shop"
+          }
+        },
+        "tags": {
+          "cartography_label": "KubernetesPod"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      }
+    ]
+  },
+  {
+    "fixture": "cartography/graph.json",
+    "count": 17,
+    "findings": [
+      {
+        "id": "72302d9c0b5cd136420101cc482cfe62",
+        "source": "cartography",
+        "check_id": "inventory:AWSAccount",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSAccount",
+        "title": "Inventory: AWSAccount synthetic-prod",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "resource": {
+          "id": "aws:account:123456789012",
+          "type": "aws_account",
+          "name": "synthetic-prod",
+          "attributes": {
+            "cartography_labels": [
+              "AWSAccount"
+            ],
+            "cartography_node_id": "0",
+            "id": "123456789012",
+            "inscope": true,
+            "lastupdated": 1768383600,
+            "name": "synthetic-prod"
+          },
+          "related": [
+            "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+            "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123456789abcdef0",
+            "arn:aws:iam::123456789012:role/web-app-role",
+            "arn:aws:iam::123456789012:user/alice",
+            "arn:aws:iam::123456789012:group/developers",
+            "arn:aws:iam::123456789012:policy/web-app-s3-read",
+            "arn:aws:s3:::synthetic-assets-bucket",
+            "arn:aws:lambda:us-east-1:123456789012:function:thumbnailer",
+            "arn:aws:rds:us-east-1:123456789012:db:orders-db",
+            "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/synthetic-alb/0123456789abcdef"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123456789abcdef0",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:role/web-app-role",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:user/alice",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:group/developers",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:policy/web-app-s3-read",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:s3:::synthetic-assets-bucket",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:lambda:us-east-1:123456789012:function:thumbnailer",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:rds:us-east-1:123456789012:db:orders-db",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            },
+            {
+              "id": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/synthetic-alb/0123456789abcdef",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "AWSAccount"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "38de60a8c779ab2dc93979c9af55b302",
+        "source": "cartography",
+        "check_id": "inventory:EC2Instance",
+        "canonical_id": "CARTOGRAPHY:inventory:EC2Instance",
+        "title": "Inventory: EC2Instance i-0a1b2c3d4e5f60001",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+          "type": "aws_instance",
+          "name": "i-0a1b2c3d4e5f60001",
+          "attributes": {
+            "cartography_labels": [
+              "EC2Instance"
+            ],
+            "cartography_node_id": "1",
+            "cartography_unmapped_relationships": {
+              "TAGGED": 1
+            },
+            "exposed_internet": true,
+            "exposed_internet_type": [
+              "direct"
+            ],
+            "id": "i-0a1b2c3d4e5f60001",
+            "instanceid": "i-0a1b2c3d4e5f60001",
+            "instancetype": "t3.micro",
+            "lastupdated": 1768383600,
+            "privateipaddress": "10.0.1.15",
+            "publicipaddress": "203.0.113.10",
+            "region": "us-east-1",
+            "state": "running"
+          },
+          "related": [
+            "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123456789abcdef0",
+            "arn:aws:iam::123456789012:role/web-app-role",
+            "internet"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123456789abcdef0",
+              "kind": "attached_to",
+              "attr": {
+                "cartography_rel": "MEMBER_OF_EC2_SECURITY_GROUP"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:role/web-app-role",
+              "kind": "runs_as",
+              "attr": {
+                "cartography_rel": "STS_ASSUMEROLE_ALLOW"
+              }
+            },
+            {
+              "id": "internet",
+              "kind": "exposed_to_internet",
+              "attr": {
+                "cartography_property": "exposed_internet"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "EC2Instance"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "a05b7ee2a6f96b173add69b18bae70d7",
+        "source": "cartography",
+        "check_id": "ec2_instance_public_ip",
+        "canonical_id": "EC2_PUBLIC_IP",
+        "title": "EC2 instance is exposed to the internet",
+        "description": "Cartography marks this EC2 instance exposed_internet=true (reachable from 0.0.0.0/0 through its security groups and a public address or internet-facing load balancer). Exposure type: direct.",
+        "severity": "MEDIUM",
+        "status": "FAIL",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+          "type": "aws_instance",
+          "name": "i-0a1b2c3d4e5f60001",
+          "attributes": {
+            "cartography_labels": [
+              "EC2Instance"
+            ],
+            "cartography_node_id": "1",
+            "exposed_internet": true,
+            "exposed_internet_type": [
+              "direct"
+            ],
+            "id": "i-0a1b2c3d4e5f60001",
+            "instanceid": "i-0a1b2c3d4e5f60001",
+            "instancetype": "t3.micro",
+            "lastupdated": 1768383600,
+            "privateipaddress": "10.0.1.15",
+            "publicipaddress": "203.0.113.10",
+            "region": "us-east-1",
+            "state": "running"
+          }
+        },
+        "weaknesses": [
+          "PUBLIC_NETWORK_EXPOSURE"
+        ],
+        "compliance": {
+          "iso_27001": [
+            "A.8.20"
+          ],
+          "nist_800_53": [
+            "SC-7"
+          ],
+          "pci_dss": [
+            "1.3.2"
+          ],
+          "soc2": [
+            "CC6.6"
+          ]
+        },
+        "tags": {
+          "cartography_label": "EC2Instance",
+          "derived_from": "exposed_internet"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "fff987a4cfa405edf2488cfb15912bdc",
+        "source": "cartography",
+        "check_id": "inventory:EC2SecurityGroup",
+        "canonical_id": "CARTOGRAPHY:inventory:EC2SecurityGroup",
+        "title": "Inventory: EC2SecurityGroup web-sg",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0123456789abcdef0",
+          "type": "aws_security_group",
+          "name": "web-sg",
+          "attributes": {
+            "cartography_labels": [
+              "EC2SecurityGroup"
+            ],
+            "cartography_node_id": "2",
+            "groupid": "sg-0123456789abcdef0",
+            "id": "sg-0123456789abcdef0",
+            "lastupdated": 1768383600,
+            "name": "web-sg",
+            "region": "us-east-1"
+          }
+        },
+        "tags": {
+          "cartography_label": "EC2SecurityGroup"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "282cdb100d53af712bb7f4d16d78a695",
+        "source": "cartography",
+        "check_id": "inventory:AWSRole",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSRole",
+        "title": "Inventory: AWSRole web-app-role",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "resource": {
+          "id": "arn:aws:iam::123456789012:role/web-app-role",
+          "type": "aws_iam_role",
+          "name": "web-app-role",
+          "attributes": {
+            "arn": "arn:aws:iam::123456789012:role/web-app-role",
+            "cartography_labels": [
+              "AWSPrincipal",
+              "AWSRole"
+            ],
+            "cartography_node_id": "3",
+            "lastupdated": 1768383600,
+            "name": "web-app-role",
+            "path": "/",
+            "roleid": "AROAEXAMPLEROLEID0001"
+          },
+          "related": [
+            "arn:aws:iam::210987654321:root",
+            "arn:aws:iam::123456789012:policy/web-app-s3-read"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:iam::210987654321:root",
+              "kind": "trusts",
+              "attr": {
+                "cartography_rel": "TRUSTS_AWS_PRINCIPAL"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:policy/web-app-s3-read",
+              "kind": "has_policy",
+              "attr": {
+                "cartography_rel": "POLICY"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "AWSRole"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "d033c01adc3d90623ba425318930aa81",
+        "source": "cartography",
+        "check_id": "inventory:AWSUser",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSUser",
+        "title": "Inventory: AWSUser alice",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "resource": {
+          "id": "arn:aws:iam::123456789012:user/alice",
+          "type": "aws_iam_user",
+          "name": "alice",
+          "attributes": {
+            "arn": "arn:aws:iam::123456789012:user/alice",
+            "cartography_labels": [
+              "AWSPrincipal",
+              "AWSUser"
+            ],
+            "cartography_node_id": "4",
+            "lastupdated": 1768383600,
+            "name": "alice",
+            "userid": "AIDAEXAMPLEUSERID0001"
+          },
+          "related": [
+            "arn:aws:iam::123456789012:role/web-app-role",
+            "arn:aws:iam::123456789012:group/developers"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:iam::123456789012:role/web-app-role",
+              "kind": "can_assume",
+              "attr": {
+                "cartography_rel": "STS_ASSUMEROLE_ALLOW"
+              }
+            },
+            {
+              "id": "arn:aws:iam::123456789012:group/developers",
+              "kind": "member_of",
+              "attr": {
+                "cartography_rel": "MEMBER_AWS_GROUP"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "AWSUser"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "0437c20867ff58cfef97f9fce2f54e40",
+        "source": "cartography",
+        "check_id": "inventory:AWSGroup",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSGroup",
+        "title": "Inventory: AWSGroup developers",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "resource": {
+          "id": "arn:aws:iam::123456789012:group/developers",
+          "type": "aws_iam_group",
+          "name": "developers",
+          "attributes": {
+            "arn": "arn:aws:iam::123456789012:group/developers",
+            "cartography_labels": [
+              "AWSPrincipal",
+              "AWSGroup"
+            ],
+            "cartography_node_id": "5",
+            "lastupdated": 1768383600,
+            "name": "developers"
+          }
+        },
+        "tags": {
+          "cartography_label": "AWSGroup"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "643d8c538fd17c98c52becc0f0b705a6",
+        "source": "cartography",
+        "check_id": "inventory:AWSPolicy",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSPolicy",
+        "title": "Inventory: AWSPolicy web-app-s3-read",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "resource": {
+          "id": "arn:aws:iam::123456789012:policy/web-app-s3-read",
+          "type": "aws_iam_policy",
+          "name": "web-app-s3-read",
+          "attributes": {
+            "arn": "arn:aws:iam::123456789012:policy/web-app-s3-read",
+            "cartography_labels": [
+              "AWSPolicy"
+            ],
+            "cartography_node_id": "6",
+            "id": "arn:aws:iam::123456789012:policy/web-app-s3-read",
+            "lastupdated": 1768383600,
+            "name": "web-app-s3-read",
+            "type": "managed"
+          }
+        },
+        "tags": {
+          "cartography_label": "AWSPolicy"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "944790b0ad06aaba241b38fc9bfec5f8",
+        "source": "cartography",
+        "check_id": "inventory:S3Bucket",
+        "canonical_id": "CARTOGRAPHY:inventory:S3Bucket",
+        "title": "Inventory: S3Bucket synthetic-assets-bucket",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:s3:::synthetic-assets-bucket",
+          "type": "aws_s3_bucket",
+          "name": "synthetic-assets-bucket",
+          "attributes": {
+            "anonymous_access": false,
+            "arn": "arn:aws:s3:::synthetic-assets-bucket",
+            "cartography_labels": [
+              "S3Bucket"
+            ],
+            "cartography_node_id": "7",
+            "id": "synthetic-assets-bucket",
+            "lastupdated": 1768383600,
+            "name": "synthetic-assets-bucket",
+            "region": "us-east-1"
+          }
+        },
+        "tags": {
+          "cartography_label": "S3Bucket"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "e7be5c1d2857802e36904feafc4d9641",
+        "source": "cartography",
+        "check_id": "inventory:AWSLambda",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSLambda",
+        "title": "Inventory: AWSLambda thumbnailer",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:lambda:us-east-1:123456789012:function:thumbnailer",
+          "type": "aws_lambda_function",
+          "name": "thumbnailer",
+          "attributes": {
+            "arn": "arn:aws:lambda:us-east-1:123456789012:function:thumbnailer",
+            "cartography_labels": [
+              "AWSLambda"
+            ],
+            "cartography_node_id": "8",
+            "id": "arn:aws:lambda:us-east-1:123456789012:function:thumbnailer",
+            "lastupdated": 1768383600,
+            "name": "thumbnailer",
+            "region": "us-east-1",
+            "runtime": "python3.12"
+          },
+          "related": [
+            "arn:aws:iam::123456789012:role/web-app-role"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:iam::123456789012:role/web-app-role",
+              "kind": "runs_as",
+              "attr": {
+                "cartography_rel": "STS_ASSUMEROLE_ALLOW"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "AWSLambda"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "e27fa0c86c98792671a3180af6839cea",
+        "source": "cartography",
+        "check_id": "inventory:RDSInstance",
+        "canonical_id": "CARTOGRAPHY:inventory:RDSInstance",
+        "title": "Inventory: RDSInstance orders-db",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:rds:us-east-1:123456789012:db:orders-db",
+          "type": "aws_db_instance",
+          "name": "orders-db",
+          "attributes": {
+            "arn": "arn:aws:rds:us-east-1:123456789012:db:orders-db",
+            "cartography_labels": [
+              "RDSInstance"
+            ],
+            "cartography_node_id": "9",
+            "db_instance_identifier": "orders-db",
+            "engine": "postgres",
+            "id": "arn:aws:rds:us-east-1:123456789012:db:orders-db",
+            "lastupdated": 1768383600,
+            "publicly_accessible": false,
+            "region": "us-east-1"
+          }
+        },
+        "tags": {
+          "cartography_label": "RDSInstance"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "14215a1c7d39e2c21eb9108a118b57ff",
+        "source": "cartography",
+        "check_id": "inventory:LoadBalancerV2",
+        "canonical_id": "CARTOGRAPHY:inventory:LoadBalancerV2",
+        "title": "Inventory: LoadBalancerV2 synthetic-alb",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "123456789012",
+        "region": "us-east-1",
+        "resource": {
+          "id": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/synthetic-alb/0123456789abcdef",
+          "type": "aws_lb",
+          "name": "synthetic-alb",
+          "attributes": {
+            "arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/synthetic-alb/0123456789abcdef",
+            "cartography_labels": [
+              "LoadBalancerV2"
+            ],
+            "cartography_node_id": "10",
+            "exposed_internet": true,
+            "id": "synthetic-alb-1234567890.us-east-1.elb.amazonaws.com",
+            "lastupdated": 1768383600,
+            "name": "synthetic-alb",
+            "region": "us-east-1",
+            "scheme": "internet-facing"
+          },
+          "related": [
+            "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+            "internet"
+          ],
+          "relations": [
+            {
+              "id": "arn:aws:ec2:us-east-1:123456789012:instance/i-0a1b2c3d4e5f60001",
+              "kind": "allows_traffic_to",
+              "attr": {
+                "cartography_rel": "EXPOSE"
+              }
+            },
+            {
+              "id": "internet",
+              "kind": "exposed_to_internet",
+              "attr": {
+                "cartography_property": "exposed_internet"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "LoadBalancerV2"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "1a0baf6829b93b04e1d70e3a5bb75bce",
+        "source": "cartography",
+        "check_id": "inventory:AWSPrincipal",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSPrincipal",
+        "title": "Inventory: AWSPrincipal arn:aws:iam::210987654321:root",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "210987654321",
+        "resource": {
+          "id": "arn:aws:iam::210987654321:root",
+          "type": "aws_iam_principal",
+          "name": "arn:aws:iam::210987654321:root",
+          "attributes": {
+            "arn": "arn:aws:iam::210987654321:root",
+            "cartography_labels": [
+              "AWSPrincipal"
+            ],
+            "cartography_node_id": "11",
+            "lastupdated": 1768383600,
+            "type": "AWS"
+          }
+        },
+        "tags": {
+          "cartography_label": "AWSPrincipal"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "781c29b7bc1fb00e099933abccd28b40",
+        "source": "cartography",
+        "check_id": "inventory:AWSTag",
+        "canonical_id": "CARTOGRAPHY:inventory:AWSTag",
+        "title": "Inventory: AWSTag Environment:prod",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "aws",
+        "account": "",
+        "region": "us-east-1",
+        "resource": {
+          "id": "Environment:prod",
+          "type": "cartography:AWSTag",
+          "name": "Environment:prod",
+          "attributes": {
+            "cartography_labels": [
+              "AWSTag"
+            ],
+            "cartography_node_id": "12",
+            "id": "Environment:prod",
+            "key": "Environment",
+            "lastupdated": 1768383600,
+            "region": "us-east-1",
+            "value": "prod"
+          }
+        },
+        "tags": {
+          "cartography_label": "AWSTag"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "f36620c35d60adbffea7e3f2c70b7c7c",
+        "source": "cartography",
+        "check_id": "inventory:KubernetesCluster",
+        "canonical_id": "CARTOGRAPHY:inventory:KubernetesCluster",
+        "title": "Inventory: KubernetesCluster synthetic-eks",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "arn:aws:eks:us-east-1:123456789012:cluster/synthetic-eks",
+          "type": "k8s_cluster",
+          "name": "synthetic-eks",
+          "attributes": {
+            "cartography_labels": [
+              "KubernetesCluster"
+            ],
+            "cartography_node_id": "13",
+            "id": "arn:aws:eks:us-east-1:123456789012:cluster/synthetic-eks",
+            "lastupdated": 1768383600,
+            "name": "synthetic-eks",
+            "version": "1.29"
+          },
+          "related": [
+            "namespace/shop"
+          ],
+          "relations": [
+            {
+              "id": "namespace/shop",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "RESOURCE"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "KubernetesCluster"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "2b8e3658e9073eaf3ccff1f66351b6c6",
+        "source": "cartography",
+        "check_id": "inventory:KubernetesNamespace",
+        "canonical_id": "CARTOGRAPHY:inventory:KubernetesNamespace",
+        "title": "Inventory: KubernetesNamespace shop",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "namespace/shop",
+          "type": "k8s_namespace",
+          "name": "shop",
+          "attributes": {
+            "cartography_labels": [
+              "KubernetesNamespace"
+            ],
+            "cartography_node_id": "14",
+            "cluster_name": "synthetic-eks",
+            "id": "00000000-0000-4000-8000-0000000000a1",
+            "lastupdated": 1768383600,
+            "name": "shop"
+          },
+          "related": [
+            "shop/pod/storefront-6d4cf56db6-x7k2p"
+          ],
+          "relations": [
+            {
+              "id": "shop/pod/storefront-6d4cf56db6-x7k2p",
+              "kind": "contains",
+              "attr": {
+                "cartography_rel": "CONTAINS"
+              }
+            }
+          ]
+        },
+        "tags": {
+          "cartography_label": "KubernetesNamespace"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      },
+      {
+        "id": "75e59a9e22745a9c87c0b527f38b1042",
+        "source": "cartography",
+        "check_id": "inventory:KubernetesPod",
+        "canonical_id": "CARTOGRAPHY:inventory:KubernetesPod",
+        "title": "Inventory: KubernetesPod storefront-6d4cf56db6-x7k2p",
+        "severity": "INFO",
+        "status": "PASS",
+        "provider": "kubernetes",
+        "account": "",
+        "resource": {
+          "id": "shop/pod/storefront-6d4cf56db6-x7k2p",
+          "type": "k8s_pod",
+          "name": "storefront-6d4cf56db6-x7k2p",
+          "attributes": {
+            "cartography_labels": [
+              "KubernetesPod"
+            ],
+            "cartography_node_id": "15",
+            "cluster_name": "synthetic-eks",
+            "id": "00000000-0000-4000-8000-0000000000b1",
+            "lastupdated": 1768383600,
+            "name": "storefront-6d4cf56db6-x7k2p",
+            "namespace": "shop"
+          }
+        },
+        "tags": {
+          "cartography_label": "KubernetesPod"
+        },
+        "first_seen": "2026-01-15T12:00:00Z",
+        "last_seen": "2026-01-15T12:00:00Z"
+      }
+    ]
+  }
+]

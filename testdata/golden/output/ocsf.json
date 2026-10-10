@@ -1,0 +1,539 @@
+[
+  {
+    "activity_id": 1,
+    "activity_name": "Create",
+    "category_name": "Findings",
+    "category_uid": 2,
+    "class_name": "Detection Finding",
+    "class_uid": 2004,
+    "cloud": {
+      "account": {
+        "name": "aws-prod",
+        "uid": "123456789012"
+      },
+      "provider": "aws",
+      "region": "us-east-1"
+    },
+    "finding_info": {
+      "analytic": {
+        "name": "s3_bucket_public_access",
+        "type": "Rule",
+        "type_id": 1,
+        "uid": "s3_bucket_public_access"
+      },
+      "created_time": 1790843400000,
+      "created_time_dt": "2026-10-01T08:30:00Z",
+      "desc": "Bucket pii-exports grants s3:GetObject to Principal \"*\".",
+      "first_seen_time": 1790843400000,
+      "first_seen_time_dt": "2026-10-01T08:30:00Z",
+      "last_seen_time": 1791547200000,
+      "last_seen_time_dt": "2026-10-09T12:00:00Z",
+      "product": {
+        "name": "prowler"
+      },
+      "title": "S3 bucket allows public access",
+      "types": [
+        "S3_PUBLIC_BUCKET"
+      ],
+      "uid": "6f1c7d0f9a3e4b5c8d2e1f0a9b8c7d6e"
+    },
+    "message": "S3 bucket allows public access",
+    "metadata": {
+      "correlation_uid": "scan-2026-10-09T12:00:00Z",
+      "event_code": "s3_bucket_public_access",
+      "product": {
+        "name": "cloud-posture",
+        "uid": "nimbus",
+        "url_string": "https://github.com/DreadpiratePickles/nimbus",
+        "vendor_name": "nimbus",
+        "version": "0.1.0"
+      },
+      "profiles": [
+        "cloud"
+      ],
+      "uid": "6f1c7d0f9a3e4b5c8d2e1f0a9b8c7d6e",
+      "version": "1.6.0"
+    },
+    "osint": [],
+    "remediation": {
+      "desc": "Enable S3 Block Public Access on the bucket and account."
+    },
+    "resources": [
+      {
+        "data": {
+          "public": true,
+          "versioning": false
+        },
+        "name": "pii-exports",
+        "region": "us-east-1",
+        "type": "aws_s3_bucket",
+        "uid": "arn:aws:s3:::pii-exports"
+      }
+    ],
+    "severity": "High",
+    "severity_id": 4,
+    "status": "New",
+    "status_code": "FAIL",
+    "status_id": 1,
+    "time": 1791547200000,
+    "time_dt": "2026-10-09T12:00:00Z",
+    "type_name": "Detection Finding: Create",
+    "type_uid": 200401,
+    "unmapped": {
+      "canonical_id": "S3_PUBLIC_BUCKET",
+      "check_id": "s3_bucket_public_access",
+      "compliance": {
+        "cis_aws": [
+          "2.1.4"
+        ],
+        "nist_800_53": [
+          "AC-3",
+          "AC-6",
+          "SC-7"
+        ],
+        "soc2": [
+          "CC6.1",
+          "CC6.6",
+          "C1.1"
+        ]
+      },
+      "related": [
+        "arn:aws:kms:us-east-1:123456789012:key/1111",
+        "arn:aws:iam::123456789012:role/exporter"
+      ],
+      "relations": [
+        {
+          "id": "arn:aws:iam::123456789012:role/exporter",
+          "kind": "grants_access_to",
+          "attr": {
+            "actions": "s3:GetObject",
+            "because": "bucket policy statement 1"
+          }
+        }
+      ],
+      "scan_id": "scan-2026-10-09T12:00:00Z",
+      "source": "prowler",
+      "tags": {
+        "account_label": "aws-prod",
+        "service": "s3"
+      },
+      "weaknesses": [
+        "PUBLIC_DATA_STORE"
+      ]
+    }
+  },
+  {
+    "activity_id": 1,
+    "activity_name": "Create",
+    "category_name": "Findings",
+    "category_uid": 2,
+    "class_name": "Detection Finding",
+    "class_uid": 2004,
+    "cloud": {
+      "provider": "aws"
+    },
+    "finding_info": {
+      "analytic": {
+        "name": "CKV_AWS_24",
+        "type": "Rule",
+        "type_id": 1,
+        "uid": "CKV_AWS_24"
+      },
+      "created_time": 1791547200000,
+      "created_time_dt": "2026-10-09T12:00:00Z",
+      "desc": "Ingress 0.0.0.0/0 on port 22 \u0026 3389 \u003cadmin\u003e.",
+      "first_seen_time": 1791547200000,
+      "first_seen_time_dt": "2026-10-09T12:00:00Z",
+      "last_seen_time": 1791547200000,
+      "last_seen_time_dt": "2026-10-09T12:00:00Z",
+      "product": {
+        "name": "checkov"
+      },
+      "title": "Security group allows SSH/RDP from 0.0.0.0/0",
+      "types": [
+        "SG_OPEN_ADMIN_PORT"
+      ],
+      "uid": "0a1b2c3d4e5f60718293a4b5c6d7e8f9"
+    },
+    "message": "Security group allows SSH/RDP from 0.0.0.0/0",
+    "metadata": {
+      "event_code": "CKV_AWS_24",
+      "product": {
+        "name": "cloud-posture",
+        "uid": "nimbus",
+        "url_string": "https://github.com/DreadpiratePickles/nimbus",
+        "vendor_name": "nimbus",
+        "version": "0.1.0"
+      },
+      "profiles": [
+        "cloud"
+      ],
+      "uid": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "version": "1.6.0"
+    },
+    "osint": [],
+    "remediation": {
+      "desc": "Restrict ingress to 203.0.113.0/24."
+    },
+    "resources": [
+      {
+        "name": "aws_security_group.bastion",
+        "type": "aws_security_group",
+        "uid": "aws_security_group.bastion"
+      }
+    ],
+    "severity": "Critical",
+    "severity_id": 5,
+    "status": "New",
+    "status_code": "FAIL",
+    "status_id": 1,
+    "time": 1791547200000,
+    "time_dt": "2026-10-09T12:00:00Z",
+    "type_name": "Detection Finding: Create",
+    "type_uid": 200401,
+    "unmapped": {
+      "canonical_id": "SG_OPEN_ADMIN_PORT",
+      "check_id": "CKV_AWS_24",
+      "compliance": {
+        "cis_aws": [
+          "5.2"
+        ]
+      },
+      "file": "infra/network.tf",
+      "line_end": 30,
+      "line_start": 12,
+      "source": "checkov",
+      "weaknesses": [
+        "PUBLIC_NETWORK_EXPOSURE"
+      ]
+    }
+  },
+  {
+    "activity_id": 1,
+    "activity_name": "Create",
+    "category_name": "Findings",
+    "category_uid": 2,
+    "class_name": "Detection Finding",
+    "class_uid": 2004,
+    "cloud": {
+      "account": {
+        "uid": "prod-cluster"
+      },
+      "provider": "kubernetes"
+    },
+    "finding_info": {
+      "analytic": {
+        "name": "CVE-2024-3094",
+        "type": "Rule",
+        "type_id": 1,
+        "uid": "CVE-2024-3094"
+      },
+      "created_time": 1791547200000,
+      "created_time_dt": "2026-10-09T12:00:00Z",
+      "first_seen_time": 1791547200000,
+      "first_seen_time_dt": "2026-10-09T12:00:00Z",
+      "last_seen_time": 1791547200000,
+      "last_seen_time_dt": "2026-10-09T12:00:00Z",
+      "product": {
+        "name": "trivy"
+      },
+      "title": "xz-utils backdoor (CVE-2024-3094)",
+      "types": [
+        "CVE_VULNERABILITY"
+      ],
+      "uid": "11112222333344445555666677778888"
+    },
+    "message": "xz-utils backdoor (CVE-2024-3094)",
+    "metadata": {
+      "event_code": "CVE-2024-3094",
+      "product": {
+        "name": "cloud-posture",
+        "uid": "nimbus",
+        "url_string": "https://github.com/DreadpiratePickles/nimbus",
+        "vendor_name": "nimbus",
+        "version": "0.1.0"
+      },
+      "profiles": [
+        "cloud"
+      ],
+      "uid": "11112222333344445555666677778888",
+      "version": "1.6.0"
+    },
+    "osint": [],
+    "resources": [
+      {
+        "name": "payments/api",
+        "type": "kubernetes_deployment",
+        "uid": "payments/deployment/api"
+      }
+    ],
+    "severity": "Critical",
+    "severity_id": 5,
+    "status": "New",
+    "status_code": "FAIL",
+    "status_id": 1,
+    "time": 1791547200000,
+    "time_dt": "2026-10-09T12:00:00Z",
+    "type_name": "Detection Finding: Create",
+    "type_uid": 200401,
+    "unmapped": {
+      "canonical_id": "CVE_VULNERABILITY",
+      "check_id": "CVE-2024-3094",
+      "source": "trivy",
+      "tags": {
+        "cvss": "10.0",
+        "pkg": "xz-utils",
+        "primary_url": "https://avd.aquasec.com/nvd/cve-2024-3094"
+      },
+      "weaknesses": [
+        "UNPATCHED"
+      ]
+    },
+    "vulnerabilities": [
+      {
+        "cve": {
+          "cvss": [
+            {
+              "base_score": 10,
+              "version": "3.1"
+            }
+          ],
+          "uid": "CVE-2024-3094"
+        },
+        "references": [
+          "https://avd.aquasec.com/nvd/cve-2024-3094"
+        ],
+        "severity": "Critical",
+        "title": "xz-utils backdoor (CVE-2024-3094)"
+      }
+    ]
+  },
+  {
+    "activity_id": 1,
+    "activity_name": "Create",
+    "category_name": "Findings",
+    "category_uid": 2,
+    "class_name": "Detection Finding",
+    "class_uid": 2004,
+    "cloud": {
+      "account": {
+        "uid": "123456789012"
+      },
+      "provider": "aws",
+      "region": "eu-west-1"
+    },
+    "finding_info": {
+      "analytic": {
+        "name": "kms_cmk_rotation_enabled",
+        "type": "Rule",
+        "type_id": 1,
+        "uid": "kms_cmk_rotation_enabled"
+      },
+      "created_time": 1791547200000,
+      "created_time_dt": "2026-10-09T12:00:00Z",
+      "first_seen_time": 1791547200000,
+      "first_seen_time_dt": "2026-10-09T12:00:00Z",
+      "last_seen_time": 1791547200000,
+      "last_seen_time_dt": "2026-10-09T12:00:00Z",
+      "product": {
+        "name": "prowler"
+      },
+      "title": "KMS key rotation disabled",
+      "types": [
+        "KMS_ROTATION_DISABLED"
+      ],
+      "uid": "99990000aaaabbbbccccddddeeeeffff"
+    },
+    "message": "KMS key rotation disabled",
+    "metadata": {
+      "event_code": "kms_cmk_rotation_enabled",
+      "product": {
+        "name": "cloud-posture",
+        "uid": "nimbus",
+        "url_string": "https://github.com/DreadpiratePickles/nimbus",
+        "vendor_name": "nimbus",
+        "version": "0.1.0"
+      },
+      "profiles": [
+        "cloud"
+      ],
+      "uid": "99990000aaaabbbbccccddddeeeeffff",
+      "version": "1.6.0"
+    },
+    "osint": [],
+    "resources": [
+      {
+        "name": "2222",
+        "region": "eu-west-1",
+        "type": "aws_kms_key",
+        "uid": "arn:aws:kms:eu-west-1:123456789012:key/2222"
+      }
+    ],
+    "severity": "Medium",
+    "severity_id": 3,
+    "status": "Resolved",
+    "status_code": "PASS",
+    "status_id": 4,
+    "time": 1791547200000,
+    "time_dt": "2026-10-09T12:00:00Z",
+    "type_name": "Detection Finding: Create",
+    "type_uid": 200401,
+    "unmapped": {
+      "canonical_id": "KMS_ROTATION_DISABLED",
+      "check_id": "kms_cmk_rotation_enabled",
+      "source": "prowler"
+    }
+  },
+  {
+    "activity_id": 1,
+    "activity_name": "Create",
+    "category_name": "Findings",
+    "category_uid": 2,
+    "class_name": "Detection Finding",
+    "class_uid": 2004,
+    "cloud": {
+      "account": {
+        "uid": "00000000-1111-2222-3333-444444444444"
+      },
+      "provider": "azure",
+      "region": "westeurope"
+    },
+    "finding_info": {
+      "analytic": {
+        "name": "storage_account_secure_transfer_required_enabled",
+        "type": "Rule",
+        "type_id": 1,
+        "uid": "storage_account_secure_transfer_required_enabled"
+      },
+      "created_time": 1791547200000,
+      "created_time_dt": "2026-10-09T12:00:00Z",
+      "first_seen_time": 1791547200000,
+      "first_seen_time_dt": "2026-10-09T12:00:00Z",
+      "last_seen_time": 1791547200000,
+      "last_seen_time_dt": "2026-10-09T12:00:00Z",
+      "product": {
+        "name": "steampipe"
+      },
+      "title": "Storage account allows HTTP",
+      "types": [
+        "AZ_STORAGE_HTTP"
+      ],
+      "uid": "abababababababababababababababab"
+    },
+    "message": "Storage account allows HTTP",
+    "metadata": {
+      "event_code": "storage_account_secure_transfer_required_enabled",
+      "product": {
+        "name": "cloud-posture",
+        "uid": "nimbus",
+        "url_string": "https://github.com/DreadpiratePickles/nimbus",
+        "vendor_name": "nimbus",
+        "version": "0.1.0"
+      },
+      "profiles": [
+        "cloud"
+      ],
+      "uid": "abababababababababababababababab",
+      "version": "1.6.0"
+    },
+    "osint": [],
+    "resources": [
+      {
+        "name": "st1",
+        "region": "westeurope",
+        "type": "azurerm_storage_account",
+        "uid": "/subscriptions/00000000-1111-2222-3333-444444444444/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/st1"
+      }
+    ],
+    "severity": "Low",
+    "severity_id": 2,
+    "status": "Suppressed",
+    "status_code": "SKIP",
+    "status_id": 3,
+    "time": 1791547200000,
+    "time_dt": "2026-10-09T12:00:00Z",
+    "type_name": "Detection Finding: Create",
+    "type_uid": 200401,
+    "unmapped": {
+      "canonical_id": "AZ_STORAGE_HTTP",
+      "check_id": "storage_account_secure_transfer_required_enabled",
+      "source": "steampipe"
+    }
+  },
+  {
+    "activity_id": 1,
+    "activity_name": "Create",
+    "category_name": "Findings",
+    "category_uid": 2,
+    "class_name": "Detection Finding",
+    "class_uid": 2004,
+    "cloud": {
+      "provider": "iac"
+    },
+    "finding_info": {
+      "analytic": {
+        "name": "IAC_PARSE_LIMIT",
+        "type": "Rule",
+        "type_id": 1,
+        "uid": "IAC_PARSE_LIMIT"
+      },
+      "created_time": 1791547200000,
+      "created_time_dt": "2026-10-09T12:00:00Z",
+      "desc": "syntax: infra/broken.tf:3,1-2: Argument or block definition required",
+      "first_seen_time": 1791547200000,
+      "first_seen_time_dt": "2026-10-09T12:00:00Z",
+      "last_seen_time": 1791547200000,
+      "last_seen_time_dt": "2026-10-09T12:00:00Z",
+      "product": {
+        "name": "cloud-posture"
+      },
+      "title": "IaC file not scanned",
+      "types": [
+        "IAC_PARSE_LIMIT"
+      ],
+      "uid": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+    },
+    "message": "IaC file not scanned",
+    "metadata": {
+      "event_code": "IAC_PARSE_LIMIT",
+      "product": {
+        "name": "cloud-posture",
+        "uid": "nimbus",
+        "url_string": "https://github.com/DreadpiratePickles/nimbus",
+        "vendor_name": "nimbus",
+        "version": "0.1.0"
+      },
+      "profiles": [
+        "cloud"
+      ],
+      "uid": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "version": "1.6.0"
+    },
+    "osint": [],
+    "resources": [
+      {
+        "name": "infra/broken.tf",
+        "type": "file",
+        "uid": "infra/broken.tf"
+      }
+    ],
+    "severity": "High",
+    "severity_id": 4,
+    "status": "Other",
+    "status_code": "ERROR",
+    "status_id": 99,
+    "time": 1791547200000,
+    "time_dt": "2026-10-09T12:00:00Z",
+    "type_name": "Detection Finding: Create",
+    "type_uid": 200401,
+    "unmapped": {
+      "canonical_id": "IAC_PARSE_LIMIT",
+      "check_id": "IAC_PARSE_LIMIT",
+      "file": "infra/broken.tf",
+      "source": "cloud-posture",
+      "tags": {
+        "scan_gap": "syntax"
+      }
+    }
+  }
+]

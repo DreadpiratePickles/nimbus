@@ -60,6 +60,19 @@ type ProjectAPI interface {
 	Project(ctx context.Context, project string) (*ProjectInfo, error)
 }
 
+// IAMBinding is one role binding of the project IAM policy.
+type IAMBinding struct {
+	Role    string   // roles/editor, projects/p/roles/custom, organizations/o/roles/x
+	Members []string // serviceAccount:…, user:…, group:…, domain:…, allUsers
+	// Condition is the IAM condition title (or expression) when the binding is conditional.
+	Condition string
+}
+
+// ProjectIAMAPI reads the project IAM policy (resourcemanager projects.getIamPolicy).
+type ProjectIAMAPI interface {
+	IAMPolicy(ctx context.Context, project string) ([]IAMBinding, error)
+}
+
 // IAMAPI lists service accounts.
 type IAMAPI interface {
 	ServiceAccounts(ctx context.Context, project string) ([]*iamv1.ServiceAccount, error)
@@ -71,8 +84,10 @@ type Clients struct {
 	Storage  StorageAPI
 	SQL      SQLAPI
 	Projects ProjectAPI
-	IAM      IAMAPI
-	closers  []func() error
+	// ProjectIAM reads the project IAM policy (nil = not collected).
+	ProjectIAM ProjectIAMAPI
+	IAM        IAMAPI
+	closers    []func() error
 }
 
 // Close releases underlying SDK clients.
@@ -109,6 +124,7 @@ func NewClients(ctx context.Context, spec core.AccountSpec) (*Clients, error) {
 		return nil, fmt.Errorf("resourcemanager client: %w", err)
 	}
 	cs.Projects = &projectClient{svc: rm}
+	cs.ProjectIAM = &projectClient{svc: rm}
 	is, err := iamv1.NewService(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("iam client: %w", err)
@@ -133,6 +149,9 @@ func (c *computeClient) Instances(ctx context.Context, project string) ([]*compu
 func (c *computeClient) Firewalls(ctx context.Context, project string) ([]*compute.Firewall, error) {
 	var out []*compute.Firewall
 	err := c.svc.Firewalls.List(project).Context(ctx).Pages(ctx, func(l *compute.FirewallList) error {
+		for _, fw := range l.Items {
+			markListedPriority(fw)
+		}
 		out = append(out, l.Items...)
 		return nil
 	})
@@ -215,6 +234,28 @@ func (p *projectClient) Project(ctx context.Context, project string) (*ProjectIn
 		return nil, err
 	}
 	return &ProjectInfo{ID: pr.ProjectId, Number: pr.ProjectNumber, Name: pr.Name, Labels: pr.Labels}, nil
+}
+
+func (p *projectClient) IAMPolicy(ctx context.Context, project string) ([]IAMBinding, error) {
+	pol, err := p.svc.Projects.GetIamPolicy(project, &crm.GetIamPolicyRequest{Options: &crm.GetPolicyOptions{RequestedPolicyVersion: 3}}).Context(ctx).Do()
+	if err != nil {
+		return nil, err
+	}
+	var out []IAMBinding
+	for _, b := range pol.Bindings {
+		if b == nil {
+			continue
+		}
+		ib := IAMBinding{Role: b.Role, Members: b.Members}
+		if b.Condition != nil {
+			ib.Condition = b.Condition.Title
+			if ib.Condition == "" {
+				ib.Condition = b.Condition.Expression
+			}
+		}
+		out = append(out, ib)
+	}
+	return out, nil
 }
 
 type iamClient struct{ svc *iamv1.Service }

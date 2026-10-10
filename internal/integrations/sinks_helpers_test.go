@@ -13,8 +13,8 @@ import (
 
 type captured struct {
 	Method, Path, Query string
-	Header             http.Header
-	Body               []byte
+	Header              http.Header
+	Body                []byte
 }
 
 type recorder struct {
@@ -22,7 +22,11 @@ type recorder struct {
 	reqs []captured
 }
 
-func (r *recorder) all() []captured { r.mu.Lock(); defer r.mu.Unlock(); return append([]captured(nil), r.reqs...) }
+func (r *recorder) all() []captured {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]captured(nil), r.reqs...)
+}
 
 // newRecorder starts a server that records requests and answers via respond.
 func newRecorder(t *testing.T, respond func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, *recorder) {

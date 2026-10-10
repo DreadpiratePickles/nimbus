@@ -1,3 +1,5 @@
+# Strategic merge patch for {{ .Kind }}/{{ .Name }}: leave the host network/PID/IPC namespaces.
+# Node agents (CNI, log shippers, node exporters) often need these; confirm before applying.
 spec:
   template:
     spec:

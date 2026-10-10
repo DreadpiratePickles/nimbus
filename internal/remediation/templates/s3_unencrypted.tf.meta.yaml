@@ -1,0 +1,15 @@
+# Remediation plan metadata for s3_unencrypted.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "s3:GetEncryptionConfiguration"
+  - "s3:PutEncryptionConfiguration"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "None needed for new objects: since January 2023 S3 applies SSE-S3 by default; check whether the finding is stale."
+effort: S
+confidence: high
+rollback: "aws s3api delete-bucket-encryption --bucket <bucket> (falls back to the S3 default, SSE-S3)."
+breaks_function:
+  value: false
+  note: "New objects only; existing objects keep their encryption state (copy in place to re-encrypt). SSE-S3 is used so cross-account readers keep working."

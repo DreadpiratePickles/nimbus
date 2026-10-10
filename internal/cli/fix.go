@@ -1,24 +1,30 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/DreadpiratePickles/nimbus/internal/catalog"
 	"github.com/DreadpiratePickles/nimbus/internal/gitops"
+	"github.com/DreadpiratePickles/nimbus/internal/graph"
 	"github.com/DreadpiratePickles/nimbus/internal/iac"
 	"github.com/DreadpiratePickles/nimbus/internal/model"
 	"github.com/DreadpiratePickles/nimbus/internal/output"
 	"github.com/DreadpiratePickles/nimbus/internal/remediation"
+	"github.com/DreadpiratePickles/nimbus/internal/server"
 	"github.com/DreadpiratePickles/nimbus/internal/store"
 	"github.com/spf13/cobra"
 )
 
 var fixFlags struct {
 	canonical, id, weakness string
+	passRole, passRoleTo    string
 	format                  string
 	tf, cfn, bicep, k8s     bool
 	outDir                  string
@@ -34,6 +40,8 @@ var fixFlags struct {
 	ai                      bool
 	outputFmt               string
 	tfstate                 string
+	requireVerify           bool
+	allCallers              bool
 }
 
 var fixCmd = &cobra.Command{
@@ -72,6 +80,10 @@ func init() {
 	f.BoolVar(&fixFlags.draft, "draft", false, "open as draft PR")
 	f.BoolVar(&fixFlags.ai, "ai", false, "use the Python LLM fix generator (ANTHROPIC_API_KEY) with the template as fallback")
 	f.StringVarP(&fixFlags.outputFmt, "output", "o", "text", "text|json")
+	f.BoolVar(&fixFlags.allCallers, "all-callers", false, "with --patch: allow patching a module source shared by several module calls (the patch changes every caller)")
+	f.StringVar(&fixFlags.passRole, "passrole", "", "principal ARN whose iam:PassRole statement to scope (with --role; see `plan`)")
+	f.StringVar(&fixFlags.passRoleTo, "role", "", "with --passrole: the escalation role the principal must no longer pass")
+	f.BoolVar(&fixFlags.requireVerify, "require-verify", false, "with --patch: write a patch only when the re-scan proves the finding is gone; exit non-zero for any unverified patch")
 	root.AddCommand(fixCmd)
 }
 
@@ -95,6 +107,9 @@ func runFix(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
+	}
+	if fixFlags.passRole != "" {
+		return runPassRoleFix(fixFlags.passRole, fixFlags.passRoleTo)
 	}
 	format, err := chosenFormat()
 	if err != nil {
@@ -151,15 +166,7 @@ func runFix(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		for i := range targets {
-			if targets[i].File == "" {
-				if loc, ok := iac.Locate(targets[i], mapping); ok {
-					targets[i].File, targets[i].LineStart = loc.File, loc.Line
-					targets[i].Resource.ID = loc.Address
-					logf("mapped %s → %s:%d (%s)", targets[i].Resource.Name, loc.File, loc.Line, loc.Address)
-				}
-			}
-		}
+		applyCodeMapping(targets, mapping, logf)
 	}
 
 	if fixFlags.patch || fixFlags.autoPR {
@@ -167,12 +174,21 @@ func runFix(cmd *cobra.Command, args []string) error {
 	}
 
 	var results []*remediation.Fix
+	var g *graph.Graph // loaded once, only for a fix that targets the Service selecting a pod
 	for _, f := range targets {
+		if st != nil && remediation.TargetsK8sService(f.CanonicalID) {
+			if g == nil {
+				if g, _ = loadGraph(st); g == nil {
+					g = graph.New()
+				}
+			}
+			f = remediation.WithK8sService(f, g)
+		}
 		if fixFlags.ai {
 			if exe := python(cfg); exe != "" {
 				out, err := runPython(cmd.Context(), exe, nil, "-m", "nimbus", "fix", f.ID, "--format", string(format))
 				if err == nil && len(out) > 0 {
-					results = append(results, &remediation.Fix{Finding: f, CanonicalID: f.CanonicalID, Format: format, FileName: fmt.Sprintf("%s_%s_ai.%s", strings.ToLower(f.CanonicalID), f.Resource.Name, ext(format)), Content: string(out), Apply: "review, then apply with your IaC pipeline"})
+					results = append(results, &remediation.Fix{Finding: f, CanonicalID: f.CanonicalID, Format: format, FileName: aiFixFileName(f, format), Content: string(out), Apply: "review, then apply with your IaC pipeline"})
 					continue
 				}
 				logf("ai fix unavailable (%v); using template", err)
@@ -194,9 +210,10 @@ func runFix(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	os.MkdirAll(fixFlags.outDir, 0o755)
+	ix := loadIssueIndex(st) // the verify phase names each finding's Issue id
 	for _, r := range results {
 		path := filepath.Join(fixFlags.outDir, r.FileName)
-		if err := os.WriteFile(path, []byte(r.Content), 0o644); err != nil {
+		if err := writeFixFile(fixFlags.outDir, r.FileName, r.Content); err != nil {
 			return err
 		}
 		tag := ""
@@ -204,6 +221,7 @@ func runFix(cmd *cobra.Command, args []string) error {
 			tag = " (generic stub — no typed template yet)"
 		}
 		fmt.Printf("✓ %s → %s%s\n  apply: %s\n", r.CanonicalID, path, tag, r.Apply)
+		printPhases(os.Stdout, r, "  ", ix)
 	}
 	if format == remediation.Terraform && len(results) > 0 {
 		fmt.Printf("\nOne command: cd %s && terraform init && terraform plan   # review, then terraform apply\n", fixFlags.outDir)
@@ -219,6 +237,9 @@ func runPatch(targets []model.Finding, cfg interface{}) error {
 	var patches []iac.Patch
 	var fixed []model.Finding
 	noSource, missing := 0, 0
+	var notFixedReasons, unverifiedReasons, refusedReasons []string
+	unverifiedFile := map[string]string{} // patch file -> reason, for the final report
+	unscanned := unscannedFiles(fixFlags.iacRoot)
 	for _, f := range targets {
 		if f.File == "" {
 			noSource++
@@ -227,8 +248,30 @@ func runPatch(targets []model.Finding, cfg interface{}) error {
 			}
 			continue
 		}
-		p, err := iac.PatchTerraform(f, fixFlags.iacRoot)
+		// Containment before the read: the same root is used for reading and writing.
+		if _, err := gitops.SafeJoin(fixFlags.iacRoot, f.File); err != nil {
+			missing++
+			logf("skip %s: %v", f.CanonicalID, err)
+			continue
+		}
+		// A file the scanner could not parse was not examined: its stored findings may be
+		// stale and the patcher cannot rewrite it safely (V3-iac UnscannedFiles contract).
+		if reason, ok := unscanned[filepath.ToSlash(filepath.Clean(f.File))]; ok {
+			r := fmt.Sprintf("%s on %s refused: %s was not scanned (%s); make it parse, re-scan, then patch", f.CanonicalID, firstNonEmpty(f.Resource.ID, f.Resource.Name), f.File, reason)
+			refusedReasons = append(refusedReasons, r)
+			fmt.Fprintf(os.Stderr, "✗ %s\n", r)
+			continue
+		}
+		p, err := iac.PatchTerraformWith(f, fixFlags.iacRoot, iac.PatchOptions{AllCallers: fixFlags.allCallers})
 		if err != nil {
+			var te *iac.TargetError
+			if errors.As(err, &te) && strings.Contains(te.Reason, "--all-callers") {
+				// A shared module source is a deliberate refusal, never a silent skip.
+				r := fmt.Sprintf("%s on %s refused: %s (callers: %s)", f.CanonicalID, f.Resource.ID, te.Reason, strings.Join(te.Candidates, ", "))
+				refusedReasons = append(refusedReasons, r)
+				fmt.Fprintf(os.Stderr, "✗ %s\n", r)
+				continue
+			}
 			missing++
 			if !fixFlags.all {
 				logf("skip %s (%s): %v", f.CanonicalID, f.File, err)
@@ -239,10 +282,22 @@ func runPatch(targets []model.Finding, cfg interface{}) error {
 			logf("skip %s: no deterministic patch; use `fix --finding %s --generate-terraform`", f.CanonicalID, f.CanonicalID)
 			continue
 		}
-		// validation: re-scan the patched content in a temp copy and confirm the finding is gone.
-		if ok := verifyPatch(f, *p); !ok {
-			logf("skip %s: patch did not clear the finding on re-scan", f.CanonicalID)
+		// validation: re-scan the patched content in a temp copy; the specific finding
+		// (canonical id + resource + file) must be evaluated and gone.
+		switch v := verifyPatchResult(f, *p); v.Verdict {
+		case verdictNotFixed:
+			notFixedReasons = append(notFixedReasons, v.Reason)
+			fmt.Fprintf(os.Stderr, "✗ %s on %s: %s; patch not applied\n", f.CanonicalID, firstNonEmpty(p.Address, f.Resource.ID), v.Reason)
 			continue
+		case verdictUnverified:
+			reason := fmt.Sprintf("%s on %s unverified: %s", f.CanonicalID, firstNonEmpty(p.Address, f.Resource.ID), v.Reason)
+			unverifiedReasons = append(unverifiedReasons, reason)
+			if fixFlags.requireVerify || fixFlags.autoPR {
+				// A PR presents its patches as fixes: only proven ones go in.
+				fmt.Fprintf(os.Stderr, "✗ %s; patch not applied (--require-verify / --auto-pr)\n", reason)
+				continue
+			}
+			unverifiedFile[p.File] = reason
 		}
 		patches = append(patches, *p)
 		fixed = append(fixed, f)
@@ -250,16 +305,34 @@ func runPatch(targets []model.Finding, cfg interface{}) error {
 	if fixFlags.all && (noSource > 0 || missing > 0) {
 		logf("skipped %d cloud finding(s) without source (use --tfstate) and %d with files outside --iac %s", noSource, missing, fixFlags.iacRoot)
 	}
+	// merge multiple patches to the same file sequentially; a patch that cannot be
+	// re-applied on top of another is reported, never dropped silently.
+	patches, dropped := mergePatches(patches)
+	for _, d := range dropped {
+		notFixedReasons = append(notFixedReasons, d)
+		fmt.Fprintf(os.Stderr, "✗ %s\n", d)
+	}
+	notFixedReasons = append(notFixedReasons, refusedReasons...)
 	if len(patches) == 0 {
+		var why []string
+		why = append(why, notFixedReasons...)
+		why = append(why, unverifiedReasons...)
+		if len(why) > 0 {
+			return fmt.Errorf("nothing patched: %s", strings.Join(why, "; "))
+		}
 		return fmt.Errorf("nothing patched")
 	}
-	// merge multiple patches to the same file sequentially
-	patches = mergePatches(patches)
 	if fixFlags.outputFmt == "json" {
+		var err error
 		if len(patches) == 1 {
-			return output.JSON(os.Stdout, patches[0])
+			err = output.JSON(os.Stdout, patches[0])
+		} else {
+			err = output.JSON(os.Stdout, patches)
 		}
-		return output.JSON(os.Stdout, patches)
+		if err != nil {
+			return err
+		}
+		return verifyFailure(notFixedReasons, unverifiedReasons)
 	}
 	if fixFlags.autoPR {
 		st, _ := openStore()
@@ -286,17 +359,23 @@ func runPatch(targets []model.Finding, cfg interface{}) error {
 		}
 		if res.DryRun {
 			fmt.Printf("DRY RUN — branch %s would change %s\n\n%s\n", res.Branch, strings.Join(res.Files, ", "), res.Body)
-			return nil
+			return verifyFailure(notFixedReasons, unverifiedReasons)
 		}
 		fmt.Printf("✓ branch %s (%s) pushed; PR: %s\n", res.Branch, res.Commit, res.URL)
-		return nil
+		return verifyFailure(notFixedReasons, unverifiedReasons)
 	}
 	for _, p := range patches {
-		full := p.File
-		if !filepath.IsAbs(full) {
-			full = filepath.Join(fixFlags.iacRoot, p.File)
+		full, err := gitops.SafeJoin(fixFlags.iacRoot, p.File)
+		if err != nil {
+			return err
 		}
 		if fixFlags.print {
+			if reason, ok := unverifiedFile[p.File]; ok {
+				fmt.Printf("# unverified: %s\n", reason)
+			}
+			if len(p.Callers) > 0 {
+				fmt.Printf("# callers: %s\n", strings.Join(p.Callers, ", "))
+			}
 			fmt.Println(p.Diff)
 			continue
 		}
@@ -306,61 +385,184 @@ func runPatch(targets []model.Finding, cfg interface{}) error {
 		if err := os.WriteFile(full, []byte(p.After), 0o644); err != nil {
 			return err
 		}
-		fmt.Printf("✓ patched %s (%s): %s\n", p.File, p.Address, p.Explanation)
-	}
-	return nil
-}
-
-func verifyPatch(f model.Finding, p iac.Patch) bool {
-	tmp, err := os.MkdirTemp("", "cp-verify")
-	if err != nil {
-		return true
-	}
-	defer os.RemoveAll(tmp)
-	if err := os.WriteFile(filepath.Join(tmp, "main.tf"), []byte(p.After), 0o644); err != nil {
-		return true
-	}
-	fs, err := iac.ScanTerraform(tmp, time.Now())
-	if err != nil {
-		return false
-	}
-	for _, x := range fs {
-		if x.Status == model.Fail && x.CanonicalID == f.CanonicalID && x.Resource.ID == f.Resource.ID {
-			return false
+		if reason, ok := unverifiedFile[p.File]; ok {
+			fmt.Printf("⚠ patched %s (%s), unverified: %s\n  %s\n", p.File, p.Address, reason, p.Explanation)
+		} else {
+			fmt.Printf("✓ patched %s (%s): %s\n", p.File, p.Address, p.Explanation)
+		}
+		if len(p.Callers) > 0 {
+			fmt.Printf("  callers: %s\n", strings.Join(p.Callers, ", "))
 		}
 	}
-	return true
+	return verifyFailure(notFixedReasons, unverifiedReasons)
 }
 
-// mergePatches chains patches that touch the same file so each applies on top of the previous one.
-func mergePatches(ps []iac.Patch) []iac.Patch {
-	byFile := map[string]int{}
-	var out []iac.Patch
-	for _, p := range ps {
-		if i, ok := byFile[p.File]; ok {
-			prev := out[i]
-			// re-apply this patch on top of prev.After by re-running the patcher on a temp copy
-			tmp, err := os.MkdirTemp("", "cp-merge")
-			if err != nil {
-				continue
-			}
-			os.WriteFile(filepath.Join(tmp, "main.tf"), []byte(prev.After), 0o644)
-			f := model.Finding{CanonicalID: p.CanonicalID, File: "main.tf", Resource: model.Resource{ID: p.Address}}
-			np, err := iac.PatchTerraform(f, tmp)
-			os.RemoveAll(tmp)
-			if err != nil || np == nil {
-				continue
-			}
-			prev.After = np.After
-			prev.Diff = iac.UnifiedDiff(prev.File, prev.Before, prev.After)
-			prev.Explanation += " " + p.Explanation
-			prev.CanonicalID += "," + p.CanonicalID
-			prev.WidensAccess = prev.WidensAccess || np.WidensAccess
-			out[i] = prev
+// verifyFailure is the exit status after the verified patches were written: any finding
+// a patch did not fix fails the command, and so does any unverified one under
+// --require-verify.
+func verifyFailure(notFixed, unverified []string) error {
+	var why []string
+	why = append(why, notFixed...)
+	if fixFlags.requireVerify || fixFlags.autoPR {
+		why = append(why, unverified...)
+	}
+	if len(why) == 0 {
+		return nil
+	}
+	return fmt.Errorf("patch verification failed: %s", strings.Join(why, "; "))
+}
+
+// applyCodeMapping points cloud findings at their IaC blocks. A finding whose mapping
+// LocateStrict refuses (ambiguous or unresolved target) is left unmapped and the reason,
+// with the candidate blocks, is logged rather than skipped silently.
+func applyCodeMapping(targets []model.Finding, mapping map[string]iac.CodeLocation, logf func(string, ...any)) {
+	for i := range targets {
+		if targets[i].File != "" {
 			continue
 		}
-		byFile[p.File] = len(out)
-		out = append(out, p)
+		loc, err := iac.LocateStrict(targets[i], mapping)
+		if err != nil {
+			if errors.Is(err, iac.ErrAmbiguousTarget) {
+				logf("not mapped %s on %s: %v", targets[i].CanonicalID, firstNonEmpty(targets[i].Resource.Name, targets[i].Resource.ID), err)
+			}
+			continue
+		}
+		targets[i].File, targets[i].LineStart = loc.File, loc.Line
+		targets[i].Resource.ID = loc.Address
+		logf("mapped %s → %s:%d (%s)", targets[i].Resource.Name, loc.File, loc.Line, loc.Address)
+	}
+}
+
+var (
+	verifyModuleSegment = regexp.MustCompile(`^module\.[A-Za-z0-9_-]+(\[[^\]]*\])?\.`)
+	verifyIndexSuffix   = regexp.MustCompile(`\[[^\]]*\]$`)
+)
+
+// shortAddress reduces a Terraform address to type.name (module prefixes and the
+// instance key stripped), the form the single-file re-scan in verifyPatch reports, so a
+// tfstate-mapped finding (module.a.aws_instance.web[0]) is compared like with like.
+func shortAddress(id string) string {
+	a := strings.TrimSpace(id)
+	for verifyModuleSegment.MatchString(a) {
+		a = verifyModuleSegment.ReplaceAllString(a, "")
+	}
+	return verifyIndexSuffix.ReplaceAllString(a, "")
+}
+
+// mergePatches chains patches that touch the same file so each applies on top of the previous
+// one. The re-patch targets the block by Patch.LocalAddress (type.name in its file): a module
+// patch's Address carries the module prefix, which cannot resolve inside the temp copy. A patch
+// that cannot be re-applied is returned in dropped with the reason (never silently lost).
+func mergePatches(ps []iac.Patch) (out []iac.Patch, dropped []string) {
+	byFile := map[string]int{}
+	for _, p := range ps {
+		i, ok := byFile[p.File]
+		if !ok {
+			byFile[p.File] = len(out)
+			out = append(out, p)
+			continue
+		}
+		prev := out[i]
+		addr := firstNonEmpty(p.LocalAddress, shortAddress(p.Address))
+		why := func(err error) string {
+			return fmt.Sprintf("%s on %s not applied: could not merge it with the other patch to %s: %v", p.CanonicalID, firstNonEmpty(p.Address, addr), p.File, err)
+		}
+		// Same base name as the real file, so file-scoped rules and messages read alike.
+		tmp, err := os.MkdirTemp("", "cp-merge")
+		if err != nil {
+			dropped = append(dropped, why(err))
+			continue
+		}
+		name := filepath.Base(p.File)
+		if err := os.WriteFile(filepath.Join(tmp, name), []byte(prev.After), 0o644); err != nil {
+			os.RemoveAll(tmp)
+			dropped = append(dropped, why(err))
+			continue
+		}
+		f := model.Finding{CanonicalID: p.CanonicalID, File: name, Resource: model.Resource{ID: addr}}
+		np, err := iac.PatchTerraform(f, tmp)
+		os.RemoveAll(tmp)
+		if err == nil && np == nil {
+			err = errors.New("no deterministic patch on the merged content")
+		}
+		if err != nil {
+			dropped = append(dropped, why(err))
+			continue
+		}
+		prev.After = np.After
+		prev.Diff = iac.UnifiedDiff(prev.File, prev.Before, prev.After)
+		prev.Explanation += " " + p.Explanation
+		prev.CanonicalID += "," + p.CanonicalID
+		prev.WidensAccess = prev.WidensAccess || np.WidensAccess
+		prev.Callers = unionStrings(prev.Callers, p.Callers)
+		out[i] = prev
+	}
+	return out, dropped
+}
+
+func unionStrings(a, b []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, x := range append(append([]string{}, a...), b...) {
+		if !seen[x] {
+			seen[x] = true
+			out = append(out, x)
+		}
 	}
 	return out
+}
+
+// unscannedFiles maps each root-relative file the Terraform scanner cannot parse under root
+// to its reason (iac.ScanTerraformResult UnscannedFiles / UnscannedReasons).
+func unscannedFiles(root string) map[string]string {
+	out := map[string]string{}
+	res, _ := iac.ScanTerraformResult(root, time.Now())
+	for _, f := range res.UnscannedFiles {
+		out[filepath.ToSlash(filepath.Clean(f))] = res.UnscannedReasons[f]
+	}
+	return out
+}
+
+// aiFixFileName names an LLM-generated fix; the resource name is reduced to [A-Za-z0-9._-]
+// so it can never introduce a path separator.
+func aiFixFileName(f model.Finding, format remediation.Format) string {
+	return fmt.Sprintf("%s_%s_ai.%s", safeFileComponent(strings.ToLower(f.CanonicalID)), safeFileComponent(f.Resource.Name), ext(format))
+}
+
+func safeFileComponent(s string) string {
+	b := []byte(s)
+	for i, c := range b {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '.' || c == '_' || c == '-') {
+			b[i] = '_'
+		}
+	}
+	if out := strings.Trim(string(b), "."); out != "" {
+		return out
+	}
+	return "resource"
+}
+
+// writeFixFile writes a generated fix inside dir, refusing names that resolve outside it.
+func writeFixFile(dir, name, content string) error {
+	full, err := gitops.SafeJoin(dir, name)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(full, []byte(content), 0o644)
+}
+
+// printPhases prints a fix's sidecar as the AWS-remediation-plan sequence: prerequisite
+// (permissions, breaks-function, effort, mitigation) → snapshot → fix → verify (the sidecar's
+// validation SQL) → rollback.
+func printPhases(w io.Writer, r *remediation.Fix, indent string, ix issueIndex) {
+	if m := r.Metadata; m != nil {
+		fmt.Fprintf(w, "%seffort %s · confidence %s · template %s\n", indent, m.Effort, m.Confidence, r.Template)
+	}
+	f := r.Finding
+	for i, ph := range withIssueVerify(server.RemediationPhases(r), ix.target(&f, nil)) {
+		fmt.Fprintf(w, "%s%d. %s\n", indent, i+1, ph.Name)
+		for _, s := range ph.Steps {
+			fmt.Fprintf(w, "%s     %s\n", indent, s)
+		}
+	}
 }

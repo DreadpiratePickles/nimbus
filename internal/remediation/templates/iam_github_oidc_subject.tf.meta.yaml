@@ -1,0 +1,15 @@
+# Remediation plan metadata for iam_github_oidc_subject.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "iam:GetRole"
+  - "iam:UpdateAssumeRolePolicy"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the role's trust policy and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Detach the role's admin policies (or attach a deny-all inline policy) until the subject condition is in place; workflows fail closed meanwhile."
+effort: S
+confidence: high
+rollback: "aws iam update-assume-role-policy --role-name <name> --policy-document file://<trust policy saved in the BEFORE step>."
+breaks_function:
+  value: true
+  note: "Workflows from repositories, branches or environments not listed in allowed_subjects can no longer assume the role."

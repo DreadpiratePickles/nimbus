@@ -31,6 +31,22 @@ type builder struct {
 	nicByID     map[string]*armnetwork.Interface     // lower(id) -> nic
 	pipByID     map[string]*armnetwork.PublicIPAddress
 	findings    []model.Finding
+	// reportedNSG dedupes coverage errors for referenced-but-uncollected NSGs.
+	reportedNSG map[string]bool
+}
+
+// uncollectedNSG records (once per NSG) a coverage error for an NSG that a NIC or
+// subnet references but the NSG listing did not return.
+func (b *builder) uncollectedNSG(nsgID, vmID string) {
+	if b.reportedNSG == nil {
+		b.reportedNSG = map[string]bool{}
+	}
+	if b.reportedNSG[key(nsgID)] {
+		return
+	}
+	b.reportedNSG[key(nsgID)] = true
+	b.acc.Error("network.nsgs", &core.CollectError{API: "network.nsgs", Reason: core.ReasonNotFound,
+		Message: fmt.Sprintf("network security group %s (referenced by %s) was not collected; internet exposure through it is unknown", nsgID, vmID)})
 }
 
 func build(spec core.AccountSpec, inv *inventory, g *graph.Graph, acc *core.Acc, now time.Time) {
@@ -140,6 +156,14 @@ type vmNet struct {
 	nsgs      []string
 	publicIPs []string
 	pipIDs    []string
+	// paths are the internet entry points: one per public IP, with the NSG layers
+	// (NIC NSG, subnet NSG) inbound traffic must pass. Empty layers = no NSG at all.
+	paths []netPath
+}
+
+type netPath struct {
+	publicIP string
+	layers   []string // canonical NSG IDs
 }
 
 func (b *builder) vmNetwork(vm *armcompute.VirtualMachine) vmNet {
@@ -163,18 +187,29 @@ func (b *builder) vmNetwork(vm *armcompute.VirtualMachine) vmNet {
 		if nic == nil || nic.Properties == nil {
 			continue
 		}
+		nicNSG := ""
 		if nic.Properties.NetworkSecurityGroup != nil && nic.Properties.NetworkSecurityGroup.ID != nil {
 			addNSG(*nic.Properties.NetworkSecurityGroup.ID)
+			nicNSG = b.canonicalNSG(*nic.Properties.NetworkSecurityGroup.ID)
 		}
 		for _, ipc := range nic.Properties.IPConfigurations {
 			if ipc == nil || ipc.Properties == nil {
 				continue
 			}
+			subnetNSG := ""
 			if sn := ipc.Properties.Subnet; sn != nil && sn.ID != nil {
 				if nsg, ok := b.nsgBySubnet[key(*sn.ID)]; ok {
 					addNSG(nsg)
+					subnetNSG = b.canonicalNSG(nsg)
 				} else if sn.Properties != nil && sn.Properties.NetworkSecurityGroup != nil && sn.Properties.NetworkSecurityGroup.ID != nil {
 					addNSG(*sn.Properties.NetworkSecurityGroup.ID)
+					subnetNSG = b.canonicalNSG(*sn.Properties.NetworkSecurityGroup.ID)
+				}
+			}
+			var layers []string
+			for _, l := range []string{subnetNSG, nicNSG} {
+				if l != "" {
+					layers = append(layers, l)
 				}
 			}
 			if pip := ipc.Properties.PublicIPAddress; pip != nil && pip.ID != nil {
@@ -189,6 +224,7 @@ func (b *builder) vmNetwork(vm *armcompute.VirtualMachine) vmNet {
 					addr = *pip.ID // allocated but address unknown: still public
 				}
 				out.publicIPs = append(out.publicIPs, addr)
+				out.paths = append(out.paths, netPath{publicIP: addr, layers: layers})
 			}
 		}
 	}
@@ -232,7 +268,6 @@ func (b *builder) vms() {
 		r := model.Resource{ID: *vm.ID, Type: "azure_virtual_machine", Name: str(vm.Name), Attributes: attrs, Related: net.nsgs}
 		id := b.add(r, region, tagsOf(vm.Tags), created, false)
 
-		var exposedVia []string
 		for _, nsgID := range net.nsgs {
 			b.g.AddEdge(id, nsgID, graph.EdgeAttachedTo, nil)
 			nsg := b.nsgByID[key(nsgID)]
@@ -241,18 +276,43 @@ func (b *builder) vms() {
 			edge := map[string]any{"ports": strings.Join(ports, ",")}
 			if len(open) > 0 {
 				edge["internet_ports"] = strings.Join(open, ",")
-				exposedVia = append(exposedVia, open...)
 			}
 			b.g.AddEdge(nsgID, id, graph.EdgeAllowsTrafficTo, edge)
 		}
-		if len(net.publicIPs) > 0 {
-			switch {
-			case len(net.nsgs) == 0:
-				// No NSG on NIC or subnet: Azure permits all inbound traffic to the public IP.
-				b.g.AddEdge(graph.InternetNodeID, id, graph.EdgeExposes, map[string]any{"via": "public_ip_no_nsg", "ports": "all", "public_ip": net.publicIPs[0]})
-			case len(exposedVia) > 0:
-				b.g.AddEdge(graph.InternetNodeID, id, graph.EdgeExposes, map[string]any{"via": "nsg_internet_rule", "ports": strings.Join(exposedVia, ","), "public_ip": net.publicIPs[0]})
+		// Internet exposure per public IP: traffic must pass the subnet NSG AND the
+		// NIC NSG (each that exists). No NSG at all means Azure allows everything.
+		for _, p := range net.paths {
+			if len(p.layers) == 0 {
+				core.Expose(b.g, id, map[string]any{"via": "public_ip_no_nsg", "ports": "all", "public_ip": p.publicIP}, nil, b.spec.TrustedCIDRs)
+				continue
 			}
+			// A referenced NSG the listing did not return is unknown, not deny: it is left
+			// out of the AND of layers (it cannot be shown to block anything), the exposure
+			// is marked certainty=unknown, and the gap is reported as coverage.
+			var layers []*armnetwork.SecurityGroup
+			var missing []string
+			for _, l := range p.layers {
+				if n := b.nsgByID[key(l)]; n != nil {
+					layers = append(layers, n)
+				} else {
+					missing = append(missing, l)
+					b.uncollectedNSG(l, *vm.ID)
+				}
+			}
+			if len(layers) == 0 {
+				core.Expose(b.g, id, map[string]any{"via": "nsg_not_collected", "ports": "unknown", "certainty": "unknown", "public_ip": p.publicIP,
+					"security_groups": p.layers, "uncollected_security_groups": missing}, nil, b.spec.TrustedCIDRs)
+				continue
+			}
+			ports, sources := LayeredInternetExposure(layers)
+			if len(ports) == 0 {
+				continue
+			}
+			attr := map[string]any{"via": "nsg_internet_rule", "ports": strings.Join(ports, ","), "public_ip": p.publicIP, "security_groups": p.layers}
+			if len(missing) > 0 {
+				attr["certainty"], attr["uncollected_security_groups"] = "unknown", missing
+			}
+			core.Expose(b.g, id, attr, sources, b.spec.TrustedCIDRs)
 		}
 		if power == "PowerState/stopped" {
 			// "stopped" (not deallocated) VMs still bill compute.
@@ -347,7 +407,7 @@ func (b *builder) storage() {
 		b.check("storage_blob_public_access_level_is_disabled", r, region, disabled, passFail(disabled,
 			"Anonymous blob access is disabled on the storage account.", "Storage account permits anonymous (public) blob/container access."))
 		if blobPublic != nil && *blobPublic && networkOpen {
-			b.g.AddEdge(graph.InternetNodeID, id, graph.EdgeExposes, map[string]any{"via": "blob_public_access"})
+			core.Expose(b.g, id, map[string]any{"via": "blob_public_access"}, nil, b.spec.TrustedCIDRs)
 		}
 		secure := https != nil && *https
 		b.check("storage_secure_transfer_required_is_enabled", r, region, secure, passFail(secure,
@@ -380,10 +440,17 @@ func (b *builder) sqlServers() {
 				publicAccess = *p.PublicNetworkAccess != armsql.ServerNetworkAccessFlagDisabled
 			}
 		}
-		var openRules []string
+		var openRules, publicRules, sources []string
 		for _, r := range s.Rules {
 			if internetRule(r) {
 				openRules = append(openRules, str(r.Name))
+			}
+			if r == nil || r.Properties == nil {
+				continue
+			}
+			if pub := core.PublicSources(rangeToCIDRs(str(r.Properties.StartIPAddress), str(r.Properties.EndIPAddress))); len(pub) > 0 {
+				publicRules = append(publicRules, str(r.Name))
+				sources = append(sources, pub...)
 			}
 		}
 		attrs["internet_firewall_rules"] = openRules
@@ -396,8 +463,8 @@ func (b *builder) sqlServers() {
 		b.check("sqlserver_firewall_rules_no_ingress_from_internet", r, region, !exposed, passFail(!exposed,
 			"No server firewall rule admits 0.0.0.0-255.255.255.255 (or public network access is disabled).",
 			fmt.Sprintf("Firewall rule(s) %s admit the entire internet.", strings.Join(openRules, ", "))))
-		if exposed {
-			b.g.AddEdge(graph.InternetNodeID, id, graph.EdgeExposes, map[string]any{"via": "sql_firewall_rule", "ports": "1433"})
+		if publicAccess && len(publicRules) > 0 {
+			core.Expose(b.g, id, map[string]any{"via": "sql_firewall_rule", "ports": "1433", "firewall_rules": publicRules}, sources, b.spec.TrustedCIDRs)
 		}
 	}
 }

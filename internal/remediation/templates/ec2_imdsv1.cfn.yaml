@@ -10,4 +10,5 @@ Resources:
           HttpEndpoint: enabled
           HttpTokens: required
           HttpPutResponseHopLimit: 1
-# Running instance: aws ec2 modify-instance-metadata-options --instance-id {{ .Name }} --http-tokens required
+# Running instance:
+# CLI: aws ec2 modify-instance-metadata-options --instance-id={{ sh .Raw.Name }} --http-tokens required

@@ -1,0 +1,17 @@
+# Remediation plan metadata for gcp_bucket_public.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "storage.buckets.get"
+  - "storage.buckets.update"
+  - "storage.buckets.getIamPolicy"
+  - "storage.buckets.setIamPolicy"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Remove the public binding only: gcloud storage buckets remove-iam-policy-binding gs://<bucket> --member=allUsers --role=<role>."
+effort: S
+confidence: medium
+rollback: "gcloud storage buckets update gs://<bucket> --no-public-access-prevention; uniform bucket-level access can only be reverted within 90 days."
+breaks_function:
+  value: true
+  note: "Public websites and anonymous downloads stop; uniform bucket-level access disables object ACLs."

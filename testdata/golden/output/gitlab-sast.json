@@ -1,0 +1,113 @@
+{
+  "scan": {
+    "analyzer": {
+      "id": "nimbus",
+      "name": "nimbus cloud-posture",
+      "url": "https://github.com/DreadpiratePickles/nimbus",
+      "vendor": {
+        "name": "nimbus"
+      },
+      "version": "0.1.0"
+    },
+    "end_time": "2026-10-09T12:00:00",
+    "scanner": {
+      "id": "nimbus",
+      "name": "nimbus cloud-posture",
+      "url": "https://github.com/DreadpiratePickles/nimbus",
+      "vendor": {
+        "name": "nimbus"
+      },
+      "version": "0.1.0"
+    },
+    "start_time": "2026-10-09T12:00:00",
+    "status": "success",
+    "type": "sast"
+  },
+  "version": "15.0.7",
+  "vulnerabilities": [
+    {
+      "description": "Bucket pii-exports grants s3:GetObject to Principal \"*\".",
+      "id": "cf5a5ae2-9c47-500f-b222-169be28be014",
+      "identifiers": [
+        {
+          "name": "nimbus S3_PUBLIC_BUCKET",
+          "type": "nimbus_canonical_id",
+          "value": "S3_PUBLIC_BUCKET"
+        },
+        {
+          "name": "prowler s3_bucket_public_access",
+          "type": "prowler_check_id",
+          "value": "s3_bucket_public_access"
+        }
+      ],
+      "location": {
+        "file": "cloud://aws/arn:aws:s3:::pii-exports"
+      },
+      "name": "S3 bucket allows public access",
+      "severity": "High",
+      "solution": "Enable S3 Block Public Access on the bucket and account."
+    },
+    {
+      "description": "Ingress 0.0.0.0/0 on port 22 \u0026 3389 \u003cadmin\u003e.",
+      "id": "4ab7a75a-092a-5672-af26-5af54f2c087b",
+      "identifiers": [
+        {
+          "name": "nimbus SG_OPEN_ADMIN_PORT",
+          "type": "nimbus_canonical_id",
+          "value": "SG_OPEN_ADMIN_PORT"
+        },
+        {
+          "name": "checkov CKV_AWS_24",
+          "type": "checkov_check_id",
+          "value": "CKV_AWS_24"
+        }
+      ],
+      "location": {
+        "end_line": 30,
+        "file": "infra/network.tf",
+        "start_line": 12
+      },
+      "name": "Security group allows SSH/RDP from 0.0.0.0/0",
+      "severity": "Critical",
+      "solution": "Restrict ingress to 203.0.113.0/24."
+    },
+    {
+      "description": "xz-utils backdoor (CVE-2024-3094)",
+      "id": "8f960dc9-aa3e-5a47-a2b9-3b383c2ce89f",
+      "identifiers": [
+        {
+          "name": "nimbus CVE_VULNERABILITY",
+          "type": "nimbus_canonical_id",
+          "value": "CVE_VULNERABILITY"
+        },
+        {
+          "name": "CVE-2024-3094",
+          "type": "cve",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-3094",
+          "value": "CVE-2024-3094"
+        }
+      ],
+      "location": {
+        "file": "cloud://kubernetes/payments/deployment/api"
+      },
+      "name": "xz-utils backdoor (CVE-2024-3094)",
+      "severity": "Critical"
+    },
+    {
+      "description": "syntax: infra/broken.tf:3,1-2: Argument or block definition required",
+      "id": "446ac019-e8d5-5eb4-86b3-78e2aee0fa2d",
+      "identifiers": [
+        {
+          "name": "nimbus IAC_PARSE_LIMIT",
+          "type": "nimbus_canonical_id",
+          "value": "IAC_PARSE_LIMIT"
+        }
+      ],
+      "location": {
+        "file": "infra/broken.tf"
+      },
+      "name": "IaC file not scanned",
+      "severity": "High"
+    }
+  ]
+}

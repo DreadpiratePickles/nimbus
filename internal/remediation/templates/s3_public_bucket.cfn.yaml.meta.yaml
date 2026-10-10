@@ -1,0 +1,21 @@
+# Remediation plan metadata for s3_public_bucket.cfn.yaml (schema: internal/remediation/metadata.go).
+actions_required:
+  - "cloudformation:CreateChangeSet"
+  - "cloudformation:DescribeChangeSet"
+  - "cloudformation:ExecuteChangeSet"
+  - "cloudformation:DescribeStacks"
+  - "s3:PutBucketPublicAccessBlock"
+  - "s3:GetBucketPublicAccessBlock"
+  - "s3:PutBucketOwnershipControls"
+  - "s3:GetBucketOwnershipControls"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "aws s3api put-public-access-block --bucket <bucket> with all four flags true (the CLI line in the template)."
+effort: S
+confidence: low
+rollback: "aws s3api delete-public-access-block --bucket <bucket>; aws s3api delete-bucket-ownership-controls --bucket <bucket>"
+breaks_function:
+  value: true
+  note: "Intentionally public content (static websites, public downloads) stops working. BucketOwnerEnforced disables ACLs, which breaks writers that still set ACLs (for example CloudFront standard logs). A CREATE change set fails because the bucket exists: use an IMPORT change set or the CLI."

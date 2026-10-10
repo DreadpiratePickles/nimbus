@@ -1,0 +1,154 @@
+# Elastic Load Balancing v2: internet-facing load balancer -> listener -> target group -> target.
+cases:
+  - name: alb public, instance private, reachable via alb on 443
+    source: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html ; https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-register-targets.html#target-security-groups
+    port: {protocol: tcp, number: 8080}
+    target: &app
+      id: i-app
+      kind: instance
+      public_ip: false
+      subnets:
+        - id: subnet-app
+          route_table: {id: rtb-priv, routes: [{destination: 10.0.0.0/16, target: local}, {destination: 0.0.0.0/0, target: nat-1}]}
+          nacl: &allow_all {id: acl-default, inbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}], outbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}]}
+      security_groups:
+        - {id: sg-app, ingress: [{protocol: tcp, from: 8080, to: 8080, groups: [sg-alb]}, {protocol: tcp, from: 22, to: 22, sources: [10.0.0.0/8]}]}
+      fronted_by:
+        - &alb_front
+          lb: &alb
+            id: arn:aws:elasticloadbalancing:us-east-1:111111111111:loadbalancer/app/web/1
+            kind: load_balancer
+            lb_type: application
+            scheme: internet-facing
+            subnets:
+              - id: subnet-pub-a
+                route_table: {id: rtb-pub, routes: [{destination: 0.0.0.0/0, target: igw-1}]}
+                nacl: *allow_all
+            security_groups: [{id: sg-alb, ingress: [{protocol: tcp, from: 443, to: 443, sources: [0.0.0.0/0]}]}]
+          listener: {id: listener/app/web/1/443, protocol: HTTPS, port: 443}
+          target_group: {id: targetgroup/web/1, protocol: HTTP, port: 8080}
+          target_port: 8080
+    expect:
+      status: reachable
+      width: wide
+      path_has: "listener listener/app/web/1/443 accepts 443/HTTPS and forwards to target group targetgroup/web/1 on port 8080"
+
+  - name: same alb topology, port 22 is not reachable
+    source: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html (only listener ports are forwarded)
+    port: {protocol: tcp, number: 22}
+    target: *app
+    expect:
+      status: blocked
+      blocker: "i-app has no public IPv4 address or Elastic IP association"
+
+  - name: internal alb does not expose the target
+    source: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#load-balancer-scheme (internal = private IPs only)
+    port: {protocol: tcp, number: 8080}
+    target:
+      <<: *app
+      fronted_by:
+        - lb: {<<: *alb, scheme: internal}
+          listener: {id: listener/app/web/1/443, protocol: HTTPS, port: 443}
+          target_group: {id: targetgroup/web/1, protocol: HTTP, port: 8080}
+          target_port: 8080
+    expect:
+      status: blocked
+      blocker: "scheme is internal"
+
+  - name: alb security group closed on the listener port
+    source: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-update-security-groups.html
+    port: {protocol: tcp, number: 8080}
+    target:
+      <<: *app
+      fronted_by:
+        - lb: {<<: *alb, security_groups: [{id: sg-alb, ingress: [{protocol: tcp, from: 443, to: 443, sources: [10.0.0.0/8]}]}]}
+          listener: {id: listener/app/web/1/443, protocol: HTTPS, port: 443}
+          target_group: {id: targetgroup/web/1, protocol: HTTP, port: 8080}
+          target_port: 8080
+    expect:
+      status: blocked
+      blocker: "security groups sg-alb admit no internet source on 443/tcp"
+
+  - name: target sg does not admit the alb
+    source: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-register-targets.html#target-security-groups (targets must allow traffic from the load balancer)
+    port: {protocol: tcp, number: 8080}
+    target:
+      <<: *app
+      security_groups: [{id: sg-app, ingress: [{protocol: tcp, from: 22, to: 22, sources: [10.0.0.0/8]}]}]
+    expect:
+      status: blocked
+      blocker: "security groups of i-app admit nothing on 8080/tcp from load balancer"
+
+  - name: nlb without security groups, client ip preserved
+    source: https://docs.aws.amazon.com/elasticloadbalancing/latest/network/edit-target-group-attributes.html#client-ip-preservation ; https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-security-groups.html
+    port: {protocol: tcp, number: 5432}
+    target:
+      <<: *app
+      security_groups: [{id: sg-db-proxy, ingress: [{protocol: tcp, from: 5432, to: 5432, sources: [198.51.100.0/24]}]}]
+      fronted_by:
+        - lb:
+            id: arn:aws:elasticloadbalancing:us-east-1:111111111111:loadbalancer/net/pg/1
+            kind: load_balancer
+            lb_type: network
+            scheme: internet-facing
+            subnets: [{id: subnet-pub-a, route_table: {id: rtb-pub, routes: [{destination: 0.0.0.0/0, target: igw-1}]}, nacl: *allow_all}]
+            security_groups: []
+          listener: {id: listener/net/pg/1/5432, protocol: TCP, port: 5432}
+          target_group: {id: targetgroup/pg/1, protocol: TCP, port: 5432, preserve_client_ip: true}
+          target_port: 5432
+    expect:
+      status: reachable
+      width: narrow
+      sources: [198.51.100.0/24]
+      path_has: "network load balancer"
+
+  - name: nlb client ip preserved but target sg admits no internet source
+    source: https://docs.aws.amazon.com/elasticloadbalancing/latest/network/edit-target-group-attributes.html#client-ip-preservation (the target sees the client address)
+    port: {protocol: tcp, number: 5432}
+    target:
+      <<: *app
+      security_groups: [{id: sg-db-proxy, ingress: [{protocol: tcp, from: 5432, to: 5432, sources: [10.0.0.0/16]}]}]
+      fronted_by:
+        - lb:
+            id: lb-net
+            kind: load_balancer
+            lb_type: network
+            scheme: internet-facing
+            subnets: [{id: subnet-pub-a, route_table: {id: rtb-pub, routes: [{destination: 0.0.0.0/0, target: igw-1}]}, nacl: *allow_all}]
+            security_groups: []
+          listener: {id: l-5432, protocol: TCP, port: 5432}
+          target_group: {id: tg-pg, protocol: TCP, port: 5432, preserve_client_ip: true}
+          target_port: 5432
+    expect:
+      status: blocked
+      blocker: "admit nothing on 5432/tcp from load balancer lb-net"
+
+  - name: load balancer itself, internet-facing
+    source: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#load-balancer-scheme
+    port: {protocol: tcp, number: 443}
+    target: *alb
+    expect:
+      status: reachable
+      width: wide
+      path_kinds: [load_balancer, route, nacl_inbound, security_group, nacl_outbound]
+
+  - name: load balancer in subnets without igw route
+    source: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#availability-zones (internet-facing load balancers need public subnets)
+    port: {protocol: tcp, number: 443}
+    target:
+      <<: *alb
+      subnets: [{id: subnet-priv, route_table: {id: rtb-priv, routes: [{destination: 0.0.0.0/0, target: nat-1}]}, nacl: *allow_all}]
+    expect:
+      status: blocked
+      blocker: "NAT gateway nat-1"
+
+  - name: load balancer reachable if any of its subnets is public
+    source: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#availability-zones (a node per enabled zone)
+    port: {protocol: tcp, number: 443}
+    target:
+      <<: *alb
+      subnets:
+        - {id: subnet-priv, route_table: {id: rtb-priv, routes: [{destination: 0.0.0.0/0, target: nat-1}]}, nacl: *allow_all}
+        - {id: subnet-pub-b, route_table: {id: rtb-pub, routes: [{destination: 0.0.0.0/0, target: igw-1}]}, nacl: *allow_all}
+    expect:
+      status: reachable

@@ -1,0 +1,73 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-iam-privesc-delete-role-boundary-assume-role
+title: Role Permissions Boundary Removal with Role Assumption (IAM-023)
+description: >-
+  The principal may delete the permissions boundary of a role it can assume, lifting the ceiling the boundary puts on that role's identity policies, then assume it. Deny iam:DeleteRolePermissionsBoundary to principals that can assume the bounded role.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-iam-privesc-delete-role-boundary-assume-role
+  upstream: pathfinding.cloud - IAM-023 - iam:DeleteRolePermissionsBoundary + sts:AssumeRole
+  upstream_url: https://pathfinding.cloud/paths/iam-023
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator; the role is reached over a graph can_assume edge from the principal (Cartography's STS_ASSUMEROLE_ALLOW), which the evaluator keeps only when the trust policy and the caller's policies allow sts:AssumeRole (an edge it denies is removed), so sts:AssumeRole is not re-checked here; the modifying action must be allowed on that role (Deny and SCPs honoured); nimbus requires a boundary to be attached to the role (permissions_boundary / permissions_boundary_document), which Prowler's query does not check; nimbus does not anchor on principals already allowed * on * (an escalation adds nothing; Prowler lists them)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+  include_admin: true
+match:
+  join: path
+  path:
+    - {edge: can_assume, to_types: [aws_iam_role]}
+  requires_permissions:
+    - {action: "iam:DeleteRolePermissionsBoundary", resource: target}
+  target:
+    types: [aws_iam_role]
+    exclude_self: true
+    has_attribute: [permissions_boundary, permissions_boundary_document]
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/dev
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["iam:DeleteRolePermissionsBoundary", "sts:AssumeRole"], Resource: "arn:aws:iam::123456789012:role/*"}
+      - id: arn:aws:iam::123456789012:user/plain
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "sts:AssumeRole", Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/target
+        type: aws_iam_role
+        account: "123456789012"
+        attributes:
+          trust_principals: [arn:aws:iam::123456789012:user/dev, arn:aws:iam::123456789012:user/plain]
+          permissions_boundary: arn:aws:iam::123456789012:policy/role-boundary
+      - id: arn:aws:iam::123456789012:role/unassumable
+        type: aws_iam_role
+        account: "123456789012"
+        attributes:
+          trust_principals: [ec2.amazonaws.com]
+          permissions_boundary: arn:aws:iam::123456789012:policy/role-boundary
+      - id: arn:aws:iam::123456789012:role/unbounded
+        type: aws_iam_role
+        account: "123456789012"
+        attributes:
+          trust_principals: [arn:aws:iam::123456789012:user/dev]
+    edges:
+      - {from: arn:aws:iam::123456789012:user/dev, to: arn:aws:iam::123456789012:role/target, kind: can_assume}
+      - {from: arn:aws:iam::123456789012:user/plain, to: arn:aws:iam::123456789012:role/target, kind: can_assume}
+      - {from: arn:aws:iam::123456789012:user/dev, to: arn:aws:iam::123456789012:role/unbounded, kind: can_assume}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/target", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/unassumable", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/plain", target: "arn:aws:iam::123456789012:role/target", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/unbounded", match: false}

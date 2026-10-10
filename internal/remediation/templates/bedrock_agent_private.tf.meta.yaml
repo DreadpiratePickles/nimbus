@@ -1,0 +1,16 @@
+# Remediation plan metadata for bedrock_agent_private.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "bedrock:GetAgent"
+  - "apigateway:GET"
+  - "apigateway:PATCH"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the agent's exposure and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Throttle the public route to zero (stage route settings) or remove bedrock:InvokeAgent from the front-door Lambda's role until callers authenticate."
+effort: M
+confidence: medium
+rollback: "aws apigatewayv2 update-route --api-id <api> --route-id <route> --authorization-type NONE."
+breaks_function:
+  value: true
+  note: "Unsigned chat clients get 403 Forbidden; the web front end must sign requests or go through an authorizer."

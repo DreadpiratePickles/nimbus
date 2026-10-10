@@ -1,0 +1,17 @@
+# Remediation plan metadata for ec2_instance_port_exposed.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "ec2:CreateSecurityGroup"
+  - "ec2:AuthorizeSecurityGroupIngress"
+  - "ec2:DescribeInstances"
+  - "ec2:ModifyInstanceAttribute"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the instance's exposure and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Revoke the world-open ingress rule on the instance's security group for this port, or stop the listener on the host, until the restricted group is in place."
+effort: S
+confidence: medium
+rollback: "aws ec2 modify-instance-attribute --instance-id <id> --groups <the group ids listed in step 1>, then terraform destroy the restricted group."
+breaks_function:
+  value: true
+  note: "Clients outside allowed_cidrs can no longer connect on the port; public web traffic must come through a load balancer."

@@ -88,7 +88,7 @@ func (j *Jira) findExisting(ctx context.Context, label string) (string, error) {
 	jql := fmt.Sprintf(`project = "%s" AND labels = "%s"`, j.ProjectKey, label)
 	q := "?jql=" + url.QueryEscape(jql) + "&maxResults=1&fields=key"
 	for _, path := range []string{"/rest/api/3/search/jql", "/rest/api/3/search"} {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, j.base()+path+q, nil)
+		req, err := newRequest(ctx, http.MethodGet, j.base()+path+q, nil)
 		if err != nil {
 			return "", err
 		}
@@ -173,4 +173,3 @@ func JiraADF(f model.Finding, paths []model.AttackPath) map[string]any {
 	content = append(content, adfPara(adfText("cloud-posture-fingerprint: "+f.ID)))
 	return map[string]any{"type": "doc", "version": 1, "content": content}
 }
-

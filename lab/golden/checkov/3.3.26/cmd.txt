@@ -1,0 +1,12 @@
+tool: checkov 3.3.26 (pip install checkov==3.3.26)
+date: 2026-10-10T01:34:33Z
+lab commit: c1901c9
+cwd: repository root
+normalisation: absolute checkout path in file_abs_path replaced by /src (sed s#<root>#/src#g); nothing else edited
+exit status 1 means failed checks were found (expected for a deliberately vulnerable lab)
+command (aws): checkov -d lab/terraform/aws -o json --skip-download
+exit (aws): 1
+command (azure): checkov -d lab/terraform/azure -o json --skip-download
+exit (azure): 1
+command (gcp): checkov -d lab/terraform/gcp -o json --skip-download
+exit (gcp): 1

@@ -1,0 +1,3819 @@
+[
+  {
+    "id": "lab-W01",
+    "source": "nimbus-lab",
+    "check_id": "s3_bucket_public_access",
+    "title": "S3 bucket holding PII is publicly readable",
+    "description": "nimbus lab seeded weakness W01 (scenario S01)",
+    "severity": "CRITICAL",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:s3:::nimbus-lab-customer-pii",
+      "type": "aws_s3_bucket",
+      "name": "nimbus-lab-customer-pii",
+      "attributes": {
+        "bucket_policy_principal": "*",
+        "lab_scenario": "S01",
+        "public_access_block": false,
+        "tags": {
+          "cost_ceiling_usd": "5",
+          "data_classification": "pii",
+          "environment": "production",
+          "owner": "data-platform"
+        }
+      }
+    },
+    "weaknesses": [
+      "PUBLIC_DATA_STORE"
+    ],
+    "tags": {
+      "lab_scenario": "S01",
+      "lab_weakness": "W01"
+    }
+  },
+  {
+    "id": "lab-W02",
+    "source": "nimbus-lab",
+    "check_id": "ec2_securitygroup_allow_ingress_from_internet_to_any_port",
+    "title": "Security group allows all ports from 0.0.0.0/0",
+    "description": "nimbus lab seeded weakness W02 (scenario S02)",
+    "severity": "CRITICAL",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60001",
+      "type": "aws_security_group",
+      "name": "nimbus-lab-web-open",
+      "attributes": {
+        "ingress": [
+          {
+            "cidr": "0.0.0.0/0",
+            "from_port": 0,
+            "protocol": "-1",
+            "to_port": 65535
+          }
+        ],
+        "lab_scenario": "S02"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60001",
+          "kind": "allows_traffic_to"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S02",
+      "lab_weakness": "W02"
+    }
+  },
+  {
+    "id": "lab-W03",
+    "source": "nimbus-lab",
+    "check_id": "ec2_instance_port_ssh_exposed_to_internet",
+    "title": "EC2 instance reachable from 0.0.0.0/0",
+    "description": "nimbus lab seeded weakness W03 (scenario S02)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60001",
+      "type": "aws_instance",
+      "name": "nimbus-lab-web-01",
+      "attributes": {
+        "exposure_cidrs": [
+          "0.0.0.0/0"
+        ],
+        "instance_profile": "arn:aws:iam::111111111111:instance-profile/nimbus-lab-web-profile",
+        "lab_scenario": "S02",
+        "metadata_http_tokens": "optional",
+        "public_ip": "198.51.100.10",
+        "security_groups": [
+          "sg-0a1b2c3d4e5f60001"
+        ],
+        "subnet_id": "subnet-0a1b2c3d4e5f60001",
+        "tags": {
+          "environment": "production",
+          "owner": "web-team"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60001",
+          "kind": "attached_to"
+        },
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-web-instance-role",
+          "kind": "runs_as",
+          "attr": {
+            "via": "instance profile nimbus-lab-web-profile"
+          }
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S02",
+      "lab_weakness": "W03"
+    }
+  },
+  {
+    "id": "lab-W04",
+    "source": "nimbus-lab",
+    "check_id": "ec2_instance_imdsv2_enabled",
+    "title": "EC2 instance allows IMDSv1",
+    "description": "nimbus lab seeded weakness W04 (scenario S02)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60001",
+      "type": "aws_instance",
+      "name": "nimbus-lab-web-01",
+      "attributes": {
+        "instance_profile": "arn:aws:iam::111111111111:instance-profile/nimbus-lab-web-profile",
+        "lab_scenario": "S02",
+        "metadata_http_tokens": "optional",
+        "public_ip": "198.51.100.10",
+        "security_groups": [
+          "sg-0a1b2c3d4e5f60001"
+        ],
+        "subnet_id": "subnet-0a1b2c3d4e5f60001",
+        "tags": {
+          "environment": "production",
+          "owner": "web-team"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60001",
+          "kind": "attached_to"
+        },
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-web-instance-role",
+          "kind": "runs_as",
+          "attr": {
+            "via": "instance profile nimbus-lab-web-profile"
+          }
+        }
+      ]
+    },
+    "weaknesses": [
+      "IMDSV1_ENABLED"
+    ],
+    "tags": {
+      "lab_scenario": "S02",
+      "lab_weakness": "W04"
+    }
+  },
+  {
+    "id": "lab-W05",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "Instance role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W05 (scenario S02)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-web-instance-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-web-instance-role",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S02"
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S02",
+      "lab_weakness": "W05"
+    }
+  },
+  {
+    "id": "lab-W06",
+    "source": "nimbus-lab",
+    "check_id": "rds_instance_no_public_access",
+    "title": "RDS instance is publicly accessible",
+    "description": "nimbus lab seeded weakness W06 (scenario S03)",
+    "severity": "CRITICAL",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-orders",
+      "type": "aws_db_instance",
+      "name": "nimbus-lab-orders",
+      "attributes": {
+        "db_subnet_group": "nimbus-lab-public",
+        "engine": "postgres",
+        "lab_scenario": "S03",
+        "publicly_accessible": true,
+        "security_groups": [
+          "sg-0a1b2c3d4e5f60006"
+        ],
+        "subnet_ids": [
+          "subnet-0a1b2c3d4e5f60001",
+          "subnet-0a1b2c3d4e5f60002"
+        ],
+        "tags": {
+          "data_classification": "confidential",
+          "environment": "production",
+          "owner": "commerce"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60006",
+          "kind": "attached_to"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE",
+      "DATABASE"
+    ],
+    "tags": {
+      "lab_scenario": "S03",
+      "lab_weakness": "W06"
+    }
+  },
+  {
+    "id": "lab-W07",
+    "source": "nimbus-lab",
+    "check_id": "iam_role_cross_account_readonlyaccess_policy",
+    "title": "Role trusts external account 999999999999 without ExternalId",
+    "description": "nimbus lab seeded weakness W07 (scenario S04)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-vendor-access",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-vendor-access",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "external_id_required": false,
+        "lab_scenario": "S04",
+        "trust_principals": [
+          "arn:aws:iam::999999999999:root"
+        ]
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::999999999999:root",
+          "kind": "trusts"
+        }
+      ]
+    },
+    "weaknesses": [
+      "CROSS_ACCOUNT_TRUST"
+    ],
+    "tags": {
+      "lab_scenario": "S04",
+      "lab_weakness": "W07"
+    }
+  },
+  {
+    "id": "lab-W08",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "Vendor role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W08 (scenario S04)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-vendor-access",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-vendor-access",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "external_id_required": false,
+        "lab_scenario": "S04",
+        "trust_principals": [
+          "arn:aws:iam::999999999999:root"
+        ]
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::999999999999:root",
+          "kind": "trusts"
+        }
+      ]
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S04",
+      "lab_weakness": "W08"
+    }
+  },
+  {
+    "id": "lab-W09",
+    "source": "nimbus-lab",
+    "check_id": "iam_user_mfa_enabled_console_access",
+    "title": "IAM user with console password has no MFA",
+    "description": "nimbus lab seeded weakness W09 (scenario S05)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:user/nimbus-lab-ops-jane",
+      "type": "aws_iam_user",
+      "name": "nimbus-lab-ops-jane",
+      "attributes": {
+        "access_key_1_age_days": 400,
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S05",
+        "mfa_active": false
+      }
+    },
+    "weaknesses": [
+      "NO_MFA"
+    ],
+    "tags": {
+      "lab_scenario": "S05",
+      "lab_weakness": "W09"
+    }
+  },
+  {
+    "id": "lab-W10",
+    "source": "nimbus-lab",
+    "check_id": "iam_rotate_access_key_90_days",
+    "title": "Access key not rotated for 400 days",
+    "description": "nimbus lab seeded weakness W10 (scenario S05)",
+    "severity": "MEDIUM",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:user/nimbus-lab-ops-jane",
+      "type": "aws_iam_user",
+      "name": "nimbus-lab-ops-jane",
+      "attributes": {
+        "access_key_1_age_days": 400,
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S05",
+        "mfa_active": false
+      }
+    },
+    "weaknesses": [
+      "STALE_CREDENTIALS"
+    ],
+    "tags": {
+      "lab_scenario": "S05",
+      "lab_weakness": "W10"
+    }
+  },
+  {
+    "id": "lab-W11",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "IAM user has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W11 (scenario S05)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:user/nimbus-lab-ops-jane",
+      "type": "aws_iam_user",
+      "name": "nimbus-lab-ops-jane",
+      "attributes": {
+        "access_key_1_age_days": 400,
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S05",
+        "mfa_active": false
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S05",
+      "lab_weakness": "W11"
+    }
+  },
+  {
+    "id": "lab-W12",
+    "source": "nimbus-lab",
+    "check_id": "awslambda_function_url_public",
+    "title": "Lambda function URL has AuthType NONE",
+    "description": "nimbus lab seeded weakness W12 (scenario S06)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-export",
+      "type": "aws_lambda_function",
+      "name": "nimbus-lab-export",
+      "attributes": {
+        "function_url_auth_type": "NONE",
+        "lab_scenario": "S06"
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-export-lambda-role",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S06",
+      "lab_weakness": "W12"
+    }
+  },
+  {
+    "id": "lab-W13",
+    "source": "nimbus-lab",
+    "check_id": "eks_control_plane_endpoint_access_publicly_accessible",
+    "title": "EKS API endpoint is public to 0.0.0.0/0",
+    "description": "nimbus lab seeded weakness W13 (scenario S07)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:eks:us-east-1:111111111111:cluster/nimbus-lab-eks",
+      "type": "aws_eks_cluster",
+      "name": "nimbus-lab-eks",
+      "attributes": {
+        "endpoint_public_access": true,
+        "lab_scenario": "S07",
+        "public_access_cidrs": [
+          "0.0.0.0/0"
+        ]
+      },
+      "related": [
+        {
+          "id": "cluster/clusterrolebinding/ci-deployer-admin",
+          "kind": "contains"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE",
+      "K8S_API"
+    ],
+    "tags": {
+      "lab_scenario": "S07",
+      "lab_weakness": "W13"
+    }
+  },
+  {
+    "id": "lab-W14",
+    "source": "nimbus-lab",
+    "check_id": "cluster_role_binding_cluster_admin_disabled",
+    "title": "ServiceAccount ci/deployer bound to cluster-admin",
+    "description": "nimbus lab seeded weakness W14 (scenario S07)",
+    "severity": "CRITICAL",
+    "status": "FAIL",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "cluster/clusterrolebinding/ci-deployer-admin",
+      "type": "k8s_cluster_role_binding",
+      "name": "ci-deployer-admin",
+      "attributes": {
+        "lab_scenario": "S07",
+        "role_ref": "cluster-admin",
+        "subjects": [
+          "ci/serviceaccount/deployer"
+        ]
+      },
+      "related": [
+        {
+          "id": "cluster/clusterrole/cluster-admin",
+          "kind": "bound_to"
+        }
+      ]
+    },
+    "weaknesses": [
+      "CLUSTER_ADMIN",
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S07",
+      "lab_weakness": "W14"
+    }
+  },
+  {
+    "id": "lab-W15",
+    "source": "nimbus-lab",
+    "check_id": "service_type_loadbalancer_public",
+    "title": "Pod exposed to the internet by a LoadBalancer service",
+    "description": "nimbus lab seeded weakness W15 (scenario S08)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "ci/pod/build-runner-0",
+      "type": "k8s_pod",
+      "name": "build-runner-0",
+      "attributes": {
+        "exposed_by": "service/ci/build-runner (type LoadBalancer, 0.0.0.0/0)",
+        "image": "ghcr.io/nimbus-lab/build-runner:1.4.0",
+        "lab_scenario": "S08",
+        "namespace": "ci",
+        "service_account": "deployer"
+      },
+      "related": [
+        {
+          "id": "ci/serviceaccount/deployer",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S08",
+      "lab_weakness": "W15"
+    }
+  },
+  {
+    "id": "lab-W16",
+    "source": "nimbus-lab",
+    "check_id": "CVE-2025-1974",
+    "title": "Exploitable RCE in running image build-runner:1.4.0",
+    "description": "nimbus lab seeded weakness W16 (scenario S08)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "ci/pod/build-runner-0",
+      "type": "k8s_pod",
+      "name": "build-runner-0",
+      "attributes": {
+        "exposed_by": "service/ci/build-runner (type LoadBalancer, 0.0.0.0/0)",
+        "image": "ghcr.io/nimbus-lab/build-runner:1.4.0",
+        "lab_scenario": "S08",
+        "namespace": "ci",
+        "service_account": "deployer"
+      },
+      "related": [
+        {
+          "id": "ci/serviceaccount/deployer",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "UNPATCHED"
+    ],
+    "tags": {
+      "lab_scenario": "S08",
+      "lab_weakness": "W16"
+    }
+  },
+  {
+    "id": "lab-W17",
+    "source": "nimbus-lab",
+    "check_id": "pod_service_account_token_disabled",
+    "title": "Pod auto-mounts the deployer service account token",
+    "description": "nimbus lab seeded weakness W17 (scenario S08)",
+    "severity": "MEDIUM",
+    "status": "FAIL",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "ci/pod/build-runner-0",
+      "type": "k8s_pod",
+      "name": "build-runner-0",
+      "attributes": {
+        "exposed_by": "service/ci/build-runner (type LoadBalancer, 0.0.0.0/0)",
+        "image": "ghcr.io/nimbus-lab/build-runner:1.4.0",
+        "lab_scenario": "S08",
+        "namespace": "ci",
+        "service_account": "deployer"
+      },
+      "related": [
+        {
+          "id": "ci/serviceaccount/deployer",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "SERVICE_ACCOUNT_TOKEN"
+    ],
+    "tags": {
+      "lab_scenario": "S08",
+      "lab_weakness": "W17"
+    }
+  },
+  {
+    "id": "lab-W18",
+    "source": "nimbus-lab",
+    "check_id": "compute_firewall_ssh_access_from_the_internet_allowed",
+    "title": "Firewall allows SSH from 0.0.0.0/0",
+    "description": "nimbus lab seeded weakness W18 (scenario S09)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "gcp",
+    "account": "nimbus-lab-gcp",
+    "resource": {
+      "id": "//compute.googleapis.com/projects/nimbus-lab-gcp/global/firewalls/nimbus-lab-allow-ssh-any",
+      "type": "gcp_compute_firewall",
+      "name": "nimbus-lab-allow-ssh-any",
+      "attributes": {
+        "allowed": [
+          "tcp:22"
+        ],
+        "lab_scenario": "S09",
+        "source_ranges": [
+          "0.0.0.0/0"
+        ]
+      },
+      "related": [
+        {
+          "id": "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-web",
+          "kind": "allows_traffic_to"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S09",
+      "lab_weakness": "W18"
+    }
+  },
+  {
+    "id": "lab-W19",
+    "source": "nimbus-lab",
+    "check_id": "compute_instance_public_ip",
+    "title": "GCE instance has an external IP reachable on SSH",
+    "description": "nimbus lab seeded weakness W19 (scenario S09)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "gcp",
+    "account": "nimbus-lab-gcp",
+    "region": "us-central1",
+    "resource": {
+      "id": "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-web",
+      "type": "gcp_compute_instance",
+      "name": "nimbus-lab-gce-web",
+      "attributes": {
+        "external_ip": "203.0.113.200",
+        "lab_scenario": "S09",
+        "scopes": [
+          "https://www.googleapis.com/auth/cloud-platform"
+        ],
+        "service_account": "123456789012-compute@developer.gserviceaccount.com"
+      },
+      "related": [
+        {
+          "id": "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/123456789012-compute@developer.gserviceaccount.com",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S09",
+      "lab_weakness": "W19"
+    }
+  },
+  {
+    "id": "lab-W20",
+    "source": "nimbus-lab",
+    "check_id": "compute_instance_default_service_account_in_use_with_full_api_access",
+    "title": "GCE instance runs as the default compute SA with cloud-platform scope",
+    "description": "nimbus lab seeded weakness W20 (scenario S09)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "gcp",
+    "account": "nimbus-lab-gcp",
+    "region": "us-central1",
+    "resource": {
+      "id": "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-web",
+      "type": "gcp_compute_instance",
+      "name": "nimbus-lab-gce-web",
+      "attributes": {
+        "external_ip": "203.0.113.200",
+        "lab_scenario": "S09",
+        "scopes": [
+          "https://www.googleapis.com/auth/cloud-platform"
+        ],
+        "service_account": "123456789012-compute@developer.gserviceaccount.com"
+      },
+      "related": [
+        {
+          "id": "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/123456789012-compute@developer.gserviceaccount.com",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "DEFAULT_SERVICE_ACCOUNT"
+    ],
+    "tags": {
+      "lab_scenario": "S09",
+      "lab_weakness": "W20"
+    }
+  },
+  {
+    "id": "lab-W21",
+    "source": "nimbus-lab",
+    "check_id": "iam_role_assigned_to_user_or_sa_primitive",
+    "title": "Default compute SA holds roles/editor on the project",
+    "description": "nimbus lab seeded weakness W21 (scenario S09)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "gcp",
+    "account": "nimbus-lab-gcp",
+    "resource": {
+      "id": "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/123456789012-compute@developer.gserviceaccount.com",
+      "type": "gcp_service_account",
+      "name": "123456789012-compute@developer.gserviceaccount.com",
+      "attributes": {
+        "lab_scenario": "S09",
+        "project_roles": [
+          "roles/editor"
+        ]
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S09",
+      "lab_weakness": "W21"
+    }
+  },
+  {
+    "id": "lab-W22",
+    "source": "nimbus-lab",
+    "check_id": "storage_blob_public_access_level_is_disabled",
+    "title": "Storage account allows anonymous blob access",
+    "description": "nimbus lab seeded weakness W22 (scenario S10)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "azure",
+    "account": "00000000-0000-4000-8000-000000000001",
+    "region": "eastus",
+    "resource": {
+      "id": "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Storage/storageAccounts/nimbuslabhrexports",
+      "type": "azure_storage_account",
+      "name": "nimbuslabhrexports",
+      "attributes": {
+        "allow_blob_public_access": true,
+        "container": "exports (access level blob)",
+        "lab_scenario": "S10",
+        "tags": {
+          "data_classification": "confidential",
+          "environment": "production",
+          "owner": "people-ops"
+        }
+      }
+    },
+    "weaknesses": [
+      "PUBLIC_DATA_STORE"
+    ],
+    "tags": {
+      "lab_scenario": "S10",
+      "lab_weakness": "W22"
+    }
+  },
+  {
+    "id": "lab-W23",
+    "source": "nimbus-lab",
+    "check_id": "network_rdp_internet_access_restricted",
+    "title": "NSG allows RDP from any source",
+    "description": "nimbus lab seeded weakness W23 (scenario S11)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "azure",
+    "account": "00000000-0000-4000-8000-000000000001",
+    "region": "eastus",
+    "resource": {
+      "id": "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Network/networkSecurityGroups/nimbus-lab-jump-nsg",
+      "type": "azure_network_security_group",
+      "name": "nimbus-lab-jump-nsg",
+      "attributes": {
+        "lab_scenario": "S11",
+        "rules": [
+          {
+            "access": "Allow",
+            "name": "allow-rdp-any",
+            "port": 3389,
+            "priority": 100,
+            "source": "*"
+          }
+        ]
+      },
+      "related": [
+        {
+          "id": "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Compute/virtualMachines/nimbus-lab-jump-01",
+          "kind": "allows_traffic_to"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S11",
+      "lab_weakness": "W23"
+    }
+  },
+  {
+    "id": "lab-W24",
+    "source": "nimbus-lab",
+    "check_id": "lab_azure_identity_subscription_contributor",
+    "title": "Managed identity is Contributor on the subscription",
+    "description": "nimbus lab seeded weakness W24 (scenario S11)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "azure",
+    "account": "00000000-0000-4000-8000-000000000001",
+    "region": "eastus",
+    "resource": {
+      "id": "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nimbus-lab-jump-mi",
+      "type": "azure_user_assigned_identity",
+      "name": "nimbus-lab-jump-mi",
+      "attributes": {
+        "lab_scenario": "S11",
+        "role_assignments": [
+          {
+            "role": "Contributor",
+            "scope": "/subscriptions/00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S11",
+      "lab_weakness": "W24"
+    }
+  },
+  {
+    "id": "lab-W25",
+    "source": "nimbus-lab",
+    "check_id": "repository_default_branch_protection_enabled",
+    "title": "Default branch main has no protection",
+    "description": "nimbus lab seeded weakness W25 (scenario S12)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "github",
+    "account": "nimbus-lab",
+    "resource": {
+      "id": "github.com/nimbus-lab/infra-live",
+      "type": "github_repository",
+      "name": "nimbus-lab/infra-live",
+      "attributes": {
+        "branch_protection": false,
+        "default_branch": "main",
+        "lab_scenario": "S12"
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-gha-deploy",
+          "kind": "can_assume",
+          "attr": {
+            "via": "GitHub OIDC sub repo:nimbus-lab/infra-live:*"
+          }
+        }
+      ]
+    },
+    "weaknesses": [
+      "BRANCH_UNPROTECTED"
+    ],
+    "tags": {
+      "lab_scenario": "S12",
+      "lab_weakness": "W25"
+    }
+  },
+  {
+    "id": "lab-W26",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "GitHub OIDC deploy role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W26 (scenario S12)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-gha-deploy",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-gha-deploy",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S12",
+        "trust": "token.actions.githubusercontent.com sub=repo:nimbus-lab/infra-live:*"
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S12",
+      "lab_weakness": "W26"
+    }
+  },
+  {
+    "id": "lab-W27",
+    "source": "nimbus-lab",
+    "check_id": "ec2_instance_port_ssh_exposed_to_internet",
+    "title": "EC2 instance reachable on SSH from a non-RFC1918 range",
+    "description": "nimbus lab seeded weakness W27 (scenario S13)",
+    "severity": "MEDIUM",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60002",
+      "type": "aws_instance",
+      "name": "nimbus-lab-corp-tools-01",
+      "attributes": {
+        "exposure_cidrs": [
+          "203.0.113.0/24"
+        ],
+        "lab_scenario": "S13",
+        "metadata_http_tokens": "optional",
+        "public_ip": "198.51.100.30",
+        "security_groups": [
+          "sg-0a1b2c3d4e5f60002"
+        ],
+        "subnet_id": "subnet-0a1b2c3d4e5f60001",
+        "tags": {
+          "environment": "production",
+          "owner": "it-ops"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60002",
+          "kind": "attached_to"
+        },
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-corp-tools-role",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S13",
+      "lab_weakness": "W27"
+    }
+  },
+  {
+    "id": "lab-W28",
+    "source": "nimbus-lab",
+    "check_id": "ec2_instance_imdsv2_enabled",
+    "title": "EC2 instance allows IMDSv1",
+    "description": "nimbus lab seeded weakness W28 (scenario S13)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60002",
+      "type": "aws_instance",
+      "name": "nimbus-lab-corp-tools-01",
+      "attributes": {
+        "lab_scenario": "S13",
+        "metadata_http_tokens": "optional",
+        "public_ip": "198.51.100.30",
+        "security_groups": [
+          "sg-0a1b2c3d4e5f60002"
+        ],
+        "subnet_id": "subnet-0a1b2c3d4e5f60001",
+        "tags": {
+          "environment": "production",
+          "owner": "it-ops"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60002",
+          "kind": "attached_to"
+        },
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-corp-tools-role",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "IMDSV1_ENABLED"
+    ],
+    "tags": {
+      "lab_scenario": "S13",
+      "lab_weakness": "W28"
+    }
+  },
+  {
+    "id": "lab-W29",
+    "source": "nimbus-lab",
+    "check_id": "iam_policy_allows_privilege_escalation",
+    "title": "Corp tools role has PowerUserAccess",
+    "description": "nimbus lab seeded weakness W29 (scenario S13)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-corp-tools-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-corp-tools-role",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/PowerUserAccess"
+        ],
+        "lab_scenario": "S13"
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S13",
+      "lab_weakness": "W29"
+    }
+  },
+  {
+    "id": "lab-W30",
+    "source": "nimbus-lab",
+    "check_id": "ec2_instance_port_ssh_exposed_to_internet",
+    "title": "EC2 instance reachable from 0.0.0.0/0",
+    "description": "nimbus lab seeded weakness W30 (scenario S14)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "222222222222",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:222222222222:instance/i-0a1b2c3d4e5f60003",
+      "type": "aws_instance",
+      "name": "nimbus-lab-batch-01",
+      "attributes": {
+        "exposure_cidrs": [
+          "0.0.0.0/0"
+        ],
+        "lab_scenario": "S14",
+        "metadata_http_tokens": "optional",
+        "public_ip": "198.51.100.40",
+        "subnet_id": "subnet-0a1b2c3d4e5f60007",
+        "tags": {
+          "environment": "production",
+          "owner": "batch-team"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60003"
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::222222222222:role/nimbus-lab-batch-role",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S14",
+      "lab_weakness": "W30"
+    }
+  },
+  {
+    "id": "lab-W31",
+    "source": "nimbus-lab",
+    "check_id": "ec2_instance_imdsv2_enabled",
+    "title": "EC2 instance allows IMDSv1",
+    "description": "nimbus lab seeded weakness W31 (scenario S14)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "222222222222",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:222222222222:instance/i-0a1b2c3d4e5f60003",
+      "type": "aws_instance",
+      "name": "nimbus-lab-batch-01",
+      "attributes": {
+        "lab_scenario": "S14",
+        "metadata_http_tokens": "optional",
+        "public_ip": "198.51.100.40",
+        "subnet_id": "subnet-0a1b2c3d4e5f60007",
+        "tags": {
+          "environment": "production",
+          "owner": "batch-team"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60003"
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::222222222222:role/nimbus-lab-batch-role",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "IMDSV1_ENABLED"
+    ],
+    "tags": {
+      "lab_scenario": "S14",
+      "lab_weakness": "W31"
+    }
+  },
+  {
+    "id": "lab-W32",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "Batch role has AdministratorAccess (denied by SCP p-lab0quarantine)",
+    "description": "nimbus lab seeded weakness W32 (scenario S14)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "222222222222",
+    "resource": {
+      "id": "arn:aws:iam::222222222222:role/nimbus-lab-batch-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-batch-role",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "governing_scps": [
+          {
+            "id": "p-lab0quarantine",
+            "name": "nimbus-lab-quarantine",
+            "statement": {
+              "Action": "*",
+              "Condition": {
+                "ArnLike": {
+                  "aws:PrincipalArn": "arn:aws:iam::222222222222:role/nimbus-lab-batch-role"
+                }
+              },
+              "Effect": "Deny",
+              "Resource": "*"
+            }
+          }
+        ],
+        "lab_scenario": "S14"
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S14",
+      "lab_weakness": "W32"
+    }
+  },
+  {
+    "id": "lab-W33",
+    "source": "nimbus-lab",
+    "check_id": "awslambda_function_url_public",
+    "title": "Lambda function URL has AuthType NONE",
+    "description": "nimbus lab seeded weakness W33 (scenario S15)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-claims-intake",
+      "type": "aws_lambda_function",
+      "name": "nimbus-lab-claims-intake",
+      "attributes": {
+        "function_url_auth_type": "NONE",
+        "lab_scenario": "S15"
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-claims-intake-role",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S15",
+      "lab_weakness": "W33"
+    }
+  },
+  {
+    "id": "lab-W34",
+    "source": "nimbus-lab",
+    "check_id": "ec2_securitygroup_allow_ingress_from_internet_to_tcp_port_22",
+    "title": "Security group allows SSH from 0.0.0.0/0",
+    "description": "nimbus lab seeded weakness W34 (scenario S16)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60004",
+      "type": "aws_security_group",
+      "name": "nimbus-lab-sftp-ssh",
+      "attributes": {
+        "ingress": [
+          {
+            "cidr": "0.0.0.0/0",
+            "from_port": 22,
+            "protocol": "tcp",
+            "to_port": 22
+          }
+        ],
+        "lab_scenario": "S16"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60004",
+          "kind": "allows_traffic_to"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S16",
+      "lab_weakness": "W34"
+    }
+  },
+  {
+    "id": "lab-W35",
+    "source": "nimbus-lab",
+    "check_id": "ec2_instance_port_ssh_exposed_to_internet",
+    "title": "EC2 instance reachable on SSH from 0.0.0.0/0 (security group view; the subnet NACL is not evaluated)",
+    "description": "nimbus lab seeded weakness W35 (scenario S16)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60004",
+      "type": "aws_instance",
+      "name": "nimbus-lab-sftp-01",
+      "attributes": {
+        "exposure_cidrs": [
+          "0.0.0.0/0"
+        ],
+        "lab_scenario": "S16",
+        "metadata_http_tokens": "required",
+        "network_acl": "acl-0a1b2c3d4e5f60001",
+        "public_ip": "198.51.100.50",
+        "security_groups": [
+          "sg-0a1b2c3d4e5f60004"
+        ],
+        "subnet_id": "subnet-0a1b2c3d4e5f60004",
+        "tags": {
+          "environment": "production",
+          "owner": "partner-ops"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60004",
+          "kind": "attached_to"
+        },
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-sftp-role",
+          "kind": "runs_as",
+          "attr": {
+            "via": "instance profile nimbus-lab-sftp-profile"
+          }
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S16",
+      "lab_weakness": "W35"
+    }
+  },
+  {
+    "id": "lab-W36",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "SFTP instance role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W36 (scenario S16)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-sftp-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-sftp-role",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S16"
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S16",
+      "lab_weakness": "W36"
+    }
+  },
+  {
+    "id": "lab-W37",
+    "source": "nimbus-lab",
+    "check_id": "rds_instance_no_public_access",
+    "title": "RDS instance is publicly accessible (flag only; its subnets have no internet-gateway route)",
+    "description": "nimbus lab seeded weakness W37 (scenario S17)",
+    "severity": "CRITICAL",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-ledger",
+      "type": "aws_db_instance",
+      "name": "nimbus-lab-ledger",
+      "attributes": {
+        "db_subnet_group": "nimbus-lab-isolated",
+        "engine": "postgres",
+        "lab_scenario": "S17",
+        "publicly_accessible": true,
+        "subnet_ids": [
+          "subnet-0a1b2c3d4e5f60005",
+          "subnet-0a1b2c3d4e5f60006"
+        ],
+        "tags": {
+          "data_classification": "confidential",
+          "environment": "production",
+          "owner": "finance"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      }
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE",
+      "DATABASE"
+    ],
+    "tags": {
+      "lab_scenario": "S17",
+      "lab_weakness": "W37"
+    }
+  },
+  {
+    "id": "lab-W38",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "Payments deploy role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W38 (scenario S18)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-gha-payments-deploy",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-gha-payments-deploy",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S18",
+        "trust": "token.actions.githubusercontent.com sub=repo:nimbus-lab/payments-service:ref:refs/heads/main"
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S18",
+      "lab_weakness": "W38"
+    }
+  },
+  {
+    "id": "lab-W39",
+    "source": "nimbus-lab",
+    "check_id": "iam_user_mfa_enabled_console_access",
+    "title": "IAM user with console password has no MFA",
+    "description": "nimbus lab seeded weakness W39 (scenario S19)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:user/nimbus-lab-dev-sam",
+      "type": "aws_iam_user",
+      "name": "nimbus-lab-dev-sam",
+      "attributes": {
+        "access_key_1_active": true,
+        "access_key_1_age_days": 200,
+        "console_access": true,
+        "inline_policy_document": {
+          "Statement": [
+            {
+              "Action": [
+                "ec2:RunInstances",
+                "ec2:DescribeInstances"
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+              "Sid": "LaunchBuilders"
+            },
+            {
+              "Action": "iam:PassRole",
+              "Effect": "Allow",
+              "Resource": "arn:aws:iam::111111111111:role/nimbus-lab-ec2-admin-role",
+              "Sid": "PassBuilderRole"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "lab_scenario": "S19",
+        "mfa_active": false
+      }
+    },
+    "weaknesses": [
+      "NO_MFA"
+    ],
+    "tags": {
+      "lab_scenario": "S19",
+      "lab_weakness": "W39"
+    }
+  },
+  {
+    "id": "lab-W40",
+    "source": "nimbus-lab",
+    "check_id": "iam_rotate_access_key_90_days",
+    "title": "Access key not rotated for 200 days",
+    "description": "nimbus lab seeded weakness W40 (scenario S19)",
+    "severity": "MEDIUM",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:user/nimbus-lab-dev-sam",
+      "type": "aws_iam_user",
+      "name": "nimbus-lab-dev-sam",
+      "attributes": {
+        "access_key_1_active": true,
+        "access_key_1_age_days": 200,
+        "console_access": true,
+        "inline_policy_document": {
+          "Statement": [
+            {
+              "Action": [
+                "ec2:RunInstances",
+                "ec2:DescribeInstances"
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+              "Sid": "LaunchBuilders"
+            },
+            {
+              "Action": "iam:PassRole",
+              "Effect": "Allow",
+              "Resource": "arn:aws:iam::111111111111:role/nimbus-lab-ec2-admin-role",
+              "Sid": "PassBuilderRole"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "lab_scenario": "S19",
+        "mfa_active": false
+      }
+    },
+    "weaknesses": [
+      "STALE_CREDENTIALS"
+    ],
+    "tags": {
+      "lab_scenario": "S19",
+      "lab_weakness": "W40"
+    }
+  },
+  {
+    "id": "lab-W41",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "EC2 builder role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W41 (scenario S19)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-ec2-admin-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-ec2-admin-role",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "instance_profile": "arn:aws:iam::111111111111:instance-profile/nimbus-lab-ec2-admin-profile",
+        "lab_scenario": "S19",
+        "trust_principals": [
+          "ec2.amazonaws.com"
+        ]
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S19",
+      "lab_weakness": "W41"
+    }
+  },
+  {
+    "id": "lab-W42",
+    "source": "nimbus-lab",
+    "check_id": "iam_role_github_oidc_trust_without_subject_condition",
+    "title": "Role trusts GitHub OIDC tokens from any repository (no sub condition)",
+    "description": "nimbus lab seeded weakness W42 (scenario S20)",
+    "severity": "CRITICAL",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-gha-legacy-deploy",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-gha-legacy-deploy",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S20",
+        "trust": "token.actions.githubusercontent.com aud=sts.amazonaws.com (no sub condition)",
+        "trust_policy": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRoleWithWebIdentity",
+              "Condition": {
+                "StringEquals": {
+                  "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Federated": "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com",
+          "kind": "trusts"
+        }
+      ]
+    },
+    "weaknesses": [
+      "CROSS_ACCOUNT_TRUST"
+    ],
+    "tags": {
+      "lab_scenario": "S20",
+      "lab_weakness": "W42"
+    }
+  },
+  {
+    "id": "lab-W43",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "Legacy GitHub deploy role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W43 (scenario S20)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-gha-legacy-deploy",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-gha-legacy-deploy",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S20",
+        "trust": "token.actions.githubusercontent.com aud=sts.amazonaws.com (no sub condition)",
+        "trust_policy": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRoleWithWebIdentity",
+              "Condition": {
+                "StringEquals": {
+                  "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Federated": "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com",
+          "kind": "trusts"
+        }
+      ]
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S20",
+      "lab_weakness": "W43"
+    }
+  },
+  {
+    "id": "lab-W44",
+    "source": "nimbus-lab",
+    "check_id": "okta_signon_rule_mfa_exempt",
+    "title": "Okta user signs in under a rule that does not require MFA",
+    "description": "nimbus lab seeded weakness W44 (scenario S21)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "okta",
+    "account": "nimbus-lab.okta.com",
+    "resource": {
+      "id": "okta:user/00u0nimbuslab0contractor",
+      "type": "okta_user",
+      "name": "contractor@nimbus-lab.example",
+      "attributes": {
+        "lab_scenario": "S21",
+        "mfa_enrolled": false,
+        "status": "ACTIVE"
+      },
+      "related": [
+        {
+          "id": "okta:group/00g0nimbuslab0awsadmins",
+          "kind": "member_of"
+        }
+      ]
+    },
+    "weaknesses": [
+      "NO_MFA"
+    ],
+    "tags": {
+      "lab_scenario": "S21",
+      "lab_weakness": "W44"
+    }
+  },
+  {
+    "id": "lab-W45",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "Identity Center permission set role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W45 (scenario S21)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_0a1b2c3d4e5f6001",
+      "type": "aws_iam_role",
+      "name": "AWSReservedSSO_AdministratorAccess_0a1b2c3d4e5f6001",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S21",
+        "trust": "Identity Center SAML provider (permission set AdministratorAccess)"
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S21",
+      "lab_weakness": "W45"
+    }
+  },
+  {
+    "id": "lab-W46",
+    "source": "nimbus-lab",
+    "check_id": "service_type_loadbalancer_public",
+    "title": "Pod exposed to the internet by a LoadBalancer service",
+    "description": "nimbus lab seeded weakness W46 (scenario S22)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "web/pod/storefront-0",
+      "type": "k8s_pod",
+      "name": "storefront-0",
+      "attributes": {
+        "exposed_by": "service/web/storefront (type LoadBalancer, 0.0.0.0/0)",
+        "image": "ghcr.io/nimbus-lab/storefront:3.2.1",
+        "lab_scenario": "S22",
+        "namespace": "web",
+        "service_account": "storefront"
+      },
+      "related": [
+        {
+          "id": "web/serviceaccount/storefront",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S22",
+      "lab_weakness": "W46"
+    }
+  },
+  {
+    "id": "lab-W47",
+    "source": "nimbus-lab",
+    "check_id": "pod_service_account_token_disabled",
+    "title": "Pod auto-mounts the storefront service account token",
+    "description": "nimbus lab seeded weakness W47 (scenario S22)",
+    "severity": "MEDIUM",
+    "status": "FAIL",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "web/pod/storefront-0",
+      "type": "k8s_pod",
+      "name": "storefront-0",
+      "attributes": {
+        "exposed_by": "service/web/storefront (type LoadBalancer, 0.0.0.0/0)",
+        "image": "ghcr.io/nimbus-lab/storefront:3.2.1",
+        "lab_scenario": "S22",
+        "namespace": "web",
+        "service_account": "storefront"
+      },
+      "related": [
+        {
+          "id": "web/serviceaccount/storefront",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "SERVICE_ACCOUNT_TOKEN"
+    ],
+    "tags": {
+      "lab_scenario": "S22",
+      "lab_weakness": "W47"
+    }
+  },
+  {
+    "id": "lab-W48",
+    "source": "nimbus-lab",
+    "check_id": "rbac_minimize_secret_access",
+    "title": "ServiceAccount web/storefront can get/list secrets in every namespace",
+    "description": "nimbus lab seeded weakness W48 (scenario S22)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "cluster/clusterrolebinding/storefront-secrets-reader",
+      "type": "k8s_cluster_role_binding",
+      "name": "storefront-secrets-reader",
+      "attributes": {
+        "lab_scenario": "S22",
+        "role_ref": "secrets-reader",
+        "subjects": [
+          "web/serviceaccount/storefront"
+        ]
+      },
+      "related": [
+        {
+          "id": "cluster/clusterrole/secrets-reader",
+          "kind": "bound_to"
+        }
+      ]
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S22",
+      "lab_weakness": "W48"
+    }
+  },
+  {
+    "id": "lab-W49",
+    "source": "nimbus-lab",
+    "check_id": "service_type_loadbalancer_public",
+    "title": "Pod exposed to the internet by a LoadBalancer service",
+    "description": "nimbus lab seeded weakness W49 (scenario S23)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "analytics/pod/report-worker-0",
+      "type": "k8s_pod",
+      "name": "report-worker-0",
+      "attributes": {
+        "exposed_by": "service/analytics/report-worker (type LoadBalancer, 0.0.0.0/0)",
+        "image": "ghcr.io/nimbus-lab/report-worker:2.0.3",
+        "lab_scenario": "S23",
+        "namespace": "analytics",
+        "service_account": "report-worker"
+      },
+      "related": [
+        {
+          "id": "analytics/serviceaccount/report-worker",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S23",
+      "lab_weakness": "W49"
+    }
+  },
+  {
+    "id": "lab-W50",
+    "source": "nimbus-lab",
+    "check_id": "CVE-2023-46604",
+    "title": "Exploitable RCE (Apache ActiveMQ, CISA KEV) in running image report-worker:2.0.3",
+    "description": "nimbus lab seeded weakness W50 (scenario S23)",
+    "severity": "CRITICAL",
+    "status": "FAIL",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "analytics/pod/report-worker-0",
+      "type": "k8s_pod",
+      "name": "report-worker-0",
+      "attributes": {
+        "exposed_by": "service/analytics/report-worker (type LoadBalancer, 0.0.0.0/0)",
+        "image": "ghcr.io/nimbus-lab/report-worker:2.0.3",
+        "kev": true,
+        "lab_scenario": "S23",
+        "namespace": "analytics",
+        "service_account": "report-worker"
+      },
+      "related": [
+        {
+          "id": "analytics/serviceaccount/report-worker",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "UNPATCHED"
+    ],
+    "tags": {
+      "lab_scenario": "S23",
+      "lab_weakness": "W50"
+    }
+  },
+  {
+    "id": "lab-W51",
+    "source": "nimbus-lab",
+    "check_id": "bedrock_agent_publicly_invocable",
+    "title": "Bedrock agent is invoked by an unauthenticated public chat endpoint",
+    "description": "nimbus lab seeded weakness W51 (scenario S24)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:bedrock:us-east-1:111111111111:agent/NIMBUSLAB01",
+      "type": "aws_bedrock_agent",
+      "name": "nimbus-lab-support-agent",
+      "attributes": {
+        "agent_resource_role_arn": "arn:aws:iam::111111111111:role/nimbus-lab-support-agent-role",
+        "invoked_by": "unauthenticated public chat endpoint (Lambda function URL AuthType NONE)",
+        "lab_scenario": "S24"
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-support-agent-role",
+          "kind": "runs_as",
+          "attr": {
+            "via": "agent resource role"
+          }
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S24",
+      "lab_weakness": "W51"
+    }
+  },
+  {
+    "id": "lab-W52",
+    "source": "nimbus-lab",
+    "check_id": "iam_policy_allows_privilege_escalation",
+    "title": "Agent role can call iam:PutRolePolicy on any role",
+    "description": "nimbus lab seeded weakness W52 (scenario S24)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-support-agent-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-support-agent-role",
+      "attributes": {
+        "inline_policy_document": {
+          "Statement": [
+            {
+              "Action": [
+                "iam:PutRolePolicy",
+                "iam:GetRole"
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+              "Sid": "TicketTools"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "lab_scenario": "S24",
+        "trust_principals": [
+          "bedrock.amazonaws.com"
+        ]
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S24",
+      "lab_weakness": "W52"
+    }
+  },
+  {
+    "id": "lab-W53",
+    "source": "nimbus-lab",
+    "check_id": "compute_firewall_ssh_access_from_the_internet_allowed",
+    "title": "Firewall allows SSH from a non-RFC1918 range",
+    "description": "nimbus lab seeded weakness W53 (scenario S25)",
+    "severity": "MEDIUM",
+    "status": "FAIL",
+    "provider": "gcp",
+    "account": "nimbus-lab-gcp",
+    "resource": {
+      "id": "//compute.googleapis.com/projects/nimbus-lab-gcp/global/firewalls/nimbus-lab-allow-ssh-corp",
+      "type": "gcp_compute_firewall",
+      "name": "nimbus-lab-allow-ssh-corp",
+      "attributes": {
+        "allowed": [
+          "tcp:22"
+        ],
+        "exposure_cidrs": [
+          "203.0.113.0/24"
+        ],
+        "lab_scenario": "S25",
+        "source_ranges": [
+          "203.0.113.0/24"
+        ]
+      },
+      "related": [
+        {
+          "id": "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-bastion",
+          "kind": "allows_traffic_to"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S25",
+      "lab_weakness": "W53"
+    }
+  },
+  {
+    "id": "lab-W54",
+    "source": "nimbus-lab",
+    "check_id": "compute_instance_public_ip",
+    "title": "GCE instance has an external IP reachable on SSH",
+    "description": "nimbus lab seeded weakness W54 (scenario S25)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "gcp",
+    "account": "nimbus-lab-gcp",
+    "region": "us-central1",
+    "resource": {
+      "id": "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-bastion",
+      "type": "gcp_compute_instance",
+      "name": "nimbus-lab-gce-bastion",
+      "attributes": {
+        "exposure_cidrs": [
+          "203.0.113.0/24"
+        ],
+        "external_ip": "198.51.100.60",
+        "lab_scenario": "S25",
+        "scopes": [
+          "https://www.googleapis.com/auth/cloud-platform"
+        ],
+        "service_account": "nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com"
+      },
+      "related": [
+        {
+          "id": "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S25",
+      "lab_weakness": "W54"
+    }
+  },
+  {
+    "id": "lab-W55",
+    "source": "nimbus-lab",
+    "check_id": "iam_role_assigned_to_user_or_sa_primitive",
+    "title": "Bastion SA holds roles/editor on the project",
+    "description": "nimbus lab seeded weakness W55 (scenario S25)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "gcp",
+    "account": "nimbus-lab-gcp",
+    "resource": {
+      "id": "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com",
+      "type": "gcp_service_account",
+      "name": "nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com",
+      "attributes": {
+        "lab_scenario": "S25",
+        "project_roles": [
+          "roles/editor"
+        ]
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S25",
+      "lab_weakness": "W55"
+    }
+  },
+  {
+    "id": "lab-W56",
+    "source": "nimbus-lab",
+    "check_id": "awslambda_function_url_public",
+    "title": "Lambda function URL is internet-facing (AuthType AWS_IAM not evaluated)",
+    "description": "nimbus lab seeded weakness W56 (scenario S26)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-partner-export",
+      "type": "aws_lambda_function",
+      "name": "nimbus-lab-partner-export",
+      "attributes": {
+        "function_url_auth_type": "AWS_IAM",
+        "lab_scenario": "S26"
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-partner-export-role",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S26",
+      "lab_weakness": "W56"
+    }
+  },
+  {
+    "id": "lab-W57",
+    "source": "nimbus-lab",
+    "check_id": "s3_bucket_public_access",
+    "title": "Bucket policy grants Principal * (aws:PrincipalOrgID condition not evaluated)",
+    "description": "nimbus lab seeded weakness W57 (scenario S27)",
+    "severity": "CRITICAL",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:s3:::nimbus-lab-shared-reports",
+      "type": "aws_s3_bucket",
+      "name": "nimbus-lab-shared-reports",
+      "attributes": {
+        "bucket_policy": {
+          "Statement": [
+            {
+              "Action": "s3:GetObject",
+              "Condition": {
+                "StringEquals": {
+                  "aws:PrincipalOrgID": "o-lab0000001"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": "*",
+              "Resource": "arn:aws:s3:::nimbus-lab-shared-reports/*",
+              "Sid": "OrgRead"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "lab_scenario": "S27",
+        "public_access_block": false,
+        "tags": {
+          "data_classification": "pii",
+          "environment": "production",
+          "owner": "finance"
+        }
+      }
+    },
+    "weaknesses": [
+      "PUBLIC_DATA_STORE"
+    ],
+    "tags": {
+      "lab_scenario": "S27",
+      "lab_weakness": "W57"
+    }
+  },
+  {
+    "id": "lab-W58",
+    "source": "nimbus-lab",
+    "check_id": "ec2_instance_port_https_exposed_to_internet",
+    "title": "EC2 instance reachable on 443 from 0.0.0.0/0",
+    "description": "nimbus lab seeded weakness W58 (scenario S28)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60005",
+      "type": "aws_instance",
+      "name": "nimbus-lab-media-01",
+      "attributes": {
+        "exposure_cidrs": [
+          "0.0.0.0/0"
+        ],
+        "lab_scenario": "S28",
+        "metadata_http_tokens": "required",
+        "public_ip": "198.51.100.70",
+        "security_groups": [
+          "sg-0a1b2c3d4e5f60005"
+        ],
+        "subnet_id": "subnet-0a1b2c3d4e5f60001",
+        "tags": {
+          "environment": "production",
+          "owner": "media"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60005",
+          "kind": "attached_to"
+        },
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-media-role",
+          "kind": "runs_as",
+          "attr": {
+            "via": "instance profile nimbus-lab-media-profile"
+          }
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S28",
+      "lab_weakness": "W58"
+    }
+  },
+  {
+    "id": "lab-W59",
+    "source": "nimbus-lab",
+    "check_id": "CVE-2021-44228",
+    "title": "Log4Shell (CISA KEV) in the media transcoder",
+    "description": "nimbus lab seeded weakness W59 (scenario S28)",
+    "severity": "CRITICAL",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60005",
+      "type": "aws_instance",
+      "name": "nimbus-lab-media-01",
+      "attributes": {
+        "kev": true,
+        "lab_scenario": "S28",
+        "metadata_http_tokens": "required",
+        "public_ip": "198.51.100.70",
+        "security_groups": [
+          "sg-0a1b2c3d4e5f60005"
+        ],
+        "subnet_id": "subnet-0a1b2c3d4e5f60001",
+        "tags": {
+          "environment": "production",
+          "owner": "media"
+        },
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60005",
+          "kind": "attached_to"
+        },
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-media-role",
+          "kind": "runs_as",
+          "attr": {
+            "via": "instance profile nimbus-lab-media-profile"
+          }
+        }
+      ]
+    },
+    "weaknesses": [
+      "UNPATCHED"
+    ],
+    "tags": {
+      "lab_scenario": "S28",
+      "lab_weakness": "W59"
+    }
+  },
+  {
+    "id": "lab-W60",
+    "source": "nimbus-lab",
+    "check_id": "iam_role_cross_account_readonlyaccess_policy",
+    "title": "Role trusts external account 888888888888 without ExternalId",
+    "description": "nimbus lab seeded weakness W60 (scenario S29)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-auditor",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-auditor",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/ReadOnlyAccess"
+        ],
+        "external_id_required": false,
+        "inline_policy": "sts:AssumeRole on arn:aws:iam::111111111111:role/nimbus-lab-break-glass",
+        "lab_scenario": "S29",
+        "trust_principals": [
+          "arn:aws:iam::888888888888:root"
+        ]
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::888888888888:root",
+          "kind": "trusts"
+        },
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-break-glass",
+          "kind": "can_assume",
+          "attr": {
+            "via": "inline policy AssumeBreakGlass + nimbus-lab-break-glass trust policy"
+          }
+        }
+      ]
+    },
+    "weaknesses": [
+      "CROSS_ACCOUNT_TRUST"
+    ],
+    "tags": {
+      "lab_scenario": "S29",
+      "lab_weakness": "W60"
+    }
+  },
+  {
+    "id": "lab-W61",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "Break-glass role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W61 (scenario S29)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-break-glass",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-break-glass",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "lab_scenario": "S29",
+        "trust_principals": [
+          "arn:aws:iam::111111111111:role/nimbus-lab-auditor"
+        ]
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S29",
+      "lab_weakness": "W61"
+    }
+  },
+  {
+    "id": "lab-W62",
+    "source": "nimbus-lab",
+    "check_id": "awslambda_function_url_public",
+    "title": "Lambda function URL has AuthType NONE",
+    "description": "nimbus lab seeded weakness W62 (scenario S30)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "222222222222",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:lambda:us-east-1:222222222222:function:nimbus-lab-records-api",
+      "type": "aws_lambda_function",
+      "name": "nimbus-lab-records-api",
+      "attributes": {
+        "function_url_auth_type": "NONE",
+        "lab_scenario": "S30"
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::222222222222:role/nimbus-lab-records-api-role",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "weaknesses": [
+      "PUBLIC_NETWORK_EXPOSURE"
+    ],
+    "tags": {
+      "lab_scenario": "S30",
+      "lab_weakness": "W62"
+    }
+  },
+  {
+    "id": "lab-W63",
+    "source": "nimbus-lab",
+    "check_id": "iam_role_cross_account_readonlyaccess_policy",
+    "title": "Role trusts external account 777777777777 (aws:PrincipalOrgID o-partner00001) without ExternalId",
+    "description": "nimbus lab seeded weakness W63 (scenario S31)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-partner-sync",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-partner-sync",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "external_id_required": false,
+        "lab_scenario": "S31",
+        "trust_conditions": {
+          "StringEquals": {
+            "aws:PrincipalOrgID": "o-partner00001"
+          }
+        },
+        "trust_principals": [
+          "arn:aws:iam::777777777777:root"
+        ]
+      }
+    },
+    "weaknesses": [
+      "CROSS_ACCOUNT_TRUST"
+    ],
+    "tags": {
+      "lab_scenario": "S31",
+      "lab_weakness": "W63"
+    }
+  },
+  {
+    "id": "lab-W64",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "Partner sync role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W64 (scenario S31)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-partner-sync",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-partner-sync",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "external_id_required": false,
+        "lab_scenario": "S31",
+        "trust_conditions": {
+          "StringEquals": {
+            "aws:PrincipalOrgID": "o-partner00001"
+          }
+        },
+        "trust_principals": [
+          "arn:aws:iam::777777777777:root"
+        ]
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S31",
+      "lab_weakness": "W64"
+    }
+  },
+  {
+    "id": "lab-W65",
+    "source": "nimbus-lab",
+    "check_id": "iam_role_cross_account_readonlyaccess_policy",
+    "title": "Role trusts account 222222222222 (aws:PrincipalOrgID o-lab0000001) without ExternalId",
+    "description": "nimbus lab seeded weakness W65 (scenario S31)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-org-admin",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-org-admin",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "external_id_required": false,
+        "lab_scenario": "S31",
+        "trust_conditions": {
+          "StringEquals": {
+            "aws:PrincipalOrgID": "o-lab0000001"
+          }
+        },
+        "trust_principals": [
+          "arn:aws:iam::222222222222:root"
+        ]
+      }
+    },
+    "weaknesses": [
+      "CROSS_ACCOUNT_TRUST"
+    ],
+    "tags": {
+      "lab_scenario": "S31",
+      "lab_weakness": "W65"
+    }
+  },
+  {
+    "id": "lab-W66",
+    "source": "nimbus-lab",
+    "check_id": "iam_aws_attached_policy_no_administrative_privileges",
+    "title": "Org admin role has AdministratorAccess",
+    "description": "nimbus lab seeded weakness W66 (scenario S31)",
+    "severity": "HIGH",
+    "status": "FAIL",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-org-admin",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-org-admin",
+      "attributes": {
+        "attached_policies": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "external_id_required": false,
+        "lab_scenario": "S31",
+        "trust_conditions": {
+          "StringEquals": {
+            "aws:PrincipalOrgID": "o-lab0000001"
+          }
+        },
+        "trust_principals": [
+          "arn:aws:iam::222222222222:root"
+        ]
+      }
+    },
+    "weaknesses": [
+      "OVERPRIVILEGED_IDENTITY"
+    ],
+    "tags": {
+      "lab_scenario": "S31",
+      "lab_weakness": "W66"
+    }
+  },
+  {
+    "id": "lab-inv-06",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-rds-open",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60006",
+      "type": "aws_security_group",
+      "name": "nimbus-lab-rds-open",
+      "attributes": {
+        "ingress": [
+          {
+            "cidr": "0.0.0.0/0",
+            "from_port": 5432,
+            "protocol": "tcp",
+            "to_port": 5432
+          }
+        ],
+        "lab_scenario": "S03"
+      },
+      "related": [
+        {
+          "id": "arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-orders",
+          "kind": "allows_traffic_to"
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S03"
+    }
+  },
+  {
+    "id": "lab-inv-10",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-export-lambda-role",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-export-lambda-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-export-lambda-role",
+      "attributes": {
+        "inline_policy": "s3:GetObject on arn:aws:s3:::nimbus-lab-customer-pii/*",
+        "lab_scenario": "S06"
+      },
+      "related": [
+        {
+          "id": "arn:aws:s3:::nimbus-lab-customer-pii",
+          "kind": "grants_access_to"
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S06"
+    }
+  },
+  {
+    "id": "lab-inv-13",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: cluster-admin",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "cluster/clusterrole/cluster-admin",
+      "type": "k8s_cluster_role",
+      "name": "cluster-admin",
+      "attributes": {
+        "lab_scenario": "S07"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S07"
+    }
+  },
+  {
+    "id": "lab-inv-15",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: deployer",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "ci/serviceaccount/deployer",
+      "type": "k8s_service_account",
+      "name": "deployer",
+      "attributes": {
+        "lab_scenario": "S08",
+        "namespace": "ci"
+      },
+      "related": [
+        {
+          "id": "cluster/clusterrolebinding/ci-deployer-admin",
+          "kind": "bound_to"
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S08"
+    }
+  },
+  {
+    "id": "lab-inv-21",
+    "source": "nimbus-lab",
+    "check_id": "vm_ensure_attached_disks_encrypted_with_cmk",
+    "title": "VM disks are encrypted with a customer-managed key",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "azure",
+    "account": "00000000-0000-4000-8000-000000000001",
+    "region": "eastus",
+    "resource": {
+      "id": "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Compute/virtualMachines/nimbus-lab-jump-01",
+      "type": "azure_virtual_machine",
+      "name": "nimbus-lab-jump-01",
+      "attributes": {
+        "lab_scenario": "S11",
+        "os": "windows",
+        "public_ip": "198.51.100.20"
+      },
+      "related": [
+        {
+          "id": "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nimbus-lab-jump-mi",
+          "kind": "runs_as"
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S11"
+    }
+  },
+  {
+    "id": "lab-inv-26",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-corp-ssh",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60002",
+      "type": "aws_security_group",
+      "name": "nimbus-lab-corp-ssh",
+      "attributes": {
+        "ingress": [
+          {
+            "cidr": "203.0.113.0/24",
+            "description": "corporate egress range (trusted_cidrs)",
+            "from_port": 22,
+            "protocol": "tcp",
+            "to_port": 22
+          }
+        ],
+        "lab_scenario": "S13"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S13"
+    }
+  },
+  {
+    "id": "lab-inv-31",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-claims-intake-role",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-claims-intake-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-claims-intake-role",
+      "attributes": {
+        "inline_policy_document": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Effect": "Allow",
+              "Resource": [
+                "arn:aws:s3:::nimbus-lab-claims-pii",
+                "arn:aws:s3:::nimbus-lab-claims-pii/*"
+              ],
+              "Sid": "ClaimsIntake"
+            },
+            {
+              "Action": "s3:GetObject",
+              "Effect": "Deny",
+              "Resource": "arn:aws:s3:::nimbus-lab-claims-pii/*",
+              "Sid": "NoClaimsRead"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "lab_scenario": "S15"
+      },
+      "related": [
+        {
+          "id": "arn:aws:s3:::nimbus-lab-claims-pii",
+          "kind": "grants_access_to",
+          "attr": {
+            "via": "inline policy ClaimsIntake s3:* (explicit Deny s3:GetObject in NoClaimsRead)"
+          }
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S15"
+    }
+  },
+  {
+    "id": "lab-inv-32",
+    "source": "nimbus-lab",
+    "check_id": "s3_bucket_default_encryption",
+    "title": "S3 bucket encrypts objects by default (SSE-KMS)",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:s3:::nimbus-lab-claims-pii",
+      "type": "aws_s3_bucket",
+      "name": "nimbus-lab-claims-pii",
+      "attributes": {
+        "lab_scenario": "S15",
+        "public_access_block": true,
+        "tags": {
+          "data_classification": "pii",
+          "environment": "production",
+          "owner": "claims"
+        }
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S15"
+    }
+  },
+  {
+    "id": "lab-inv-35",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-sftp-nacl",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:network-acl/acl-0a1b2c3d4e5f60001",
+      "type": "aws_network_acl",
+      "name": "nimbus-lab-sftp-nacl",
+      "attributes": {
+        "default": false,
+        "egress": [
+          {
+            "action": "allow",
+            "cidr": "0.0.0.0/0",
+            "from_port": 0,
+            "protocol": "-1",
+            "rule_number": 100,
+            "to_port": 0
+          },
+          {
+            "action": "deny",
+            "cidr": "0.0.0.0/0",
+            "protocol": "-1",
+            "rule_number": 32767
+          }
+        ],
+        "ingress": [
+          {
+            "action": "deny",
+            "cidr": "0.0.0.0/0",
+            "from_port": 22,
+            "protocol": "tcp",
+            "rule_number": 90,
+            "to_port": 22
+          },
+          {
+            "action": "allow",
+            "cidr": "0.0.0.0/0",
+            "from_port": 0,
+            "protocol": "-1",
+            "rule_number": 100,
+            "to_port": 0
+          },
+          {
+            "action": "deny",
+            "cidr": "0.0.0.0/0",
+            "protocol": "-1",
+            "rule_number": 32767
+          }
+        ],
+        "lab_scenario": "S16",
+        "network_acl_id": "acl-0a1b2c3d4e5f60001",
+        "subnet_ids": [
+          "subnet-0a1b2c3d4e5f60004"
+        ],
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S16"
+    }
+  },
+  {
+    "id": "lab-inv-38",
+    "source": "nimbus-lab",
+    "check_id": "repository_secret_scanning_enabled",
+    "title": "Repository has secret scanning enabled",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "github",
+    "account": "nimbus-lab",
+    "resource": {
+      "id": "github.com/nimbus-lab/payments-service",
+      "type": "github_repository",
+      "name": "nimbus-lab/payments-service",
+      "attributes": {
+        "branch_protection": true,
+        "default_branch": "main",
+        "lab_scenario": "S18",
+        "required_approving_review_count": 2
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-gha-payments-deploy",
+          "kind": "can_assume",
+          "attr": {
+            "via": "GitHub OIDC sub repo:nimbus-lab/payments-service:ref:refs/heads/main (protected branch)"
+          }
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S18"
+    }
+  },
+  {
+    "id": "lab-inv-44",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: aws-admins",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "okta",
+    "account": "nimbus-lab.okta.com",
+    "resource": {
+      "id": "okta:group/00g0nimbuslab0awsadmins",
+      "type": "okta_group",
+      "name": "aws-admins",
+      "attributes": {
+        "lab_scenario": "S21",
+        "sign_on_rule": {
+          "mfa_required": false,
+          "name": "contractors-legacy"
+        }
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_0a1b2c3d4e5f6001",
+          "kind": "can_assume",
+          "attr": {
+            "via": "Okta SAML app AWS IAM Identity Center; group aws-admins -\u003e permission set AdministratorAccess"
+          }
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S21"
+    }
+  },
+  {
+    "id": "lab-inv-47",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: storefront",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "web/serviceaccount/storefront",
+      "type": "k8s_service_account",
+      "name": "storefront",
+      "attributes": {
+        "lab_scenario": "S22",
+        "namespace": "web"
+      },
+      "related": [
+        {
+          "id": "cluster/clusterrolebinding/storefront-secrets-reader",
+          "kind": "bound_to"
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S22"
+    }
+  },
+  {
+    "id": "lab-inv-49",
+    "source": "nimbus-lab",
+    "check_id": "rbac_minimize_wildcard_use_roles",
+    "title": "ClusterRole grants no wildcard verbs or resources",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "cluster/clusterrole/secrets-reader",
+      "type": "k8s_cluster_role",
+      "name": "secrets-reader",
+      "attributes": {
+        "lab_scenario": "S22",
+        "rules": [
+          {
+            "api_groups": [
+              ""
+            ],
+            "resources": [
+              "secrets"
+            ],
+            "verbs": [
+              "get",
+              "list",
+              "watch"
+            ]
+          }
+        ]
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S22"
+    }
+  },
+  {
+    "id": "lab-inv-51",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: report-worker",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "analytics/serviceaccount/report-worker",
+      "type": "k8s_service_account",
+      "name": "report-worker",
+      "attributes": {
+        "annotations": {
+          "eks.amazonaws.com/role-arn": "arn:aws:iam::111111111111:role/nimbus-lab-report-irsa"
+        },
+        "lab_scenario": "S23",
+        "namespace": "analytics"
+      },
+      "related": [
+        {
+          "id": "arn:aws:iam::111111111111:role/nimbus-lab-report-irsa",
+          "kind": "can_assume",
+          "attr": {
+            "via": "IRSA projected token; trust sub system:serviceaccount:analytics:report-worker"
+          }
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S23"
+    }
+  },
+  {
+    "id": "lab-inv-52",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-report-irsa",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-report-irsa",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-report-irsa",
+      "attributes": {
+        "inline_policy": "s3:GetObject, s3:ListBucket on arn:aws:s3:::nimbus-lab-analytics-pii",
+        "lab_scenario": "S23",
+        "trust": "oidc.eks.us-east-1.amazonaws.com sub=system:serviceaccount:analytics:report-worker"
+      },
+      "related": [
+        {
+          "id": "arn:aws:s3:::nimbus-lab-analytics-pii",
+          "kind": "grants_access_to",
+          "attr": {
+            "via": "inline policy ReportRead"
+          }
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S23"
+    }
+  },
+  {
+    "id": "lab-inv-53",
+    "source": "nimbus-lab",
+    "check_id": "s3_bucket_server_access_logging_enabled",
+    "title": "S3 bucket has server access logging enabled",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:s3:::nimbus-lab-analytics-pii",
+      "type": "aws_s3_bucket",
+      "name": "nimbus-lab-analytics-pii",
+      "attributes": {
+        "lab_scenario": "S23",
+        "public_access_block": true,
+        "tags": {
+          "data_classification": "pii",
+          "environment": "production",
+          "owner": "analytics"
+        }
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S23"
+    }
+  },
+  {
+    "id": "lab-inv-60",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-partner-export-role",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-partner-export-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-partner-export-role",
+      "attributes": {
+        "inline_policy": "s3:GetObject on arn:aws:s3:::nimbus-lab-claims-pii/*",
+        "lab_scenario": "S26"
+      },
+      "related": [
+        {
+          "id": "arn:aws:s3:::nimbus-lab-claims-pii",
+          "kind": "grants_access_to",
+          "attr": {
+            "via": "inline policy PartnerExport"
+          }
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S26"
+    }
+  },
+  {
+    "id": "lab-inv-63",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-media-https",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60005",
+      "type": "aws_security_group",
+      "name": "nimbus-lab-media-https",
+      "attributes": {
+        "ingress": [
+          {
+            "cidr": "0.0.0.0/0",
+            "from_port": 443,
+            "protocol": "tcp",
+            "to_port": 443
+          }
+        ],
+        "lab_scenario": "S28"
+      },
+      "related": [
+        {
+          "id": "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60005",
+          "kind": "allows_traffic_to"
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S28"
+    }
+  },
+  {
+    "id": "lab-inv-64",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-media-role",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "arn:aws:iam::111111111111:role/nimbus-lab-media-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-media-role",
+      "attributes": {
+        "inline_policy": "s3:GetObject, s3:ListBucket on arn:aws:s3:::nimbus-lab-billing-exports",
+        "lab_scenario": "S28"
+      },
+      "related": [
+        {
+          "id": "arn:aws:s3:::nimbus-lab-billing-exports",
+          "kind": "grants_access_to",
+          "attr": {
+            "via": "inline policy MediaRead"
+          }
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S28"
+    }
+  },
+  {
+    "id": "lab-inv-65",
+    "source": "nimbus-lab",
+    "check_id": "s3_bucket_object_versioning",
+    "title": "S3 bucket has object versioning enabled",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:s3:::nimbus-lab-billing-exports",
+      "type": "aws_s3_bucket",
+      "name": "nimbus-lab-billing-exports",
+      "attributes": {
+        "lab_scenario": "S28",
+        "public_access_block": true,
+        "tags": {
+          "data_classification": "pii",
+          "environment": "production",
+          "owner": "billing"
+        }
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S28"
+    }
+  },
+  {
+    "id": "lab-inv-69",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-records-api-role",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "222222222222",
+    "resource": {
+      "id": "arn:aws:iam::222222222222:role/nimbus-lab-records-api-role",
+      "type": "aws_iam_role",
+      "name": "nimbus-lab-records-api-role",
+      "attributes": {
+        "governing_scps": [
+          {
+            "id": "p-lab0nodataread",
+            "name": "nimbus-lab-deny-records-read",
+            "statement": {
+              "Action": "s3:GetObject",
+              "Effect": "Deny",
+              "Resource": "arn:aws:s3:::nimbus-lab-member-records/*"
+            }
+          }
+        ],
+        "inline_policy": "s3:GetObject on arn:aws:s3:::nimbus-lab-member-records/*",
+        "lab_scenario": "S30"
+      },
+      "related": [
+        {
+          "id": "arn:aws:s3:::nimbus-lab-member-records",
+          "kind": "grants_access_to",
+          "attr": {
+            "via": "inline policy RecordsRead (s3:GetObject; denied by SCP p-lab0nodataread)"
+          }
+        }
+      ]
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S30"
+    }
+  },
+  {
+    "id": "lab-inv-70",
+    "source": "nimbus-lab",
+    "check_id": "s3_bucket_secure_transport_policy",
+    "title": "S3 bucket policy denies non-TLS requests",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "222222222222",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:s3:::nimbus-lab-member-records",
+      "type": "aws_s3_bucket",
+      "name": "nimbus-lab-member-records",
+      "attributes": {
+        "lab_scenario": "S30",
+        "public_access_block": true,
+        "tags": {
+          "data_classification": "pii",
+          "environment": "production",
+          "owner": "membership"
+        }
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S30"
+    }
+  },
+  {
+    "id": "lab-inv-71",
+    "source": "nimbus-lab",
+    "check_id": "vpc_flow_logs_enabled",
+    "title": "VPC flow logs are enabled for the subnet",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:subnet/subnet-0a1b2c3d4e5f60001",
+      "type": "aws_subnet",
+      "name": "nimbus-lab-public-a",
+      "attributes": {
+        "availability_zone": "us-east-1a",
+        "cidr": "10.20.1.0/24",
+        "internet_gateway_route": true,
+        "lab_scenario": "NET",
+        "map_public_ip_on_launch": true,
+        "network_acl_id": "acl-0a1b2c3d4e5f60002",
+        "route_table": {
+          "id": "rtb-0a1b2c3d4e5f60002",
+          "routes": [
+            {
+              "destination": "10.20.0.0/16",
+              "state": "active",
+              "target": "local"
+            },
+            {
+              "destination": "0.0.0.0/0",
+              "state": "active",
+              "target": "igw-0a1b2c3d4e5f60001"
+            }
+          ]
+        },
+        "route_table_association": "explicit",
+        "subnet_id": "subnet-0a1b2c3d4e5f60001",
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "NET"
+    }
+  },
+  {
+    "id": "lab-inv-72",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-public-b",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:subnet/subnet-0a1b2c3d4e5f60002",
+      "type": "aws_subnet",
+      "name": "nimbus-lab-public-b",
+      "attributes": {
+        "availability_zone": "us-east-1b",
+        "cidr": "10.20.2.0/24",
+        "internet_gateway_route": true,
+        "lab_scenario": "NET",
+        "map_public_ip_on_launch": true,
+        "network_acl_id": "acl-0a1b2c3d4e5f60002",
+        "route_table": {
+          "id": "rtb-0a1b2c3d4e5f60002",
+          "routes": [
+            {
+              "destination": "10.20.0.0/16",
+              "state": "active",
+              "target": "local"
+            },
+            {
+              "destination": "0.0.0.0/0",
+              "state": "active",
+              "target": "igw-0a1b2c3d4e5f60001"
+            }
+          ]
+        },
+        "route_table_association": "explicit",
+        "subnet_id": "subnet-0a1b2c3d4e5f60002",
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "NET"
+    }
+  },
+  {
+    "id": "lab-inv-73",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-sftp",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:subnet/subnet-0a1b2c3d4e5f60004",
+      "type": "aws_subnet",
+      "name": "nimbus-lab-sftp",
+      "attributes": {
+        "availability_zone": "us-east-1a",
+        "cidr": "10.20.4.0/24",
+        "internet_gateway_route": true,
+        "lab_scenario": "S16",
+        "map_public_ip_on_launch": true,
+        "network_acl_id": "acl-0a1b2c3d4e5f60001",
+        "route_table": {
+          "id": "rtb-0a1b2c3d4e5f60002",
+          "routes": [
+            {
+              "destination": "10.20.0.0/16",
+              "state": "active",
+              "target": "local"
+            },
+            {
+              "destination": "0.0.0.0/0",
+              "state": "active",
+              "target": "igw-0a1b2c3d4e5f60001"
+            }
+          ]
+        },
+        "route_table_association": "explicit",
+        "subnet_id": "subnet-0a1b2c3d4e5f60004",
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S16"
+    }
+  },
+  {
+    "id": "lab-inv-74",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-isolated-a",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:subnet/subnet-0a1b2c3d4e5f60005",
+      "type": "aws_subnet",
+      "name": "nimbus-lab-isolated-a",
+      "attributes": {
+        "availability_zone": "us-east-1a",
+        "cidr": "10.20.5.0/24",
+        "internet_gateway_route": false,
+        "lab_scenario": "S17",
+        "map_public_ip_on_launch": false,
+        "network_acl_id": "acl-0a1b2c3d4e5f60002",
+        "route_table": {
+          "id": "rtb-0a1b2c3d4e5f60001",
+          "routes": [
+            {
+              "destination": "10.20.0.0/16",
+              "state": "active",
+              "target": "local"
+            }
+          ]
+        },
+        "route_table_association": "explicit",
+        "subnet_id": "subnet-0a1b2c3d4e5f60005",
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S17"
+    }
+  },
+  {
+    "id": "lab-inv-75",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-isolated-b",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:subnet/subnet-0a1b2c3d4e5f60006",
+      "type": "aws_subnet",
+      "name": "nimbus-lab-isolated-b",
+      "attributes": {
+        "availability_zone": "us-east-1b",
+        "cidr": "10.20.6.0/24",
+        "internet_gateway_route": false,
+        "lab_scenario": "S17",
+        "map_public_ip_on_launch": false,
+        "network_acl_id": "acl-0a1b2c3d4e5f60002",
+        "route_table": {
+          "id": "rtb-0a1b2c3d4e5f60001",
+          "routes": [
+            {
+              "destination": "10.20.0.0/16",
+              "state": "active",
+              "target": "local"
+            }
+          ]
+        },
+        "route_table_association": "explicit",
+        "subnet_id": "subnet-0a1b2c3d4e5f60006",
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S17"
+    }
+  },
+  {
+    "id": "lab-inv-76",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-default-nacl",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:111111111111:network-acl/acl-0a1b2c3d4e5f60002",
+      "type": "aws_network_acl",
+      "name": "nimbus-lab-default-nacl",
+      "attributes": {
+        "default": true,
+        "egress": [
+          {
+            "action": "allow",
+            "cidr": "0.0.0.0/0",
+            "from_port": 0,
+            "protocol": "-1",
+            "rule_number": 100,
+            "to_port": 0
+          },
+          {
+            "action": "deny",
+            "cidr": "0.0.0.0/0",
+            "protocol": "-1",
+            "rule_number": 32767
+          }
+        ],
+        "ingress": [
+          {
+            "action": "allow",
+            "cidr": "0.0.0.0/0",
+            "from_port": 0,
+            "protocol": "-1",
+            "rule_number": 100,
+            "to_port": 0
+          },
+          {
+            "action": "deny",
+            "cidr": "0.0.0.0/0",
+            "protocol": "-1",
+            "rule_number": 32767
+          }
+        ],
+        "lab_scenario": "NET",
+        "network_acl_id": "acl-0a1b2c3d4e5f60002",
+        "subnet_ids": [
+          "subnet-0a1b2c3d4e5f60001",
+          "subnet-0a1b2c3d4e5f60002",
+          "subnet-0a1b2c3d4e5f60005",
+          "subnet-0a1b2c3d4e5f60006"
+        ],
+        "vpc_id": "vpc-0a1b2c3d4e5f60001"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "NET"
+    }
+  },
+  {
+    "id": "lab-inv-77",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-workloads-public-a",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "222222222222",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:222222222222:subnet/subnet-0a1b2c3d4e5f60007",
+      "type": "aws_subnet",
+      "name": "nimbus-lab-workloads-public-a",
+      "attributes": {
+        "availability_zone": "us-east-1a",
+        "cidr": "10.30.1.0/24",
+        "internet_gateway_route": true,
+        "lab_scenario": "NET",
+        "map_public_ip_on_launch": true,
+        "network_acl_id": "acl-0a1b2c3d4e5f60003",
+        "route_table": {
+          "id": "rtb-0a1b2c3d4e5f60003",
+          "routes": [
+            {
+              "destination": "10.30.0.0/16",
+              "state": "active",
+              "target": "local"
+            },
+            {
+              "destination": "0.0.0.0/0",
+              "state": "active",
+              "target": "igw-0a1b2c3d4e5f60003"
+            }
+          ]
+        },
+        "route_table_association": "explicit",
+        "subnet_id": "subnet-0a1b2c3d4e5f60007",
+        "vpc_id": "vpc-0a1b2c3d4e5f60003"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "NET"
+    }
+  },
+  {
+    "id": "lab-inv-78",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: nimbus-lab-workloads-default-nacl",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "222222222222",
+    "region": "us-east-1",
+    "resource": {
+      "id": "arn:aws:ec2:us-east-1:222222222222:network-acl/acl-0a1b2c3d4e5f60003",
+      "type": "aws_network_acl",
+      "name": "nimbus-lab-workloads-default-nacl",
+      "attributes": {
+        "default": true,
+        "egress": [
+          {
+            "action": "allow",
+            "cidr": "0.0.0.0/0",
+            "from_port": 0,
+            "protocol": "-1",
+            "rule_number": 100,
+            "to_port": 0
+          },
+          {
+            "action": "deny",
+            "cidr": "0.0.0.0/0",
+            "protocol": "-1",
+            "rule_number": 32767
+          }
+        ],
+        "ingress": [
+          {
+            "action": "allow",
+            "cidr": "0.0.0.0/0",
+            "from_port": 0,
+            "protocol": "-1",
+            "rule_number": 100,
+            "to_port": 0
+          },
+          {
+            "action": "deny",
+            "cidr": "0.0.0.0/0",
+            "protocol": "-1",
+            "rule_number": 32767
+          }
+        ],
+        "lab_scenario": "NET",
+        "network_acl_id": "acl-0a1b2c3d4e5f60003",
+        "subnet_ids": [
+          "subnet-0a1b2c3d4e5f60007"
+        ],
+        "vpc_id": "vpc-0a1b2c3d4e5f60003"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "NET"
+    }
+  },
+  {
+    "id": "lab-inv-79",
+    "source": "nimbus-lab",
+    "check_id": "lab_inventory",
+    "title": "Inventory record: 111111111111",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "aws",
+    "account": "111111111111",
+    "resource": {
+      "id": "aws:account:111111111111",
+      "type": "aws_account",
+      "name": "111111111111",
+      "attributes": {
+        "lab_scenario": "S31",
+        "organization_id": "o-lab0000001",
+        "organization_id_source": "organizations:DescribeOrganization",
+        "organization_id_status": "collected"
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "S31"
+    }
+  },
+  {
+    "id": "lab-inv-82",
+    "source": "nimbus-lab",
+    "check_id": "core_minimize_privileged_containers",
+    "title": "Pod runs no privileged container",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "kubernetes",
+    "account": "nimbus-lab-eks",
+    "resource": {
+      "id": "web/pod/healthcheck-0",
+      "type": "k8s_pod",
+      "name": "healthcheck-0",
+      "attributes": {
+        "image": "ghcr.io/nimbus-lab/healthcheck:1.0.0",
+        "lab_scenario": "PASS",
+        "namespace": "web",
+        "privileged": false
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "PASS"
+    }
+  },
+  {
+    "id": "lab-inv-83",
+    "source": "nimbus-lab",
+    "check_id": "cloudstorage_bucket_public_access",
+    "title": "Cloud Storage bucket is not publicly accessible",
+    "severity": "INFO",
+    "status": "PASS",
+    "provider": "gcp",
+    "account": "nimbus-lab-gcp",
+    "region": "us-central1",
+    "resource": {
+      "id": "//storage.googleapis.com/projects/nimbus-lab-gcp/buckets/nimbus-lab-gcp-build-cache",
+      "type": "gcp_storage_bucket",
+      "name": "nimbus-lab-gcp-build-cache",
+      "attributes": {
+        "lab_scenario": "PASS",
+        "public_access_prevention": "enforced",
+        "uniform_bucket_level_access": true
+      }
+    },
+    "tags": {
+      "lab_inventory": "true",
+      "lab_scenario": "PASS"
+    }
+  }
+]

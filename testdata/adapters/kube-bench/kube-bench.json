@@ -1,0 +1,138 @@
+{
+  "_fixture_note": "SYNTHETIC fixture shaped after `kube-bench run --json` output (https://github.com/aquasecurity/kube-bench/blob/main/docs/running.md#output-formats; check.Controls / check.OverallControls). Audit strings and values are illustrative only.",
+  "Controls": [
+    {
+      "id": "1",
+      "version": "cis-1.8",
+      "detected_version": "1.27",
+      "text": "Control Plane Security Configuration",
+      "node_type": "master",
+      "tests": [
+        {
+          "section": "1.1",
+          "type": "",
+          "pass": 1, "fail": 0, "warn": 0, "info": 0,
+          "desc": "Control Plane Node Configuration Files",
+          "results": [
+            {
+              "test_number": "1.1.1",
+              "test_desc": "Ensure that the API server pod specification file permissions are set to 600 or more restrictive (Automated)",
+              "audit": "/bin/sh -c 'if test -e /etc/kubernetes/manifests/kube-apiserver.yaml; then stat -c permissions=%a /etc/kubernetes/manifests/kube-apiserver.yaml; fi'",
+              "AuditEnv": "", "AuditConfig": "", "type": "",
+              "remediation": "Run the below command (based on the file location on your system) on the control plane node.\nFor example, chmod 600 /etc/kubernetes/manifests/kube-apiserver.yaml",
+              "test_info": ["Run the below command (based on the file location on your system) on the control plane node."],
+              "status": "PASS",
+              "actual_value": "permissions=600",
+              "scored": true,
+              "IsMultiple": false,
+              "expected_result": "permissions has permissions 600, expected 600 or more restrictive",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "section": "1.2",
+          "type": "",
+          "pass": 0, "fail": 1, "warn": 1, "info": 0,
+          "desc": "API Server",
+          "results": [
+            {
+              "test_number": "1.2.1",
+              "test_desc": "Ensure that the --anonymous-auth argument is set to false (Manual)",
+              "audit": "/bin/ps -ef | grep kube-apiserver | grep -v grep",
+              "remediation": "Edit the API server pod specification file /etc/kubernetes/manifests/kube-apiserver.yaml on the control plane node and set the below parameter.\n--anonymous-auth=false",
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "expected_result": "'--anonymous-auth' is equal to 'false'",
+              "reason": ""
+            },
+            {
+              "test_number": "1.2.16",
+              "test_desc": "Ensure that the --profiling argument is set to false (Automated)",
+              "audit": "/bin/ps -ef | grep kube-apiserver | grep -v grep",
+              "remediation": "Edit the API server pod specification file /etc/kubernetes/manifests/kube-apiserver.yaml on the control plane node and set the below parameter.\n--profiling=false",
+              "status": "FAIL",
+              "actual_value": "root 1201 1 kube-apiserver --advertise-address=192.0.2.10 --allow-privileged=true --authorization-mode=Node,RBAC",
+              "scored": true,
+              "expected_result": "'--profiling' is equal to 'false'",
+              "reason": ""
+            }
+          ]
+        }
+      ],
+      "total_pass": 1, "total_fail": 1, "total_warn": 1, "total_info": 0
+    },
+    {
+      "id": "4",
+      "version": "cis-1.8",
+      "detected_version": "1.27",
+      "text": "Worker Node Security Configuration",
+      "node_type": "node",
+      "tests": [
+        {
+          "section": "4.2",
+          "type": "",
+          "pass": 1, "fail": 1, "warn": 0, "info": 0,
+          "desc": "Kubelet",
+          "results": [
+            {
+              "test_number": "4.2.1",
+              "test_desc": "Ensure that the --anonymous-auth argument is set to false (Automated)",
+              "audit": "/bin/ps -fC kubelet",
+              "remediation": "If using a Kubelet config file, edit the file to set `authentication: anonymous: enabled` to `false`.",
+              "status": "FAIL",
+              "actual_value": "",
+              "scored": true,
+              "expected_result": "'.authentication.anonymous.enabled' is equal to 'false'",
+              "reason": ""
+            },
+            {
+              "test_number": "4.2.2",
+              "test_desc": "Ensure that the --authorization-mode argument is not set to AlwaysAllow (Automated)",
+              "audit": "/bin/ps -fC kubelet",
+              "remediation": "If using a Kubelet config file, edit the file to set `authorization.mode` to Webhook.",
+              "status": "PASS",
+              "actual_value": "Webhook",
+              "scored": true,
+              "expected_result": "'.authorization.mode' does not have 'AlwaysAllow'",
+              "reason": ""
+            }
+          ]
+        }
+      ],
+      "total_pass": 1, "total_fail": 1, "total_warn": 0, "total_info": 0
+    },
+    {
+      "id": "5",
+      "version": "cis-1.8",
+      "detected_version": "1.27",
+      "text": "Kubernetes Policies",
+      "node_type": "policies",
+      "tests": [
+        {
+          "section": "5.1",
+          "type": "",
+          "pass": 0, "fail": 0, "warn": 1, "info": 0,
+          "desc": "RBAC and Service Accounts",
+          "results": [
+            {
+              "test_number": "5.1.1",
+              "test_desc": "Ensure that the cluster-admin role is only used where required (Manual)",
+              "audit": "",
+              "type": "manual",
+              "remediation": "Identify all clusterrolebindings to the cluster-admin role. Check if they are used and if they need this role or if they could use a role with fewer privileges.",
+              "status": "WARN",
+              "actual_value": "",
+              "scored": false,
+              "expected_result": "",
+              "reason": "Test marked as a manual test"
+            }
+          ]
+        }
+      ],
+      "total_pass": 0, "total_fail": 0, "total_warn": 1, "total_info": 0
+    }
+  ],
+  "Totals": {"total_pass": 2, "total_fail": 2, "total_warn": 2, "total_info": 0}
+}

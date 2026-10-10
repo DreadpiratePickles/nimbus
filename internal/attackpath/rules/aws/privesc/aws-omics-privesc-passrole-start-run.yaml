@@ -1,0 +1,62 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-omics-privesc-passrole-start-run
+title: HealthOmics Workflow Run with Privileged Role (OMICS-001)
+description: >-
+  The principal may pass a role that trusts omics.amazonaws.com and create a HealthOmics workflow and start a run with the role, so it gains that role's
+  permissions. Scope iam:PassRole to the roles the principal genuinely needs (iam:PassedToService).
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-omics-privesc-passrole-start-run
+  upstream: pathfinding.cloud - OMICS-001 - iam:PassRole + omics:CreateWorkflow + omics:StartRun
+  upstream_url: https://pathfinding.cloud/paths/omics-001
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator (Allow per action and resource, Deny and SCPs honoured); the upstream s3:GetObject gate for the workflow definition is not required
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:PassRole", resource: target}
+    - {action: "omics:CreateWorkflow", resource: "*"}
+    - {action: "omics:StartRun", resource: "*"}
+  target:
+    types: [aws_iam_role]
+    trusts_service: omics.amazonaws.com
+    exclude_self: true
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/dev
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/*"}
+              - {Effect: Allow, Action: "omics:CreateWorkflow", Resource: "*"}
+              - {Effect: Allow, Action: "omics:StartRun", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/partial
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/*"}
+              - {Effect: Allow, Action: "omics:CreateWorkflow", Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/svc
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [omics.amazonaws.com]}
+      - id: arn:aws:iam::123456789012:role/wrongtrust
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com]}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/svc", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/wrongtrust", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/partial", target: "arn:aws:iam::123456789012:role/svc", match: false}

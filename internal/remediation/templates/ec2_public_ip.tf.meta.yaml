@@ -1,0 +1,16 @@
+# Remediation plan metadata for ec2_public_ip.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "ec2:DescribeNetworkInterfaces"
+  - "ec2:ModifyNetworkInterfaceAttribute"
+  - "ec2:DisassociateAddress"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Restrict the instance's security groups to known sources and detach any Elastic IP."
+effort: M
+confidence: low
+rollback: "A released public IPv4 cannot be recovered; a new one is assigned (re-associate an Elastic IP if a fixed address is needed)."
+breaks_function:
+  value: true
+  note: "Direct inbound connections to the public IP stop; outbound Internet then needs a NAT gateway. In Terraform the change forces instance replacement, which prevent_destroy blocks: use the ENI CLI or a rebuild."

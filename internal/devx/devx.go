@@ -88,7 +88,7 @@ func Detect(ctx context.Context, want map[string]bool) []Detected {
 		} else {
 			var subs []struct {
 				ID, Name, TenantID string
-				User             struct{ Name string }
+				User               struct{ Name string }
 			}
 			json.Unmarshal([]byte(o), &subs)
 			for _, sdesc := range subs {
@@ -241,7 +241,7 @@ const PreCommitHooksYAML = `# Use from another repo's .pre-commit-config.yaml:
 - id: cloud-posture-iac
   name: cloud-posture IaC scan
   description: Block commits that introduce cloud misconfigurations (Terraform, CloudFormation, Bicep, Kubernetes, Helm).
-  entry: cloud-posture scan --iac . --output table --fail-on HIGH --changed-only
+  entry: cloud-posture scan --iac . --output table --fail-on HIGH --changed-only --no-store
   language: system
   pass_filenames: false
   files: '\.(tf|tfvars|ya?ml|json|bicep)$'
@@ -251,7 +251,7 @@ const GitHookScript = `#!/bin/sh
 # Installed by: cloud-posture hook install
 # Blocks commits that introduce HIGH/CRITICAL IaC misconfigurations in staged files.
 if ! command -v cloud-posture >/dev/null 2>&1; then exit 0; fi
-exec cloud-posture scan --iac . --output table --fail-on HIGH --changed-only
+exec cloud-posture scan --iac . --output table --fail-on HIGH --changed-only --no-store
 `
 
 // InstallGitHook writes .git/hooks/pre-commit in the repo.

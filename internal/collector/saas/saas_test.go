@@ -276,26 +276,51 @@ func TestOktaCollect(t *testing.T) {
 	}
 }
 
+// Defect 15(f): Okta evaluates sign-on rules in priority order and the first match
+// wins, so an earlier allow-without-MFA rule (or a catch-all without MFA) is a bypass
+// even when some other rule requires MFA.
 func TestOktaSignOnRule(t *testing.T) {
-	mk := func(status, access string, req bool) oktaRule {
-		var r oktaRule
-		r.Status, r.Actions.Signon.Access, r.Actions.Signon.RequireFactor = status, access, req
-		return r
+	parse := func(js string) []oktaRule {
+		var rs []oktaRule
+		if err := json.Unmarshal([]byte(js), &rs); err != nil {
+			t.Fatal(err)
+		}
+		return rs
 	}
+	const (
+		mfaAll     = `{"name":"mfa-all","status":"ACTIVE","priority":%d,"actions":{"signon":{"access":"ALLOW","requireFactor":true}}}`
+		noMFAAll   = `{"name":"no-mfa-all","status":"ACTIVE","priority":%d,"actions":{"signon":{"access":"ALLOW","requireFactor":false}}}`
+		defaultNo  = `{"name":"Default Rule","status":"ACTIVE","priority":99,"system":true,"actions":{"signon":{"access":"ALLOW","requireFactor":false}}}`
+		defaultMFA = `{"name":"Default Rule","status":"ACTIVE","priority":99,"system":true,"actions":{"signon":{"access":"ALLOW","requireFactor":true}}}`
+		onNetNoMFA = `{"name":"on-network","status":"ACTIVE","priority":%d,"conditions":{"network":{"connection":"ZONE","include":["corp"]}},"actions":{"signon":{"access":"ALLOW","requireFactor":false}}}`
+		groupMFA   = `{"name":"admins-mfa","status":"ACTIVE","priority":%d,"conditions":{"people":{"groups":{"include":["g-admins"]}}},"actions":{"signon":{"access":"ALLOW","requireFactor":true}}}`
+		denyAll    = `{"name":"deny","status":"ACTIVE","priority":%d,"actions":{"signon":{"access":"DENY"}}}`
+	)
 	cases := []struct {
 		name  string
-		rules []oktaRule
+		rules string
 		want  bool
 	}{
-		{"none", nil, false},
-		{"active allow mfa", []oktaRule{mk("ACTIVE", "ALLOW", true)}, true},
-		{"inactive mfa", []oktaRule{mk("INACTIVE", "ALLOW", true)}, false},
-		{"deny with factor", []oktaRule{mk("ACTIVE", "DENY", true)}, false},
-		{"mixed", []oktaRule{mk("ACTIVE", "ALLOW", false), mk("ACTIVE", "ALLOW", true)}, true},
+		{"none", `[]`, false},
+		{"catch-all requires mfa", "[" + fmt.Sprintf(mfaAll, 1) + "]", true},
+		{"inactive mfa", `[{"name":"x","status":"INACTIVE","actions":{"signon":{"access":"ALLOW","requireFactor":true}}}]`, false},
+		{"deny only", "[" + fmt.Sprintf(denyAll, 1) + "]", false},
+		// The old "any rule" logic passed these:
+		{"group rule mfa but default rule allows without mfa", "[" + fmt.Sprintf(groupMFA, 1) + "," + defaultNo + "]", false},
+		{"higher-priority no-mfa catch-all shadows mfa rule", "[" + fmt.Sprintf(mfaAll, 2) + "," + fmt.Sprintf(noMFAAll, 1) + "]", false},
+		{"on-network bypass before mfa catch-all", "[" + fmt.Sprintf(onNetNoMFA, 1) + "," + defaultMFA + "]", false},
+		// Positive: an mfa catch-all ahead of a no-mfa default makes the default unreachable.
+		{"mfa catch-all before no-mfa default", "[" + defaultNo + "," + fmt.Sprintf(mfaAll, 1) + "]", true},
+		{"group mfa then default mfa", "[" + fmt.Sprintf(groupMFA, 1) + "," + defaultMFA + "]", true},
+		{"deny catch-all after group mfa", "[" + fmt.Sprintf(groupMFA, 1) + "," + fmt.Sprintf(denyAll, 2) + "]", true},
 	}
 	for _, tc := range cases {
-		if got := signOnRequiresMFA(tc.rules); got != tc.want {
-			t.Errorf("%s: got %v", tc.name, got)
+		got, why := signOnRequiresMFA(parse(tc.rules))
+		if got != tc.want {
+			t.Errorf("%s: got %v (%s), want %v", tc.name, got, why, tc.want)
+		}
+		if why == "" {
+			t.Errorf("%s: empty explanation", tc.name)
 		}
 	}
 }
@@ -316,7 +341,14 @@ func TestOktaMissingConfig(t *testing.T) {
 type m365Fixture struct {
 	regStatus int
 	policies  []map[string]any
+	groups    map[string][]string // user id -> transitive group ids
 }
+
+const (
+	roleGlobalAdmin   = "62e90394-69f5-4237-9190-012177145e10"
+	roleSecurityAdmin = "194ae4cb-b126-40b2-bd5b-6091b380977d"
+	roleDirReaders    = "88d8e3e3-8f55-4a1e-953a-9b9898b8876b"
+)
 
 func m365Server(t *testing.T, fx m365Fixture) *httptest.Server {
 	var srv *httptest.Server
@@ -345,9 +377,9 @@ func m365Server(t *testing.T, fx m365Fixture) *httptest.Server {
 			writeJSON(w, map[string]any{"value": []map[string]any{{"id": "u3", "userPrincipalName": "user@acme.io"}}})
 		case "/v1.0/directoryRoles":
 			writeJSON(w, map[string]any{"value": []map[string]any{
-				{"displayName": "Global Administrator", "members": []map[string]any{{"id": "a1"}}},
-				{"displayName": "Security Administrator", "members": []map[string]any{{"id": "a2"}}},
-				{"displayName": "Directory Readers", "members": []map[string]any{{"id": "u3"}}},
+				{"displayName": "Global Administrator", "roleTemplateId": roleGlobalAdmin, "members": []map[string]any{{"id": "a1"}}},
+				{"displayName": "Security Administrator", "roleTemplateId": roleSecurityAdmin, "members": []map[string]any{{"id": "a2"}}},
+				{"displayName": "Directory Readers", "roleTemplateId": roleDirReaders, "members": []map[string]any{{"id": "u3"}}},
 			}})
 		case "/v1.0/reports/authenticationMethods/userRegistrationDetails":
 			if fx.regStatus != 0 {
@@ -359,6 +391,13 @@ func m365Server(t *testing.T, fx m365Fixture) *httptest.Server {
 			}})
 		case "/v1.0/identity/conditionalAccess/policies":
 			writeJSON(w, map[string]any{"value": fx.policies})
+		case "/v1.0/users/a1/transitiveMemberOf", "/v1.0/users/a2/transitiveMemberOf":
+			id := strings.Split(r.URL.Path, "/")[3]
+			var vals []map[string]any
+			for _, gid := range fx.groups[id] {
+				vals = append(vals, map[string]any{"id": gid})
+			}
+			writeJSON(w, map[string]any{"value": vals})
 		default:
 			t.Errorf("unexpected %s", r.URL)
 			w.WriteHeader(http.StatusNotFound)
@@ -370,13 +409,15 @@ func m365Server(t *testing.T, fx m365Fixture) *httptest.Server {
 
 func caMFAAll(state string) map[string]any {
 	return map[string]any{"displayName": "MFA all", "state": state,
-		"conditions":    map[string]any{"users": map[string]any{"includeUsers": []string{"All"}}},
+		"conditions": map[string]any{"users": map[string]any{"includeUsers": []string{"All"}},
+			"applications": map[string]any{"includeApplications": []string{"All"}}}, // Graph always returns applications
 		"grantControls": map[string]any{"builtInControls": []string{"mfa"}}}
 }
 
 func caBlockLegacy(state string) map[string]any {
 	return map[string]any{"displayName": "Block legacy", "state": state,
-		"conditions":    map[string]any{"clientAppTypes": []string{"exchangeActiveSync", "other"}, "users": map[string]any{"includeUsers": []string{"All"}}},
+		"conditions": map[string]any{"clientAppTypes": []string{"exchangeActiveSync", "other"}, "users": map[string]any{"includeUsers": []string{"All"}},
+			"applications": map[string]any{"includeApplications": []string{"All"}}},
 		"grantControls": map[string]any{"builtInControls": []string{"block"}}}
 }
 
@@ -460,5 +501,82 @@ func TestM365TokenFailure(t *testing.T) {
 	c := &M365{TenantID: "t", ClientID: "c", ClientSecret: "s", LoginURL: srv.URL, GraphURL: srv.URL}
 	if _, err := c.Collect(context.Background(), core.AccountSpec{}, graph.New()); err == nil || !strings.Contains(err.Error(), "invalid_client") {
 		t.Errorf("got %v", err)
+	}
+}
+
+// Defect 20: a GitHub rate-limit 403 must surface as a rate_limited collection error,
+// not a silent "check skipped" warning.
+func TestGitHubRateLimitIsCollectionError(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "gh-tok")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme":
+			writeJSON(w, map[string]any{"login": "acme", "two_factor_requirement_enabled": true})
+		case "/orgs/acme/repos":
+			writeJSON(w, []map[string]any{{"name": "api", "full_name": "acme/api", "visibility": "private", "default_branch": "main"}})
+		default:
+			w.Header().Set("X-RateLimit-Remaining", "0")
+			w.Header().Set("X-RateLimit-Reset", fmt.Sprint(time.Now().Add(time.Hour).Unix()))
+			w.WriteHeader(http.StatusForbidden)
+			writeJSON(w, map[string]any{"message": "API rate limit exceeded"})
+		}
+	}))
+	defer srv.Close()
+	c := &GitHub{BaseURL: srv.URL, Now: fixedNow, Concurrency: 1, Backoff: time.Millisecond}
+	res, err := c.Collect(context.Background(), core.AccountSpec{Provider: "github", Org: "acme"}, graph.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ces := res.CollectErrors()
+	if len(ces) != 1 || ces[0].Reason != core.ReasonRateLimited || !strings.Contains(ces[0].API, "acme/api") {
+		t.Fatalf("collect errors = %+v (warnings %v)", ces, res.Warnings)
+	}
+	for _, w := range res.Warnings {
+		if strings.Contains(w, "acme/api") {
+			t.Errorf("rate limit still reported as a skip warning: %q", w)
+		}
+	}
+	if _, ok := statuses(res)["repository_default_branch_protection_enabled|github:repo/acme/api"]; ok {
+		t.Error("no branch-protection verdict may be emitted when rate limited")
+	}
+}
+
+// Defect 15(e): conditional access must target the admin (all users, the admin's own
+// role, or a group they are in) and must not exclude them.
+func TestM365ConditionalAccessTargetsAndExclusions(t *testing.T) {
+	mfaPolicy := func(users map[string]any) map[string]any {
+		return map[string]any{"displayName": "MFA", "state": "enabled", "conditions": map[string]any{"users": users,
+			"applications": map[string]any{"includeApplications": []string{"All"}}},
+			"grantControls": map[string]any{"builtInControls": []string{"mfa"}}}
+	}
+	cases := []struct {
+		name string
+		fx   m365Fixture
+		want model.Status // for a2 (Security Administrator, no MFA registered)
+	}{
+		{"policy on an unrelated role is not coverage", m365Fixture{policies: []map[string]any{mfaPolicy(map[string]any{"includeRoles": []string{roleDirReaders}})}}, model.Fail},
+		{"policy on the admin's role covers", m365Fixture{policies: []map[string]any{mfaPolicy(map[string]any{"includeRoles": []string{roleGlobalAdmin, roleSecurityAdmin}})}}, model.Pass},
+		{"all users but admin excluded by user", m365Fixture{policies: []map[string]any{mfaPolicy(map[string]any{"includeUsers": []string{"All"}, "excludeUsers": []string{"a2"}})}}, model.Fail},
+		{"admin role excluded", m365Fixture{policies: []map[string]any{mfaPolicy(map[string]any{"includeUsers": []string{"All"}, "excludeRoles": []string{roleSecurityAdmin}})}}, model.Fail},
+		{"admin in excluded group", m365Fixture{groups: map[string][]string{"a2": {"g-bypass"}}, policies: []map[string]any{mfaPolicy(map[string]any{"includeUsers": []string{"All"}, "excludeGroups": []string{"g-bypass"}})}}, model.Fail},
+		{"excluded group without the admin still covers", m365Fixture{groups: map[string][]string{"a2": {"g-other"}}, policies: []map[string]any{mfaPolicy(map[string]any{"includeUsers": []string{"All"}, "excludeGroups": []string{"g-bypass"}})}}, model.Pass},
+		{"exclusion of a non-admin still covers", m365Fixture{policies: []map[string]any{mfaPolicy(map[string]any{"includeUsers": []string{"All"}, "excludeUsers": []string{"u3"}})}}, model.Pass},
+		{"included via group", m365Fixture{groups: map[string][]string{"a2": {"g-admins"}}, policies: []map[string]any{mfaPolicy(map[string]any{"includeGroups": []string{"g-admins"}})}}, model.Pass},
+		{"single-app policy is not coverage", m365Fixture{policies: []map[string]any{{"displayName": "MFA portal", "state": "enabled",
+			"conditions":    map[string]any{"users": map[string]any{"includeUsers": []string{"All"}}, "applications": map[string]any{"includeApplications": []string{"797f4846-ba00-4fd7-ba43-dac1f8f63013"}}},
+			"grantControls": map[string]any{"builtInControls": []string{"mfa"}}}}}, model.Fail},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := m365Server(t, tc.fx)
+			c := &M365{TenantID: "tenant-1", ClientID: "cid", ClientSecret: "sec", GraphURL: srv.URL + "/v1.0", LoginURL: srv.URL, Now: fixedNow, Backoff: time.Millisecond}
+			res, err := c.Collect(context.Background(), core.AccountSpec{Provider: "m365"}, graph.New())
+			if err != nil || len(res.Errors) > 0 {
+				t.Fatalf("err=%v errors=%v", err, res.Errors)
+			}
+			if got := statuses(res)["entra_admin_users_mfa_enabled|m365:user/a2"]; got != tc.want {
+				t.Errorf("a2 = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

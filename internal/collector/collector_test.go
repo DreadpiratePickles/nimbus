@@ -144,3 +144,128 @@ func TestForProvider(t *testing.T) {
 		t.Errorf("providers = %v", Providers())
 	}
 }
+
+// hangCollector ignores its context entirely (a stuck SDK call).
+type hangCollector struct{ release chan struct{} }
+
+func (h *hangCollector) Name() string     { return "aws" }
+func (h *hangCollector) Provider() string { return "aws" }
+func (h *hangCollector) Collect(ctx context.Context, spec AccountSpec, g *graph.Graph) (Result, error) {
+	<-h.release
+	return Result{}, nil
+}
+
+func TestRunAllAccountTimeoutBoundsStuckCollector(t *testing.T) {
+	h := &hangCollector{release: make(chan struct{})}
+	defer close(h.release)
+	done := make(chan Result, 1)
+	go func() {
+		_, res := RunAll(context.Background(), []AccountSpec{{Name: "stuck", Provider: "aws"}}, Options{AccountTimeout: 20 * time.Millisecond,
+			TimeoutGrace: 20 * time.Millisecond, Collectors: map[string]Collector{"aws": h}})
+		done <- res
+	}()
+	select {
+	case res := <-done:
+		ces := res.CollectErrors()
+		if len(ces) != 1 || ces[0].Reason != core.ReasonTimeout || ces[0].Account != "stuck" || ces[0].Provider != "aws" || ces[0].API != "account" {
+			t.Fatalf("collect errors = %+v", ces)
+		}
+		if len(res.Runs) != 1 || res.Runs[0].Status != "timeout" {
+			t.Fatalf("runs = %+v", res.Runs)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("RunAll did not return after the account timeout")
+	}
+}
+
+func TestDefaultAccountTimeout(t *testing.T) {
+	if DefaultAccountTimeout != 10*time.Minute {
+		t.Fatalf("DefaultAccountTimeout = %v", DefaultAccountTimeout)
+	}
+	if got := (Options{}).accountTimeout(); got != DefaultAccountTimeout {
+		t.Errorf("zero AccountTimeout should default to 10m, got %v", got)
+	}
+	if got := (Options{AccountTimeout: -1}).accountTimeout(); got != 0 {
+		t.Errorf("negative AccountTimeout disables the limit, got %v", got)
+	}
+}
+
+func TestRunAllAttributesErrorsAndTrustedCIDRs(t *testing.T) {
+	var seen []string
+	fc := collectFunc(func(ctx context.Context, spec AccountSpec, g *graph.Graph) (Result, error) {
+		seen = spec.TrustedCIDRs
+		return Result{Errors: []error{errors.New("rds: throttled")}}, nil
+	})
+	_, res := RunAll(context.Background(), []AccountSpec{{Name: "a1", Provider: "aws"}}, Options{TrustedCIDRs: []string{"203.0.113.0/24"}, Collectors: map[string]Collector{"aws": fc}})
+	if len(seen) != 1 || seen[0] != "203.0.113.0/24" {
+		t.Errorf("trusted cidrs not passed to collector: %v", seen)
+	}
+	ces := res.CollectErrors()
+	if len(ces) != 1 || ces[0].Provider != "aws" || ces[0].Account != "a1" || ces[0].Reason != core.ReasonRateLimited {
+		t.Fatalf("collect errors = %+v", ces)
+	}
+}
+
+type collectFunc func(ctx context.Context, spec AccountSpec, g *graph.Graph) (Result, error)
+
+func (f collectFunc) Name() string     { return "aws" }
+func (f collectFunc) Provider() string { return "aws" }
+func (f collectFunc) Collect(ctx context.Context, spec AccountSpec, g *graph.Graph) (Result, error) {
+	return f(ctx, spec, g)
+}
+
+// A collector that honours its context returns partial results and a nil error
+// after the account deadline (the common pattern). The run is not complete, so it
+// must be reported as a timeout with an account-level CollectError, never "ok".
+func TestPartialAfterDeadlineIsTimeout(t *testing.T) {
+	fc := collectFunc(func(ctx context.Context, spec AccountSpec, g *graph.Graph) (Result, error) {
+		core.AddResource(g, core.Res{Provider: "aws", Account: "a", Resource: model.Resource{ID: "partial", Type: "aws_s3_bucket", Name: "partial"}})
+		<-ctx.Done()
+		return Result{Errors: []error{errors.New("ec2: " + ctx.Err().Error())}}, nil
+	})
+	g, res := RunAll(context.Background(), []AccountSpec{{Name: "a", Provider: "aws"}}, Options{AccountTimeout: 30 * time.Millisecond, Collectors: map[string]Collector{"aws": fc}})
+	if _, ok := g.Node("partial"); !ok {
+		t.Errorf("partial graph from a ctx-honouring collector was dropped")
+	}
+	hasTimeout := false
+	for _, ce := range res.CollectErrors() {
+		if ce.Reason == core.ReasonTimeout && ce.API == "account" {
+			hasTimeout = true
+		}
+	}
+	if !hasTimeout {
+		t.Errorf("no account-level timeout CollectError: %+v", res.CollectErrors())
+	}
+	if len(res.Runs) != 1 || res.Runs[0].Status != "timeout" {
+		t.Errorf("run status = %+v, want timeout", res.Runs)
+	}
+}
+
+// A parent cancel (Ctrl-C) must never be reported as "ok": both a collector that
+// ignores ctx (abandoned) and one that returns cleanly with nil error after cancel.
+func TestParentCancelIsNotOK(t *testing.T) {
+	cases := map[string]Collector{
+		"ignores-ctx": &hangCollector{release: make(chan struct{})},
+		"returns-nil": collectFunc(func(ctx context.Context, spec AccountSpec, g *graph.Graph) (Result, error) {
+			<-ctx.Done()
+			return Result{}, nil
+		}),
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			if h, ok := c.(*hangCollector); ok {
+				defer close(h.release)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			time.AfterFunc(20*time.Millisecond, cancel)
+			_, res := RunAll(ctx, []AccountSpec{{Name: "a", Provider: "aws"}}, Options{TimeoutGrace: 30 * time.Millisecond, Collectors: map[string]Collector{"aws": c}})
+			if len(res.Runs) != 1 || res.Runs[0].Status != "canceled" {
+				t.Errorf("run = %+v, want status canceled", res.Runs)
+			}
+			ces := res.CollectErrors()
+			if len(ces) != 1 || ces[0].Reason != core.ReasonCanceled || ces[0].API != "account" || ces[0].Account != "a" {
+				t.Errorf("collect errors = %+v", ces)
+			}
+		})
+	}
+}

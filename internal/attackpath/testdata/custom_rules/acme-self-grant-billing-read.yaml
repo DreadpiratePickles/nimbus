@@ -1,0 +1,46 @@
+# A customer-authored path rule (W7-ENGINE r5 #4 acceptance fixture): not ported, so no credit.
+id: acme-self-grant-billing-read
+title: Role rewrites its own policy to read billing exports
+description: >-
+  The role may put an inline policy on itself, so it can grant itself s3:GetObject on the
+  account's billing export buckets. Remove iam:PutRolePolicy or scope it away from the role.
+severity: HIGH
+confidence: verified
+anchor:
+  types: [aws_iam_role]
+match:
+  join: same_account
+  requires_permissions:
+    - {action: "iam:PutRolePolicy", resource: anchor}
+  target:
+    types: [aws_s3_bucket]
+    id_like: ["arn:aws:s3:::*billing*"]
+allow_same_account: true
+justification: >-
+  iam:PutRolePolicy on its own role lets the principal grant itself read on any bucket of its
+  account; the rule is limited to billing export buckets by name.
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:role/agent
+        type: aws_iam_role
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["iam:PutRolePolicy"], Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/reader
+        type: aws_iam_role
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["s3:GetObject"], Resource: "*"}
+      - {id: "arn:aws:s3:::acme-billing-exports", type: aws_s3_bucket, account: "123456789012"}
+      - {id: "arn:aws:s3:::acme-logs", type: aws_s3_bucket, account: "123456789012"}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:role/agent", target: "arn:aws:s3:::acme-billing-exports", match: true, confidence: verified}
+    - {anchor: "arn:aws:iam::123456789012:role/agent", target: "arn:aws:s3:::acme-logs", match: false}
+    - {anchor: "arn:aws:iam::123456789012:role/reader", target: "arn:aws:s3:::acme-billing-exports", match: false}

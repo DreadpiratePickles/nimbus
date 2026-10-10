@@ -7,13 +7,16 @@ WAL) changes; the poll interval is ``NIMBUS_WS_POLL`` seconds (default 2).
 from __future__ import annotations
 
 import asyncio
+import hmac
 import html
+import ipaddress
 import os
 from collections import Counter
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
@@ -25,9 +28,10 @@ from .ai.fix import generate_fix
 from .ai.sqlsafety import UnsafeSQL
 from .compliance import frameworks as list_frameworks
 from .integrations import dispatch
+from .integrations.clients import CLIENTS as ALERT_CHANNELS
 from .reports import build_from_store, render_html, render_json, render_markdown, render_pdf
 from .risk import prioritize_store
-from .store import Store, default_db_path
+from .store import QueryTimeout, Store, default_db_path
 
 
 class SQLBody(BaseModel):
@@ -51,7 +55,91 @@ class FixBody(BaseModel):
 
 class AlertBody(BaseModel):
     finding_ids: list[str]
+    # Names of server-configured channels only (e.g. "slack"); destinations, URLs and credentials
+    # come from the server's environment, never from the request (inventory defect 2).
     targets: list[Any]
+
+
+def _alert_targets(targets: list[Any]) -> list[str]:
+    names = []
+    for t in targets:
+        if not isinstance(t, str) or t.lower() not in ALERT_CHANNELS:
+            raise HTTPException(400, f"targets must be names of server-configured channels ({', '.join(sorted(ALERT_CHANNELS))}); "
+                                     "destinations are never taken from the request")
+        names.append(t.lower())
+    return names
+
+
+def _require_token(authorization: Optional[str]) -> None:
+    token = os.environ.get("CLOUD_POSTURE_TOKEN", "").strip()  # same trim rule as the Go server
+    if not token:
+        raise HTTPException(501, "alert dispatch over HTTP is disabled: set CLOUD_POSTURE_TOKEN on the server to enable it")
+    if not authorization or not hmac.compare_digest(authorization.encode(), f"Bearer {token}".encode()):
+        raise HTTPException(401, "unauthorized")
+
+
+# ---------------------------------------------------------------- Host allowlist + CSRF (same rules as the Go server)
+
+_LOOPBACK_NAMES = {"localhost", "127.0.0.1", "::1"}
+# Starlette's in-process TestClient host; accepted only when create_app() was not given a bind host,
+# i.e. never by a listening `nimbus serve` (serve() always passes one).
+_IN_PROCESS_HOST = "testserver"
+
+
+def _hostname(hostport: str) -> str:
+    """Lower-cased host part of a Host header value or host[:port] entry, without brackets or a trailing dot."""
+    h = (hostport or "").strip().lower()
+    if h.startswith("["):
+        end = h.find("]")
+        h = h[1:end] if end > 0 else ""
+    elif h.count(":") == 1:
+        h = h.split(":", 1)[0]
+    return h.rstrip(".")
+
+
+def _is_unspecified(host: str) -> bool:
+    try:
+        return ipaddress.ip_address(host).is_unspecified
+    except ValueError:
+        return host == ""
+
+
+def allowed_host_names(bind_host: Optional[str], allowed_hosts: Iterable[str] = ()) -> set[str]:
+    """Host names this server answers to: loopback names, the bound host (unless 0.0.0.0/::),
+    ``allowed_hosts`` and the comma-separated ``$NIMBUS_ALLOWED_HOSTS``."""
+    names = set(_LOOPBACK_NAMES)
+    if bind_host is None:
+        names.add(_IN_PROCESS_HOST)
+    elif not _is_unspecified(_hostname(bind_host)):
+        names.add(_hostname(bind_host))
+    extra = list(allowed_hosts or []) + os.environ.get("NIMBUS_ALLOWED_HOSTS", "").split(",")
+    names.update(_hostname(a) for a in extra if a.strip())
+    names.discard("")
+    return names
+
+
+def _origin_allowed(origin: str, host_header: str) -> bool:
+    """An Origin is ours when its host[:port] equals the request's Host header."""
+    try:
+        netloc = urlsplit(origin.strip()).netloc
+    except ValueError:
+        return False
+    return bool(netloc) and netloc.lower() == (host_header or "").strip().lower()
+
+
+def cross_site_rejected(method: str, headers: Any) -> bool:
+    """State-changing requests are accepted only same-origin (Sec-Fetch-Site) or with our own Origin;
+    clients that send neither header (curl, scripts) are not browsers and cannot be CSRF vectors."""
+    if method.upper() in ("GET", "HEAD", "OPTIONS"):
+        return False
+    origin = headers.get("origin") or ""
+    origin_ok = bool(origin) and _origin_allowed(origin, headers.get("host") or "")
+    site = (headers.get("sec-fetch-site") or "").lower()
+    if site in ("same-origin", "none"):
+        return False
+    if site == "":
+        return bool(origin) and not origin_ok
+    return not origin_ok
 
 
 def cytoscape(nodes: list[dict], edges: list[dict]) -> dict[str, list[dict]]:
@@ -113,10 +201,25 @@ def builtin_page(store: Store) -> str:
     return BUILTIN_HTML.replace("__VERSION__", __version__).replace("__TILES__", tiles).replace("__ROWS__", rows)
 
 
-def create_app(db_path: Optional[str] = None) -> FastAPI:
+def create_app(db_path: Optional[str] = None, *, bind_host: Optional[str] = None,
+               allowed_hosts: Iterable[str] = ()) -> FastAPI:
+    """Build the API. Every request must carry an allowed Host (else 421, DNS-rebinding defence) and
+    state-changing requests must not be cross-site (else 403). ``bind_host`` is the listen host
+    (``serve()`` always passes it); ``allowed_hosts`` / ``$NIMBUS_ALLOWED_HOSTS`` add names."""
     path = db_path or default_db_path()
     app = FastAPI(title="nimbus cloud-posture API", version=__version__)
     app.state.db_path = path
+    hosts = allowed_host_names(bind_host, allowed_hosts)
+    app.state.allowed_hosts = hosts
+
+    @app.middleware("http")
+    async def _guards(request: Request, call_next: Any) -> Response:
+        host = request.headers.get("host") or ""
+        if _hostname(host) not in hosts:
+            return JSONResponse({"detail": f"host {host!r} is not served here (set NIMBUS_ALLOWED_HOSTS)"}, status_code=421)
+        if cross_site_rejected(request.method, request.headers):
+            return JSONResponse({"detail": "cross-site request rejected"}, status_code=403)
+        return await call_next(request)
 
     def store() -> Store:
         return Store(path, create=not Path(path).exists())
@@ -211,6 +314,8 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
     def api_query(body: SQLBody) -> dict[str, Any]:
         try:
             cols, rows = qlib.run_sql(store(), body.sql)
+        except QueryTimeout as exc:
+            raise HTTPException(408, str(exc)) from exc
         except UnsafeSQL as exc:
             raise HTTPException(400, f"rejected: {exc}") from exc
         except Exception as exc:  # sqlite errors
@@ -247,11 +352,13 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
             raise HTTPException(400, str(exc)) from exc
 
     @app.post("/api/alerts")
-    def api_alerts(body: AlertBody) -> dict[str, Any]:
+    def api_alerts(body: AlertBody, authorization: Optional[str] = Header(None)) -> dict[str, Any]:
+        _require_token(authorization)
+        targets = _alert_targets(body.targets)
         s = store()
         fs = [f for f in (s.finding(i) for i in body.finding_ids) if f is not None]
         try:
-            results = dispatch(fs, body.targets, s.attack_paths())
+            results = dispatch(fs, targets, s.attack_paths())
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         for r in results:
@@ -264,6 +371,10 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
 
     @app.websocket("/ws")
     async def ws(socket: WebSocket) -> None:
+        origin = socket.headers.get("origin") or ""
+        if _hostname(socket.headers.get("host") or "") not in hosts or (origin and not _origin_allowed(origin, socket.headers.get("host") or "")):
+            await socket.close(code=1008)
+            return
         await socket.accept()
         interval = float(os.environ.get("NIMBUS_WS_POLL", "2"))
         s = Store(path, create=False)
@@ -291,7 +402,7 @@ def create_app(db_path: Optional[str] = None) -> FastAPI:
     return app
 
 
-def serve(host: str = "127.0.0.1", port: int = 8765, db: Optional[str] = None) -> None:
+def serve(host: str = "127.0.0.1", port: int = 8765, db: Optional[str] = None, allowed_hosts: Iterable[str] = ()) -> None:
     import uvicorn
 
-    uvicorn.run(create_app(db), host=host, port=port, log_level="info")
+    uvicorn.run(create_app(db, bind_host=host, allowed_hosts=allowed_hosts), host=host, port=port, log_level="info")

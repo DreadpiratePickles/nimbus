@@ -1,0 +1,16 @@
+# Remediation plan metadata for gcp_firewall_open_port.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "compute.firewalls.get"
+  - "compute.firewalls.update"
+  - "compute.networks.updatePolicy"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Disable the rule temporarily (gcloud compute firewall-rules update <rule> --disabled) and use IAP TCP forwarding for SSH/RDP."
+effort: S
+confidence: medium
+rollback: "Revert the file and plan, or gcloud compute firewall-rules update <rule> --source-ranges=<previous ranges>."
+breaks_function:
+  value: true
+  note: "Every port this rule allows is narrowed, not only SSH/RDP; split the rule first if it also serves public traffic."

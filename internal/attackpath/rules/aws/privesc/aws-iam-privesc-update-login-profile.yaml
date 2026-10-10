@@ -1,0 +1,65 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-iam-privesc-update-login-profile
+title: Console Password Override for Lateral Movement (IAM-006)
+description: >-
+  The principal may reset another user console password and sign in as them.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-iam-privesc-update-login-profile
+  upstream: pathfinding.cloud - IAM-006 - iam:UpdateLoginProfile
+  upstream_url: https://pathfinding.cloud/paths/iam-006
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator; target is any other IAM user in the account the action is allowed on; nimbus does not anchor on principals already allowed * on * (an escalation adds nothing; Prowler lists them)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+  include_admin: true
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:UpdateLoginProfile", resource: target}
+  target:
+    types: [aws_iam_user]
+    exclude_self: true
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/priv
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:UpdateLoginProfile", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/plain
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+      - id: arn:aws:iam::123456789012:user/victim
+        type: aws_iam_user
+        account: "123456789012"
+      - id: arn:aws:iam::123456789012:user/admin
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "*", Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/app
+        type: aws_iam_role
+        account: "123456789012"
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:user/victim", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:user/admin", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:user/priv", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/priv", target: "arn:aws:iam::123456789012:role/app", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/plain", target: "arn:aws:iam::123456789012:user/victim", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/admin", target: "arn:aws:iam::123456789012:user/victim", match: false}

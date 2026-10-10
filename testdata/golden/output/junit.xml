@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="cloud-posture" tests="6" failures="3" errors="1" skipped="1">
+  <testsuite name="aws" tests="3" failures="2" errors="0" skipped="0">
+    <testcase name="S3_PUBLIC_BUCKET pii-exports" classname="aws.S3_PUBLIC_BUCKET">
+      <failure message="S3 bucket allows public access" type="HIGH">Bucket pii-exports grants s3:GetObject to Principal &#34;*&#34;.&#xA;resource: arn:aws:s3:::pii-exports&#xA;account: 123456789012&#xA;region: us-east-1&#xA;source: prowler s3_bucket_public_access&#xA;remediation: Enable S3 Block Public Access on the bucket and account.&#xA;fingerprint: 6f1c7d0f9a3e4b5c8d2e1f0a9b8c7d6e</failure>
+    </testcase>
+    <testcase name="SG_OPEN_ADMIN_PORT aws_security_group.bastion" classname="aws.SG_OPEN_ADMIN_PORT" file="infra/network.tf" line="12">
+      <failure message="Security group allows SSH/RDP from 0.0.0.0/0" type="CRITICAL">Ingress 0.0.0.0/0 on port 22 &amp; 3389 &lt;admin&gt;.&#xA;resource: aws_security_group.bastion&#xA;source: checkov CKV_AWS_24&#xA;remediation: Restrict ingress to 203.0.113.0/24.&#xA;fingerprint: 0a1b2c3d4e5f60718293a4b5c6d7e8f9</failure>
+    </testcase>
+    <testcase name="KMS_ROTATION_DISABLED 2222" classname="aws.KMS_ROTATION_DISABLED"></testcase>
+  </testsuite>
+  <testsuite name="azure" tests="1" failures="0" errors="0" skipped="1">
+    <testcase name="AZ_STORAGE_HTTP st1" classname="azure.AZ_STORAGE_HTTP">
+      <skipped message="Storage account allows HTTP"></skipped>
+    </testcase>
+  </testsuite>
+  <testsuite name="iac" tests="1" failures="0" errors="1" skipped="0">
+    <testcase name="IAC_PARSE_LIMIT infra/broken.tf" classname="iac.IAC_PARSE_LIMIT" file="infra/broken.tf">
+      <error message="IaC file not scanned" type="HIGH">syntax: infra/broken.tf:3,1-2: Argument or block definition required&#xA;resource: infra/broken.tf&#xA;source: cloud-posture IAC_PARSE_LIMIT&#xA;fingerprint: cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd</error>
+    </testcase>
+  </testsuite>
+  <testsuite name="kubernetes" tests="1" failures="1" errors="0" skipped="0">
+    <testcase name="CVE_VULNERABILITY payments/api" classname="kubernetes.CVE_VULNERABILITY">
+      <failure message="xz-utils backdoor (CVE-2024-3094)" type="CRITICAL">resource: payments/deployment/api&#xA;account: prod-cluster&#xA;source: trivy CVE-2024-3094&#xA;fingerprint: 11112222333344445555666677778888</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

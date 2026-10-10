@@ -1,4 +1,5 @@
-# Strategic merge patch for {{ .Kind }}/{{ .Name }} in namespace {{ .Namespace }}
+# Strategic merge patch for {{ .Kind }}/{{ .Name }} in namespace {{ .Namespace }}: turns off privileged mode only.
+# Check the container name below matches the workload (a wrong name adds a container and the patch fails).
 spec:
   template:
     spec:
@@ -6,6 +7,3 @@ spec:
         - name: {{ default "app" .Attr.container }}
           securityContext:
             privileged: false
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]

@@ -1,0 +1,15 @@
+# Remediation plan metadata for gh_branch_protection.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "GitHub repository Administration: read and write"
+  - "GitHub repository Metadata: read"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the repository and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Add a repository ruleset in evaluate mode first to see which pushes it would block, or restrict who can push to the default branch."
+effort: S
+confidence: high
+rollback: "terraform destroy -target=github_branch_protection.<name> (removes only the protection rule), or delete the rule in Settings → Branches."
+breaks_function:
+  value: true
+  note: "Direct pushes and force pushes to the default branch are rejected; automation that pushes to it (release bots, CI commits) needs a pull request flow or a bypass."

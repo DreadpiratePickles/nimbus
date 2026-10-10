@@ -1,0 +1,64 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-ssm-privesc-send-command
+title: SSM Send Command for EC2 Role Credentials (SSM-002)
+description: >-
+  The principal may run commands on a managed EC2 instance via SSM and read the instance role credentials from IMDS.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-ssm-privesc-send-command
+  upstream: pathfinding.cloud - SSM-002 - ssm:SendCommand
+  upstream_url: https://pathfinding.cloud/paths/ssm-002
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator; the instance must run as a role that can escalate to admin (an SSM-only or read-only instance role lifts nothing; noise estate NZ15 sandbox)
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "ssm:SendCommand", resource: target}
+  target:
+    types: [aws_instance]
+    has_edge: {edge: runs_as, to_types: [aws_iam_role], to_admin: true}
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/ops
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "ssm:SendCommand", Resource: "*"}
+      - id: arn:aws:ec2:us-east-1:123456789012:instance/i-withrole
+        type: aws_instance
+        account: "123456789012"
+      - id: arn:aws:ec2:us-east-1:123456789012:instance/i-norole
+        type: aws_instance
+        account: "123456789012"
+      - id: arn:aws:ec2:us-east-1:123456789012:instance/i-lowrole
+        type: aws_instance
+        account: "123456789012"
+      - id: arn:aws:iam::123456789012:role/app
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com], attached_policies: [arn:aws:iam::aws:policy/AdministratorAccess]}
+      - id: arn:aws:iam::123456789012:role/ssm-only
+        type: aws_iam_role
+        account: "123456789012"
+        attributes:
+          trust_principals: [ec2.amazonaws.com]
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: ["ssm:UpdateInstanceInformation", "ssmmessages:*"], Resource: "*"}
+    edges:
+      - {from: arn:aws:ec2:us-east-1:123456789012:instance/i-withrole, to: arn:aws:iam::123456789012:role/app, kind: runs_as}
+      - {from: arn:aws:ec2:us-east-1:123456789012:instance/i-lowrole, to: arn:aws:iam::123456789012:role/ssm-only, kind: runs_as}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/ops", target: "arn:aws:ec2:us-east-1:123456789012:instance/i-withrole", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/ops", target: "arn:aws:ec2:us-east-1:123456789012:instance/i-norole", match: false}
+    - {anchor: "arn:aws:iam::123456789012:user/ops", target: "arn:aws:ec2:us-east-1:123456789012:instance/i-lowrole", match: false}

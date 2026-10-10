@@ -1,0 +1,49 @@
+# Ported from Prowler (Apache-2.0); see credit. Technique facts only; description is nimbus's own.
+id: aws-lambda-privesc-passrole-create-function
+title: Lambda Function Creation with Privileged Role (LAMBDA-001)
+description: >-
+  The principal may pass a Lambda-trusting role and create then invoke a function, running code with that role. Scope iam:PassRole and lambda:CreateFunction.
+severity: HIGH
+confidence: inferred
+credit:
+  source: Prowler
+  licence: Apache-2.0
+  url: https://github.com/prowler-cloud/prowler/blob/dd61c417b712856d87b84f5440b2480071991b52/api/src/backend/api/attack_paths/queries/aws.py
+  upstream_id: aws-lambda-privesc-passrole-create-function
+  upstream: pathfinding.cloud - LAMBDA-001 - iam:PassRole + lambda:CreateFunction + lambda:InvokeFunction
+  upstream_url: https://pathfinding.cloud/paths/lambda-001
+  modified: openCypher query re-expressed as a nimbus path rule evaluated by the IAM evaluator
+anchor:
+  types: [aws_iam_user, aws_iam_role]
+match:
+  join: permission
+  requires_permissions:
+    - {action: "iam:PassRole", resource: target}
+    - {action: "lambda:CreateFunction", resource: "*"}
+  target:
+    types: [aws_iam_role]
+    trusts_service: lambda.amazonaws.com
+    exclude_self: true
+tests:
+  fixture:
+    nodes:
+      - id: arn:aws:iam::123456789012:user/dev
+        type: aws_iam_user
+        account: "123456789012"
+        attributes:
+          inline_policy_document:
+            Version: "2012-10-17"
+            Statement:
+              - {Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::123456789012:role/svc"}
+              - {Effect: Allow, Action: "lambda:CreateFunction", Resource: "*"}
+      - id: arn:aws:iam::123456789012:role/svc
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [lambda.amazonaws.com]}
+      - id: arn:aws:iam::123456789012:role/wrongtrust
+        type: aws_iam_role
+        account: "123456789012"
+        attributes: {trust_principals: [ec2.amazonaws.com]}
+  expect:
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/svc", match: true}
+    - {anchor: "arn:aws:iam::123456789012:user/dev", target: "arn:aws:iam::123456789012:role/wrongtrust", match: false}

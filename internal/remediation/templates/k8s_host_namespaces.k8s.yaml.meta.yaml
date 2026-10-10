@@ -1,0 +1,15 @@
+# Remediation plan metadata for k8s_host_namespaces.k8s.yaml (schema: internal/remediation/metadata.go).
+actions_required:
+  - "apps/deployments:get"
+  - "apps/deployments:patch"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Enforce Pod Security Admission baseline in warn/audit mode to find every workload using host namespaces."
+effort: S
+confidence: medium
+rollback: "kubectl rollout undo <kind>/<name> -n <namespace>"
+breaks_function:
+  value: true
+  note: "Node agents (CNI, log shippers, node exporters) often need host namespaces and break without them."

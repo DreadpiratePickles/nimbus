@@ -585,7 +585,9 @@ func TestSubscriptionEnumeration(t *testing.T) {
 				}
 				return &Clients{SubscriptionID: spec.SubscriptionID, Vaults: fakeVaults{}}, nil
 			})
-			c.Subscriptions = func(ctx context.Context, _ core.AccountSpec) ([]string, error) { return listSubscriptions(ctx, fakeSubs{"sub-a", "sub-b"}) }
+			c.Subscriptions = func(ctx context.Context, _ core.AccountSpec) ([]string, error) {
+				return listSubscriptions(ctx, fakeSubs{"sub-a", "sub-b"})
+			}
 			g := graph.New()
 			res, err := c.Collect(context.Background(), core.AccountSpec{Name: "tenant"}, g)
 			if (err != nil) != tt.wantErr {
@@ -608,5 +610,136 @@ func TestInterfaceConformance(t *testing.T) {
 	var _ core.Collector = New()
 	if New().Name() != "azure" || New().Provider() != "azure" {
 		t.Fatal("name/provider")
+	}
+}
+
+// Defect 15(c) + O10: inbound internet traffic must pass BOTH the subnet NSG and the
+// NIC NSG; exposure carries width from the source prefixes that survive both.
+func TestNICAndSubnetNSGAreANDed(t *testing.T) {
+	const (
+		nsgNicOpen  = rgp + "Microsoft.Network/networkSecurityGroups/app-nic-nsg"
+		nsgSubShut  = rgp + "Microsoft.Network/networkSecurityGroups/app-subnet-nsg"
+		nsgSubCorp  = rgp + "Microsoft.Network/networkSecurityGroups/corp-subnet-nsg"
+		nsgSubWideD = rgp + "Microsoft.Network/networkSecurityGroups/wide-subnet-nsg"
+		subnetApp   = rgp + "Microsoft.Network/virtualNetworks/vnet/subnets/app"
+		subnetCorp  = rgp + "Microsoft.Network/virtualNetworks/vnet/subnets/corp"
+		subnetWide  = rgp + "Microsoft.Network/virtualNetworks/vnet/subnets/wide"
+		vmApp       = rgp + "Microsoft.Compute/virtualMachines/app-vm"
+		vmCorp      = rgp + "Microsoft.Compute/virtualMachines/corp-vm"
+		vmWide      = rgp + "Microsoft.Compute/virtualMachines/wide-vm"
+	)
+	build := func(trusted []string) *graph.Graph {
+		cl := fixtureClients()
+		cl.NSGs = append(cl.NSGs.(fakeNSGs),
+			nsg(nsgNicOpen, []*armnetwork.SecurityRule{rule("ssh-any", 100, armnetwork.SecurityRuleAccessAllow, "Internet", "22")}),
+			// subnet NSG has only the defaults: DenyAllInBound from the internet.
+			nsg(nsgSubShut, nil, subnetApp),
+			nsg(nsgSubCorp, []*armnetwork.SecurityRule{rule("ssh-corp", 100, armnetwork.SecurityRuleAccessAllow, "203.0.113.0/24", "22")}, subnetCorp),
+			nsg(nsgSubWideD, []*armnetwork.SecurityRule{rule("deny-ssh", 100, armnetwork.SecurityRuleAccessDeny, "*", "22"), rule("https-any", 110, armnetwork.SecurityRuleAccessAllow, "*", "443")}, subnetWide),
+		)
+		cl.NICs = append(cl.NICs.(fakeNICs),
+			nic("app-nic", nsgNicOpen, subnetApp, rgp+"Microsoft.Network/publicIPAddresses/app-ip"),
+			nic("corp-nic", nsgNicOpen, subnetCorp, rgp+"Microsoft.Network/publicIPAddresses/corp-ip"),
+			nic("wide-nic", nsgNicOpen, subnetWide, rgp+"Microsoft.Network/publicIPAddresses/wide-ip"),
+		)
+		cl.PublicIPs = append(cl.PublicIPs.(fakePIPs), pip("app-ip", "20.1.2.1", true), pip("corp-ip", "20.1.2.2", true), pip("wide-ip", "20.1.2.3", true))
+		vms := cl.VMs.(fakeVMs)
+		vms.vms = append(vms.vms, vm(vmApp, "app-nic", "Standard_B2s", nil), vm(vmCorp, "corp-nic", "Standard_B2s", nil), vm(vmWide, "wide-nic", "Standard_B2s", nil))
+		cl.VMs = vms
+		g := graph.New()
+		c := newTestCollector(func(core.AccountSpec) (*Clients, error) { return cl, nil })
+		if _, err := c.Collect(context.Background(), core.AccountSpec{Name: "corp", SubscriptionID: sub, TrustedCIDRs: trusted}, g); err != nil {
+			t.Fatal(err)
+		}
+		return g
+	}
+	exposure := func(g *graph.Graph, id string) map[string]any {
+		for _, e := range g.Out(graph.InternetNodeID) {
+			if e.To == id && e.Kind == graph.EdgeExposes {
+				return e.Attr
+			}
+		}
+		return nil
+	}
+	g := build(nil)
+	if a := exposure(g, vmApp); a != nil {
+		t.Errorf("NIC allows 22 but subnet NSG denies: VM must not be exposed (got %v)", a)
+	}
+	if a := exposure(g, vmWide); a != nil {
+		t.Errorf("NIC allows only 22, subnet denies 22: VM must not be exposed (got %v)", a)
+	}
+	a := exposure(g, vmCorp)
+	if a == nil || a[core.AttrExposure] != core.ExposureNarrow || a["ports"] != "22" {
+		t.Fatalf("corp VM exposure = %v, want narrow on 22", a)
+	}
+	if cidrs, _ := a[core.AttrExposureCIDRs].([]string); len(cidrs) != 1 || cidrs[0] != "203.0.113.0/24" {
+		t.Errorf("exposure_cidrs = %v", a[core.AttrExposureCIDRs])
+	}
+	if w := exposure(g, vmWeb); w == nil || w[core.AttrExposure] != core.ExposureWide {
+		t.Errorf("web VM (Internet source) exposure = %v, want wide", w)
+	}
+	if b := exposure(g, vmBare); b == nil || b[core.AttrExposure] != core.ExposureWide {
+		t.Errorf("no-NSG VM exposure = %v, want wide", b)
+	}
+	g = build([]string{"203.0.113.0/24"})
+	if a := exposure(g, vmCorp); a == nil || a[core.AttrExposure] != core.ExposureTrusted || a[core.AttrExposureReason] == nil {
+		t.Errorf("corp VM with trusted_cidrs = %v, want trusted", a)
+	}
+	if n, _ := g.Node(vmCorp); n.Attributes[core.AttrExposure] != core.ExposureTrusted {
+		t.Errorf("node exposure = %v", n.Attributes[core.AttrExposure])
+	}
+}
+
+// O10: SQL firewall ranges and public blobs carry exposure width.
+func TestAzureSQLAndBlobExposureWidth(t *testing.T) {
+	cl := fixtureClients()
+	fw := cl.SQLFirewall.(fakeFW)
+	fw["rg1/private-sql"] = append(fw["rg1/private-sql"], &armsql.FirewallRule{Name: to.Ptr("office"),
+		Properties: &armsql.ServerFirewallRuleProperties{StartIPAddress: to.Ptr("198.51.100.0"), EndIPAddress: to.Ptr("198.51.100.255")}})
+	g := graph.New()
+	c := newTestCollector(func(core.AccountSpec) (*Clients, error) { return cl, nil })
+	res, err := c.Collect(context.Background(), core.AccountSpec{Name: "corp", SubscriptionID: sub}, g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrOf := func(to string) map[string]any {
+		for _, e := range g.Out(graph.InternetNodeID) {
+			if e.To == to && e.Kind == graph.EdgeExposes {
+				return e.Attr
+			}
+		}
+		return nil
+	}
+	if a := attrOf(sqlID); a == nil || a[core.AttrExposure] != core.ExposureWide {
+		t.Errorf("0.0.0.0-255.255.255.255 SQL exposure = %v", a)
+	}
+	a := attrOf(sqlID2)
+	if a == nil || a[core.AttrExposure] != core.ExposureNarrow {
+		t.Fatalf("office-range SQL exposure = %v, want narrow", a)
+	}
+	if cidrs, _ := a[core.AttrExposureCIDRs].([]string); len(cidrs) != 1 || cidrs[0] != "198.51.100.0/24" {
+		t.Errorf("exposure_cidrs = %v", a[core.AttrExposureCIDRs])
+	}
+	if st := statusOf(t, res.Findings, "sqlserver_firewall_rules_no_ingress_from_internet", "private-sql"); st != model.Pass {
+		t.Errorf("narrow SQL range must not fail the whole-internet check: %q", st)
+	}
+	if b := attrOf(rgp + "Microsoft.Storage/storageAccounts/custdata"); b == nil || b[core.AttrExposure] != core.ExposureWide {
+		t.Errorf("public blob exposure = %v", b)
+	}
+}
+
+func TestRangeToCIDRs(t *testing.T) {
+	cases := map[[2]string][]string{
+		{"198.51.100.0", "198.51.100.255"}: {"198.51.100.0/24"},
+		{"10.0.0.1", "10.0.0.2"}:           {"10.0.0.1/32", "10.0.0.2/32"},
+		{"0.0.0.0", "255.255.255.255"}:     {"0.0.0.0/0"},
+		{"1.2.3.4", "1.2.3.4"}:             {"1.2.3.4/32"},
+		{"1.2.3.5", "1.2.3.4"}:             nil,
+	}
+	for in, want := range cases {
+		got := rangeToCIDRs(in[0], in[1])
+		if strings.Join(got, ",") != strings.Join(want, ",") {
+			t.Errorf("rangeToCIDRs(%v) = %v, want %v", in, got, want)
+		}
 	}
 }

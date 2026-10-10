@@ -1,0 +1,1215 @@
+# nimbus local ground-truth lab: a deliberately vulnerable multi-cloud estate.
+#
+# `go run ./lab/local/gen` turns this file into a native findings JSON
+# (lab/local/out/estate.findings.json) that `cloud-posture ingest --source native` accepts.
+# Every weakness becomes one FAIL finding with the stable id "lab-<weakness id>".
+# Every resource that carries no weakness becomes one PASS "inventory" record
+# (check_id lab_inventory) so its relationships still reach the graph builder.
+#
+# Relationships are typed here (runs_as, bound_to, grants_access_to, ...). The generator
+# writes each one into `resource.related` in the typed native form
+# {"id": <to>, "kind": <kind>, "attr": {"via": <via>}} (attr left out when there is no via),
+# so they reach the graph as typed edges (docs/benchmark.md "Native relationship contract").
+#
+# Resource ids are the contract shared with lab/terraform/ and lab/ground_truth.yaml.
+# Change an id here and the ground truth and Terraform must change with it.
+version: 1
+name: nimbus-lab-local
+source: nimbus-lab
+
+accounts:
+  - {provider: aws, id: "111111111111", label: lab-prod, note: "main AWS account (production)"}
+  - {provider: aws, id: "222222222222", label: lab-workloads, note: "member account under the SCP-quarantined OU"}
+  - {provider: aws, id: "999999999999", label: external-vendor, note: "external account trusted by the vendor role; not owned by the lab"}
+  - {provider: azure, id: "00000000-0000-4000-8000-000000000001", label: lab-azure}
+  - {provider: gcp, id: nimbus-lab-gcp, label: lab-gcp}
+  - {provider: kubernetes, id: nimbus-lab-eks, label: lab-eks}
+  - {provider: github, id: nimbus-lab, label: lab-github}
+  - {provider: aws, id: "888888888888", label: external-auditor, note: "external audit firm trusted by the auditor role (S29); not owned by the lab"}
+  - {provider: okta, id: nimbus-lab.okta.com, label: lab-okta, note: "IdP federated into AWS IAM Identity Center (S21)"}
+
+resources:
+  # ---------------------------------------------------------------- S01 public PII bucket
+  - id: "arn:aws:s3:::nimbus-lab-customer-pii"
+    scenario: S01
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_s3_bucket
+    name: nimbus-lab-customer-pii
+    attributes:
+      tags: {data_classification: pii, environment: production, owner: data-platform, cost_ceiling_usd: "5"}
+      public_access_block: false
+      bucket_policy_principal: "*"
+
+  # ---------------------------------------------------------------- S02 IMDSv1 EC2 behind 0.0.0.0/0 with admin profile
+  - id: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60001"
+    scenario: S02
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_instance
+    name: nimbus-lab-web-01
+    attributes:
+      tags: {environment: production, owner: web-team}
+      public_ip: 198.51.100.10
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      subnet_id: subnet-0a1b2c3d4e5f60001
+      security_groups: [sg-0a1b2c3d4e5f60001]
+      metadata_http_tokens: optional
+      instance_profile: "arn:aws:iam::111111111111:instance-profile/nimbus-lab-web-profile"
+    relationships:
+      - {kind: attached_to, to: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60001"}
+      - {kind: runs_as, to: "arn:aws:iam::111111111111:role/nimbus-lab-web-instance-role", via: "instance profile nimbus-lab-web-profile"}
+  - id: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60001"
+    scenario: S02
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_security_group
+    name: nimbus-lab-web-open
+    attributes:
+      ingress: [{protocol: "-1", from_port: 0, to_port: 65535, cidr: 0.0.0.0/0}]
+    relationships:
+      - {kind: allows_traffic_to, to: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60001"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-web-instance-role"
+    scenario: S02
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-web-instance-role
+    attributes:
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+
+  # ---------------------------------------------------------------- S03 public RDS
+  - id: "arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-orders"
+    scenario: S03
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_db_instance
+    name: nimbus-lab-orders
+    attributes:
+      tags: {environment: production, data_classification: confidential, owner: commerce}
+      publicly_accessible: true
+      engine: postgres
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      db_subnet_group: nimbus-lab-public
+      subnet_ids: [subnet-0a1b2c3d4e5f60001, subnet-0a1b2c3d4e5f60002]
+      security_groups: [sg-0a1b2c3d4e5f60006]
+    relationships:
+      - {kind: attached_to, to: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60006"}
+  - id: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60006"
+    scenario: S03
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_security_group
+    name: nimbus-lab-rds-open
+    attributes:
+      ingress: [{protocol: tcp, from_port: 5432, to_port: 5432, cidr: 0.0.0.0/0}]
+    relationships:
+      - {kind: allows_traffic_to, to: "arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-orders"}
+
+  # ---------------------------------------------------------------- S04 cross-account trust
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-vendor-access"
+    scenario: S04
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-vendor-access
+    attributes:
+      trust_principals: ["arn:aws:iam::999999999999:root"]
+      external_id_required: false
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+    relationships:
+      - {kind: trusts, to: "arn:aws:iam::999999999999:root"}
+
+  # ---------------------------------------------------------------- S05 IAM user: no MFA, 400-day key, AdministratorAccess
+  - id: "arn:aws:iam::111111111111:user/nimbus-lab-ops-jane"
+    scenario: S05
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_user
+    name: nimbus-lab-ops-jane
+    attributes:
+      mfa_active: false
+      access_key_1_age_days: 400
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+
+  # ---------------------------------------------------------------- S06 public Lambda function URL
+  - id: "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-export"
+    scenario: S06
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_lambda_function
+    name: nimbus-lab-export
+    attributes:
+      function_url_auth_type: NONE
+    relationships:
+      - {kind: runs_as, to: "arn:aws:iam::111111111111:role/nimbus-lab-export-lambda-role"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-export-lambda-role"
+    scenario: S06
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-export-lambda-role
+    attributes:
+      inline_policy: "s3:GetObject on arn:aws:s3:::nimbus-lab-customer-pii/*"
+    relationships:
+      - {kind: grants_access_to, to: "arn:aws:s3:::nimbus-lab-customer-pii"}
+
+  # ---------------------------------------------------------------- S07 EKS public endpoint + cluster-admin service account
+  - id: "arn:aws:eks:us-east-1:111111111111:cluster/nimbus-lab-eks"
+    scenario: S07
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_eks_cluster
+    name: nimbus-lab-eks
+    attributes:
+      endpoint_public_access: true
+      public_access_cidrs: [0.0.0.0/0]
+    relationships:
+      - {kind: contains, to: "cluster/clusterrolebinding/ci-deployer-admin"}
+  - id: "cluster/clusterrolebinding/ci-deployer-admin"
+    scenario: S07
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_cluster_role_binding
+    name: ci-deployer-admin
+    attributes:
+      role_ref: cluster-admin
+      subjects: ["ci/serviceaccount/deployer"]
+    relationships:
+      - {kind: bound_to, to: "cluster/clusterrole/cluster-admin"}
+  - id: "cluster/clusterrole/cluster-admin"
+    scenario: S07
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_cluster_role
+    name: cluster-admin
+
+  # ---------------------------------------------------------------- S08 K8s pod -> SA -> ClusterRoleBinding(cluster-admin)
+  - id: "ci/pod/build-runner-0"
+    scenario: S08
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_pod
+    name: build-runner-0
+    attributes:
+      namespace: ci
+      service_account: deployer
+      exposed_by: "service/ci/build-runner (type LoadBalancer, 0.0.0.0/0)"
+      image: "ghcr.io/nimbus-lab/build-runner:1.4.0"
+    relationships:
+      - {kind: runs_as, to: "ci/serviceaccount/deployer"}
+  - id: "ci/serviceaccount/deployer"
+    scenario: S08
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_service_account
+    name: deployer
+    attributes:
+      namespace: ci
+    relationships:
+      - {kind: bound_to, to: "cluster/clusterrolebinding/ci-deployer-admin"}
+
+  # ---------------------------------------------------------------- S09 GCP default compute SA (editor) on a public GCE instance
+  - id: "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-web"
+    scenario: S09
+    provider: gcp
+    account: nimbus-lab-gcp
+    region: us-central1
+    type: gcp_compute_instance
+    name: nimbus-lab-gce-web
+    attributes:
+      external_ip: 203.0.113.200
+      service_account: 123456789012-compute@developer.gserviceaccount.com
+      scopes: ["https://www.googleapis.com/auth/cloud-platform"]
+    relationships:
+      - {kind: runs_as, to: "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/123456789012-compute@developer.gserviceaccount.com"}
+  - id: "//compute.googleapis.com/projects/nimbus-lab-gcp/global/firewalls/nimbus-lab-allow-ssh-any"
+    scenario: S09
+    provider: gcp
+    account: nimbus-lab-gcp
+    type: gcp_compute_firewall
+    name: nimbus-lab-allow-ssh-any
+    attributes:
+      source_ranges: [0.0.0.0/0]
+      allowed: ["tcp:22"]
+    relationships:
+      - {kind: allows_traffic_to, to: "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-web"}
+  - id: "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/123456789012-compute@developer.gserviceaccount.com"
+    scenario: S09
+    provider: gcp
+    account: nimbus-lab-gcp
+    type: gcp_service_account
+    name: 123456789012-compute@developer.gserviceaccount.com
+    attributes:
+      project_roles: [roles/editor]
+
+  # ---------------------------------------------------------------- S10 Azure public blob
+  - id: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Storage/storageAccounts/nimbuslabhrexports"
+    scenario: S10
+    provider: azure
+    account: "00000000-0000-4000-8000-000000000001"
+    region: eastus
+    type: azure_storage_account
+    name: nimbuslabhrexports
+    attributes:
+      tags: {data_classification: confidential, environment: production, owner: people-ops}
+      allow_blob_public_access: true
+      container: exports (access level blob)
+
+  # ---------------------------------------------------------------- S11 Azure NSG open RDP -> VM -> managed identity (Contributor)
+  - id: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Network/networkSecurityGroups/nimbus-lab-jump-nsg"
+    scenario: S11
+    provider: azure
+    account: "00000000-0000-4000-8000-000000000001"
+    region: eastus
+    type: azure_network_security_group
+    name: nimbus-lab-jump-nsg
+    attributes:
+      rules: [{name: allow-rdp-any, port: 3389, source: "*", access: Allow, priority: 100}]
+    relationships:
+      - {kind: allows_traffic_to, to: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Compute/virtualMachines/nimbus-lab-jump-01"}
+  - id: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Compute/virtualMachines/nimbus-lab-jump-01"
+    scenario: S11
+    provider: azure
+    account: "00000000-0000-4000-8000-000000000001"
+    region: eastus
+    type: azure_virtual_machine
+    name: nimbus-lab-jump-01
+    pass_check: vm_ensure_attached_disks_encrypted_with_cmk   # W6: PASS evidence for compliance (r4 #13); the inventory record keeps its id
+    pass_title: "VM disks are encrypted with a customer-managed key"
+    attributes:
+      public_ip: 198.51.100.20
+      os: windows
+    relationships:
+      - {kind: runs_as, to: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nimbus-lab-jump-mi"}
+  - id: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nimbus-lab-jump-mi"
+    scenario: S11
+    provider: azure
+    account: "00000000-0000-4000-8000-000000000001"
+    region: eastus
+    type: azure_user_assigned_identity
+    name: nimbus-lab-jump-mi
+    attributes:
+      role_assignments: [{role: Contributor, scope: "/subscriptions/00000000-0000-4000-8000-000000000001"}]
+
+  # ---------------------------------------------------------------- S12 GitHub repo without branch protection -> OIDC deploy role
+  - id: "github.com/nimbus-lab/infra-live"
+    scenario: S12
+    provider: github
+    account: nimbus-lab
+    type: github_repository
+    name: nimbus-lab/infra-live
+    attributes:
+      default_branch: main
+      branch_protection: false
+    relationships:
+      - {kind: can_assume, to: "arn:aws:iam::111111111111:role/nimbus-lab-gha-deploy", via: "GitHub OIDC sub repo:nimbus-lab/infra-live:*"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-gha-deploy"
+    scenario: S12
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-gha-deploy
+    attributes:
+      trust: "token.actions.githubusercontent.com sub=repo:nimbus-lab/infra-live:*"
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+
+  # ---------------------------------------------------------------- S13 seeded false positive: SSH open only to the trusted corporate CIDR
+  - id: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60002"
+    scenario: S13
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_instance
+    name: nimbus-lab-corp-tools-01
+    attributes:
+      tags: {environment: production, owner: it-ops}
+      public_ip: 198.51.100.30
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      subnet_id: subnet-0a1b2c3d4e5f60001
+      security_groups: [sg-0a1b2c3d4e5f60002]
+      metadata_http_tokens: optional
+    relationships:
+      - {kind: attached_to, to: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60002"}
+      - {kind: runs_as, to: "arn:aws:iam::111111111111:role/nimbus-lab-corp-tools-role"}
+  - id: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60002"
+    scenario: S13
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_security_group
+    name: nimbus-lab-corp-ssh
+    attributes:
+      ingress: [{protocol: tcp, from_port: 22, to_port: 22, cidr: 203.0.113.0/24, description: "corporate egress range (trusted_cidrs)"}]
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-corp-tools-role"
+    scenario: S13
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-corp-tools-role
+    attributes:
+      attached_policies: ["arn:aws:iam::aws:policy/PowerUserAccess"]
+
+  # ---------------------------------------------------------------- S14 path behind an SCP deny (member account 222222222222)
+  - id: "arn:aws:ec2:us-east-1:222222222222:instance/i-0a1b2c3d4e5f60003"
+    scenario: S14
+    provider: aws
+    account: "222222222222"
+    region: us-east-1
+    type: aws_instance
+    name: nimbus-lab-batch-01
+    attributes:
+      tags: {environment: production, owner: batch-team}
+      public_ip: 198.51.100.40
+      vpc_id: vpc-0a1b2c3d4e5f60003
+      subnet_id: subnet-0a1b2c3d4e5f60007
+      metadata_http_tokens: optional
+    relationships:
+      - {kind: runs_as, to: "arn:aws:iam::222222222222:role/nimbus-lab-batch-role"}
+  - id: "arn:aws:iam::222222222222:role/nimbus-lab-batch-role"
+    scenario: S14
+    provider: aws
+    account: "222222222222"
+    type: aws_iam_role
+    name: nimbus-lab-batch-role
+    attributes:
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+      governing_scps:
+        - id: p-lab0quarantine
+          name: nimbus-lab-quarantine
+          statement: {Effect: Deny, Action: "*", Resource: "*", Condition: {ArnLike: {"aws:PrincipalArn": "arn:aws:iam::222222222222:role/nimbus-lab-batch-role"}}}
+
+  # ================================================================ P1-LAB L1 scenarios (S15–S30; labels in lab/ground_truth.yaml)
+
+  # ---------------------------------------------------------------- S15 (F02) Allow s3:* + explicit Deny s3:GetObject
+  - id: "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-claims-intake"
+    scenario: S15
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_lambda_function
+    name: nimbus-lab-claims-intake
+    attributes:
+      function_url_auth_type: NONE
+    relationships:
+      - {kind: runs_as, to: "arn:aws:iam::111111111111:role/nimbus-lab-claims-intake-role"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-claims-intake-role"
+    scenario: S15
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-claims-intake-role
+    attributes:
+      inline_policy_document:
+        Version: "2012-10-17"
+        Statement:
+          - {Sid: ClaimsIntake, Effect: Allow, Action: "s3:*", Resource: ["arn:aws:s3:::nimbus-lab-claims-pii", "arn:aws:s3:::nimbus-lab-claims-pii/*"]}
+          - {Sid: NoClaimsRead, Effect: Deny, Action: "s3:GetObject", Resource: "arn:aws:s3:::nimbus-lab-claims-pii/*"}
+    relationships:
+      # What an Allow-only collector draws from `s3:*`; the explicit Deny must remove it (F02).
+      - {kind: grants_access_to, to: "arn:aws:s3:::nimbus-lab-claims-pii", via: "inline policy ClaimsIntake s3:* (explicit Deny s3:GetObject in NoClaimsRead)"}
+  - id: "arn:aws:s3:::nimbus-lab-claims-pii"
+    scenario: S15
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_s3_bucket
+    name: nimbus-lab-claims-pii
+    pass_check: s3_bucket_default_encryption   # W6: PASS evidence for compliance (r4 #13); the inventory record keeps its id
+    pass_title: "S3 bucket encrypts objects by default (SSE-KMS)"
+    attributes:
+      tags: {data_classification: pii, environment: production, owner: claims}
+      public_access_block: true
+
+  # ---------------------------------------------------------------- S16 (F03) SG 0.0.0.0/0:22, NACL denies 22
+  - id: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60004"
+    scenario: S16
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_instance
+    name: nimbus-lab-sftp-01
+    attributes:
+      tags: {environment: production, owner: partner-ops}
+      public_ip: 198.51.100.50
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      subnet_id: subnet-0a1b2c3d4e5f60004
+      security_groups: [sg-0a1b2c3d4e5f60004]
+      network_acl: acl-0a1b2c3d4e5f60001
+      metadata_http_tokens: required
+    relationships:
+      - {kind: attached_to, to: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60004"}
+      - {kind: runs_as, to: "arn:aws:iam::111111111111:role/nimbus-lab-sftp-role", via: "instance profile nimbus-lab-sftp-profile"}
+  - id: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60004"
+    scenario: S16
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_security_group
+    name: nimbus-lab-sftp-ssh
+    attributes:
+      ingress: [{protocol: tcp, from_port: 22, to_port: 22, cidr: 0.0.0.0/0}]
+    relationships:
+      - {kind: allows_traffic_to, to: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60004"}
+  - id: "arn:aws:ec2:us-east-1:111111111111:network-acl/acl-0a1b2c3d4e5f60001"
+    scenario: S16
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_network_acl
+    name: nimbus-lab-sftp-nacl
+    attributes:
+      network_acl_id: acl-0a1b2c3d4e5f60001
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      default: false
+      subnet_ids: [subnet-0a1b2c3d4e5f60004]
+      ingress:
+        - {rule_number: 90, protocol: tcp, from_port: 22, to_port: 22, cidr: 0.0.0.0/0, action: deny}
+        - {rule_number: 100, protocol: "-1", from_port: 0, to_port: 0, cidr: 0.0.0.0/0, action: allow}
+        - {rule_number: 32767, protocol: "-1", cidr: 0.0.0.0/0, action: deny}
+      egress:
+        - {rule_number: 100, protocol: "-1", from_port: 0, to_port: 0, cidr: 0.0.0.0/0, action: allow}
+        - {rule_number: 32767, protocol: "-1", cidr: 0.0.0.0/0, action: deny}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-sftp-role"
+    scenario: S16
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-sftp-role
+    attributes:
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+
+  # ---------------------------------------------------------------- S17 (F04) PubliclyAccessible RDS in an isolated subnet
+  - id: "arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-ledger"
+    scenario: S17
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_db_instance
+    name: nimbus-lab-ledger
+    attributes:
+      tags: {environment: production, data_classification: confidential, owner: finance}
+      publicly_accessible: true
+      engine: postgres
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      db_subnet_group: nimbus-lab-isolated
+      subnet_ids: [subnet-0a1b2c3d4e5f60005, subnet-0a1b2c3d4e5f60006]
+
+  # ---------------------------------------------------------------- S18 (F05) OIDC trust pinned to the protected main branch
+  - id: "github.com/nimbus-lab/payments-service"
+    scenario: S18
+    provider: github
+    account: nimbus-lab
+    type: github_repository
+    name: nimbus-lab/payments-service
+    pass_check: repository_secret_scanning_enabled   # W6: PASS evidence for compliance (r4 #13); the inventory record keeps its id
+    pass_title: "Repository has secret scanning enabled"
+    attributes:
+      default_branch: main
+      branch_protection: true
+      required_approving_review_count: 2
+    relationships:
+      - {kind: can_assume, to: "arn:aws:iam::111111111111:role/nimbus-lab-gha-payments-deploy", via: "GitHub OIDC sub repo:nimbus-lab/payments-service:ref:refs/heads/main (protected branch)"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-gha-payments-deploy"
+    scenario: S18
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-gha-payments-deploy
+    attributes:
+      trust: "token.actions.githubusercontent.com sub=repo:nimbus-lab/payments-service:ref:refs/heads/main"
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+
+  # ---------------------------------------------------------------- S19 (P13) PassRole + RunInstances -> admin role
+  # The escalation capability is in the policy document only: no edge is declared, the engine must
+  # derive it (can_escalate_to). Prowler's iam_policy_allows_privilege_escalation is deliberately not
+  # seeded: its OVERPRIVILEGED_IDENTITY tag would make the user itself the target.
+  - id: "arn:aws:iam::111111111111:user/nimbus-lab-dev-sam"
+    scenario: S19
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_user
+    name: nimbus-lab-dev-sam
+    attributes:
+      mfa_active: false
+      console_access: true
+      access_key_1_active: true
+      access_key_1_age_days: 200
+      inline_policy_document:
+        Version: "2012-10-17"
+        Statement:
+          - {Sid: LaunchBuilders, Effect: Allow, Action: ["ec2:RunInstances", "ec2:DescribeInstances"], Resource: "*"}
+          - {Sid: PassBuilderRole, Effect: Allow, Action: "iam:PassRole", Resource: "arn:aws:iam::111111111111:role/nimbus-lab-ec2-admin-role"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-ec2-admin-role"
+    scenario: S19
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-ec2-admin-role
+    attributes:
+      trust_principals: ["ec2.amazonaws.com"]
+      instance_profile: "arn:aws:iam::111111111111:instance-profile/nimbus-lab-ec2-admin-profile"
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+
+  # ---------------------------------------------------------------- S20 (P14) GitHub OIDC trust without a sub condition
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-gha-legacy-deploy"
+    scenario: S20
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-gha-legacy-deploy
+    attributes:
+      trust: "token.actions.githubusercontent.com aud=sts.amazonaws.com (no sub condition)"
+      trust_policy:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Federated: "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com"}
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Condition: {StringEquals: {"token.actions.githubusercontent.com:aud": sts.amazonaws.com}}
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+    relationships:
+      - {kind: trusts, to: "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com"}
+
+  # ---------------------------------------------------------------- S21 (P15) Okta MFA-exempt user -> Identity Center admin
+  - id: "okta:user/00u0nimbuslab0contractor"
+    scenario: S21
+    provider: okta
+    account: nimbus-lab.okta.com
+    type: okta_user
+    name: contractor@nimbus-lab.example
+    attributes:
+      status: ACTIVE
+      mfa_enrolled: false
+    relationships:
+      - {kind: member_of, to: "okta:group/00g0nimbuslab0awsadmins"}
+  - id: "okta:group/00g0nimbuslab0awsadmins"
+    scenario: S21
+    provider: okta
+    account: nimbus-lab.okta.com
+    type: okta_group
+    name: aws-admins
+    attributes:
+      sign_on_rule: {name: contractors-legacy, mfa_required: false}
+    relationships:
+      - {kind: can_assume, to: "arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_0a1b2c3d4e5f6001", via: "Okta SAML app AWS IAM Identity Center; group aws-admins -> permission set AdministratorAccess"}
+  - id: "arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_0a1b2c3d4e5f6001"
+    scenario: S21
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: AWSReservedSSO_AdministratorAccess_0a1b2c3d4e5f6001
+    attributes:
+      trust: "Identity Center SAML provider (permission set AdministratorAccess)"
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+
+  # ---------------------------------------------------------------- S22 (P16) exposed pod -> SA that lists secrets cluster-wide
+  - id: "web/pod/storefront-0"
+    scenario: S22
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_pod
+    name: storefront-0
+    attributes:
+      namespace: web
+      service_account: storefront
+      exposed_by: "service/web/storefront (type LoadBalancer, 0.0.0.0/0)"
+      image: "ghcr.io/nimbus-lab/storefront:3.2.1"
+    relationships:
+      - {kind: runs_as, to: "web/serviceaccount/storefront"}
+  - id: "web/serviceaccount/storefront"
+    scenario: S22
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_service_account
+    name: storefront
+    attributes:
+      namespace: web
+    relationships:
+      - {kind: bound_to, to: "cluster/clusterrolebinding/storefront-secrets-reader"}
+  - id: "cluster/clusterrolebinding/storefront-secrets-reader"
+    scenario: S22
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_cluster_role_binding
+    name: storefront-secrets-reader
+    attributes:
+      role_ref: secrets-reader
+      subjects: ["web/serviceaccount/storefront"]
+    relationships:
+      - {kind: bound_to, to: "cluster/clusterrole/secrets-reader"}
+  - id: "cluster/clusterrole/secrets-reader"
+    scenario: S22
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_cluster_role
+    name: secrets-reader
+    pass_check: rbac_minimize_wildcard_use_roles   # W6: PASS evidence for compliance (r4 #13); the inventory record keeps its id
+    pass_title: "ClusterRole grants no wildcard verbs or resources"
+    attributes:
+      rules: [{api_groups: [""], resources: [secrets], verbs: [get, list, watch]}]
+
+  # ---------------------------------------------------------------- S23 (P17) pod -> IRSA SA -> role -> PII bucket
+  - id: "analytics/pod/report-worker-0"
+    scenario: S23
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_pod
+    name: report-worker-0
+    attributes:
+      namespace: analytics
+      service_account: report-worker
+      exposed_by: "service/analytics/report-worker (type LoadBalancer, 0.0.0.0/0)"
+      image: "ghcr.io/nimbus-lab/report-worker:2.0.3"
+    relationships:
+      - {kind: runs_as, to: "analytics/serviceaccount/report-worker"}
+  - id: "analytics/serviceaccount/report-worker"
+    scenario: S23
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_service_account
+    name: report-worker
+    attributes:
+      namespace: analytics
+      annotations: {"eks.amazonaws.com/role-arn": "arn:aws:iam::111111111111:role/nimbus-lab-report-irsa"}
+    relationships:
+      - {kind: can_assume, to: "arn:aws:iam::111111111111:role/nimbus-lab-report-irsa", via: "IRSA projected token; trust sub system:serviceaccount:analytics:report-worker"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-report-irsa"
+    scenario: S23
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-report-irsa
+    attributes:
+      trust: "oidc.eks.us-east-1.amazonaws.com sub=system:serviceaccount:analytics:report-worker"
+      inline_policy: "s3:GetObject, s3:ListBucket on arn:aws:s3:::nimbus-lab-analytics-pii"
+    relationships:
+      - {kind: grants_access_to, to: "arn:aws:s3:::nimbus-lab-analytics-pii", via: "inline policy ReportRead"}
+  - id: "arn:aws:s3:::nimbus-lab-analytics-pii"
+    scenario: S23
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_s3_bucket
+    name: nimbus-lab-analytics-pii
+    pass_check: s3_bucket_server_access_logging_enabled   # W6: PASS evidence for compliance (r4 #13); the inventory record keeps its id
+    pass_title: "S3 bucket has server access logging enabled"
+    attributes:
+      tags: {data_classification: pii, environment: production, owner: analytics}
+      public_access_block: true
+
+  # ---------------------------------------------------------------- S24 (P18) public Bedrock agent -> role with iam:PutRolePolicy
+  - id: "arn:aws:bedrock:us-east-1:111111111111:agent/NIMBUSLAB01"
+    scenario: S24
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_bedrock_agent
+    name: nimbus-lab-support-agent
+    attributes:
+      invoked_by: "unauthenticated public chat endpoint (Lambda function URL AuthType NONE)"
+      agent_resource_role_arn: "arn:aws:iam::111111111111:role/nimbus-lab-support-agent-role"
+    relationships:
+      - {kind: runs_as, to: "arn:aws:iam::111111111111:role/nimbus-lab-support-agent-role", via: "agent resource role"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-support-agent-role"
+    scenario: S24
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-support-agent-role
+    attributes:
+      trust_principals: ["bedrock.amazonaws.com"]
+      inline_policy_document:
+        Version: "2012-10-17"
+        Statement:
+          - {Sid: TicketTools, Effect: Allow, Action: ["iam:PutRolePolicy", "iam:GetRole"], Resource: "*"}
+
+  # ---------------------------------------------------------------- S25 (F06) GCP SSH firewall open only to the trusted corporate CIDR
+  - id: "//compute.googleapis.com/projects/nimbus-lab-gcp/global/firewalls/nimbus-lab-allow-ssh-corp"
+    scenario: S25
+    provider: gcp
+    account: nimbus-lab-gcp
+    type: gcp_compute_firewall
+    name: nimbus-lab-allow-ssh-corp
+    attributes:
+      source_ranges: [203.0.113.0/24]
+      allowed: ["tcp:22"]
+    relationships:
+      - {kind: allows_traffic_to, to: "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-bastion"}
+  - id: "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-bastion"
+    scenario: S25
+    provider: gcp
+    account: nimbus-lab-gcp
+    region: us-central1
+    type: gcp_compute_instance
+    name: nimbus-lab-gce-bastion
+    attributes:
+      external_ip: 198.51.100.60
+      service_account: nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com
+      scopes: ["https://www.googleapis.com/auth/cloud-platform"]
+    relationships:
+      - {kind: runs_as, to: "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com"}
+  - id: "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com"
+    scenario: S25
+    provider: gcp
+    account: nimbus-lab-gcp
+    type: gcp_service_account
+    name: nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com
+    attributes:
+      project_roles: [roles/editor]
+
+  # ---------------------------------------------------------------- S26 (F07) Lambda function URL with AuthType AWS_IAM
+  - id: "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-partner-export"
+    scenario: S26
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_lambda_function
+    name: nimbus-lab-partner-export
+    attributes:
+      function_url_auth_type: AWS_IAM
+    relationships:
+      - {kind: runs_as, to: "arn:aws:iam::111111111111:role/nimbus-lab-partner-export-role"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-partner-export-role"
+    scenario: S26
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-partner-export-role
+    attributes:
+      inline_policy: "s3:GetObject on arn:aws:s3:::nimbus-lab-claims-pii/*"
+    relationships:
+      - {kind: grants_access_to, to: "arn:aws:s3:::nimbus-lab-claims-pii", via: "inline policy PartnerExport"}
+
+  # ---------------------------------------------------------------- S27 (F08) org-conditioned Principal * bucket policy
+  - id: "arn:aws:s3:::nimbus-lab-shared-reports"
+    scenario: S27
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_s3_bucket
+    name: nimbus-lab-shared-reports
+    attributes:
+      tags: {data_classification: pii, environment: production, owner: finance}
+      public_access_block: false
+      bucket_policy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: OrgRead
+            Effect: Allow
+            Principal: "*"
+            Action: "s3:GetObject"
+            Resource: "arn:aws:s3:::nimbus-lab-shared-reports/*"
+            Condition: {StringEquals: {"aws:PrincipalOrgID": o-lab0000001}}
+
+  # ---------------------------------------------------------------- S28 (P19) exposed host with a KEV CVE -> role -> billing PII
+  - id: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60005"
+    scenario: S28
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_instance
+    name: nimbus-lab-media-01
+    attributes:
+      tags: {environment: production, owner: media}
+      public_ip: 198.51.100.70
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      subnet_id: subnet-0a1b2c3d4e5f60001
+      security_groups: [sg-0a1b2c3d4e5f60005]
+      metadata_http_tokens: required
+    relationships:
+      - {kind: attached_to, to: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60005"}
+      - {kind: runs_as, to: "arn:aws:iam::111111111111:role/nimbus-lab-media-role", via: "instance profile nimbus-lab-media-profile"}
+  - id: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60005"
+    scenario: S28
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_security_group
+    name: nimbus-lab-media-https
+    attributes:
+      ingress: [{protocol: tcp, from_port: 443, to_port: 443, cidr: 0.0.0.0/0}]
+    relationships:
+      - {kind: allows_traffic_to, to: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60005"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-media-role"
+    scenario: S28
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-media-role
+    attributes:
+      inline_policy: "s3:GetObject, s3:ListBucket on arn:aws:s3:::nimbus-lab-billing-exports"
+    relationships:
+      - {kind: grants_access_to, to: "arn:aws:s3:::nimbus-lab-billing-exports", via: "inline policy MediaRead"}
+  - id: "arn:aws:s3:::nimbus-lab-billing-exports"
+    scenario: S28
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_s3_bucket
+    name: nimbus-lab-billing-exports
+    pass_check: s3_bucket_object_versioning   # W6: PASS evidence for compliance (r4 #13); the inventory record keeps its id
+    pass_title: "S3 bucket has object versioning enabled"
+    attributes:
+      tags: {data_classification: pii, environment: production, owner: billing}
+      public_access_block: true
+
+  # ---------------------------------------------------------------- S29 (P20) external account -> auditor role -> chained break-glass admin
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-auditor"
+    scenario: S29
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-auditor
+    attributes:
+      trust_principals: ["arn:aws:iam::888888888888:root"]
+      external_id_required: false
+      attached_policies: ["arn:aws:iam::aws:policy/ReadOnlyAccess"]
+      inline_policy: "sts:AssumeRole on arn:aws:iam::111111111111:role/nimbus-lab-break-glass"
+    relationships:
+      - {kind: trusts, to: "arn:aws:iam::888888888888:root"}
+      - {kind: can_assume, to: "arn:aws:iam::111111111111:role/nimbus-lab-break-glass", via: "inline policy AssumeBreakGlass + nimbus-lab-break-glass trust policy"}
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-break-glass"
+    scenario: S29
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-break-glass
+    attributes:
+      trust_principals: ["arn:aws:iam::111111111111:role/nimbus-lab-auditor"]
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+
+  # ---------------------------------------------------------------- S30 (F09) data read DENIED by SCP p-lab0nodataread (member account 222222222222)
+  - id: "arn:aws:lambda:us-east-1:222222222222:function:nimbus-lab-records-api"
+    scenario: S30
+    provider: aws
+    account: "222222222222"
+    region: us-east-1
+    type: aws_lambda_function
+    name: nimbus-lab-records-api
+    attributes:
+      function_url_auth_type: NONE
+    relationships:
+      - {kind: runs_as, to: "arn:aws:iam::222222222222:role/nimbus-lab-records-api-role"}
+  - id: "arn:aws:iam::222222222222:role/nimbus-lab-records-api-role"
+    scenario: S30
+    provider: aws
+    account: "222222222222"
+    type: aws_iam_role
+    name: nimbus-lab-records-api-role
+    attributes:
+      inline_policy: "s3:GetObject on arn:aws:s3:::nimbus-lab-member-records/*"
+      governing_scps:
+        - id: p-lab0nodataread
+          name: nimbus-lab-deny-records-read
+          statement: {Effect: Deny, Action: "s3:GetObject", Resource: "arn:aws:s3:::nimbus-lab-member-records/*"}
+    relationships:
+      - {kind: grants_access_to, to: "arn:aws:s3:::nimbus-lab-member-records", via: "inline policy RecordsRead (s3:GetObject; denied by SCP p-lab0nodataread)"}
+  - id: "arn:aws:s3:::nimbus-lab-member-records"
+    scenario: S30
+    provider: aws
+    account: "222222222222"
+    region: us-east-1
+    type: aws_s3_bucket
+    name: nimbus-lab-member-records
+    pass_check: s3_bucket_secure_transport_policy   # W6: PASS evidence for compliance (r4 #13); the inventory record keeps its id
+    pass_title: "S3 bucket policy denies non-TLS requests"
+    attributes:
+      tags: {data_classification: pii, environment: production, owner: membership}
+      public_access_block: true
+
+  # ================================================================ NET: network facts (competitive delta r3 #14)
+  # Subnets, route tables, internet gateways and NACLs for every AWS instance and RDS instance, in
+  # the shape the live AWS collector writes (internal/collector/aws/network.go: aws_subnet with
+  # route_table {id, routes} / internet_gateway_route / network_acl_id; aws_network_acl with
+  # subnet_ids / ingress / egress), so graph reachability (internal/reach) decides reachable or
+  # blocked instead of "unknown". The facts follow the labels: hosts and the orders DB on labelled
+  # internet paths sit in public subnets (route 0.0.0.0/0 -> igw, default allow-all NACL); the
+  # SFTP host keeps its NACL deny on 22 (F03); the ledger's subnet group is isolated (F04). Appended
+  # last so the inventory ids (lab-inv-<index>) of earlier resources do not change.
+  - id: "arn:aws:ec2:us-east-1:111111111111:subnet/subnet-0a1b2c3d4e5f60001"
+    scenario: NET
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_subnet
+    name: nimbus-lab-public-a
+    pass_check: vpc_flow_logs_enabled   # W6: PASS evidence for compliance (r4 #13); the inventory record keeps its id
+    pass_title: "VPC flow logs are enabled for the subnet"
+    attributes:
+      subnet_id: subnet-0a1b2c3d4e5f60001
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      cidr: 10.20.1.0/24
+      availability_zone: us-east-1a
+      map_public_ip_on_launch: true
+      route_table: {id: rtb-0a1b2c3d4e5f60002, routes: [{destination: 10.20.0.0/16, target: local, state: active}, {destination: 0.0.0.0/0, target: igw-0a1b2c3d4e5f60001, state: active}]}
+      route_table_association: explicit
+      internet_gateway_route: true
+      network_acl_id: acl-0a1b2c3d4e5f60002
+  - id: "arn:aws:ec2:us-east-1:111111111111:subnet/subnet-0a1b2c3d4e5f60002"
+    scenario: NET
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_subnet
+    name: nimbus-lab-public-b
+    attributes:
+      subnet_id: subnet-0a1b2c3d4e5f60002
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      cidr: 10.20.2.0/24
+      availability_zone: us-east-1b
+      map_public_ip_on_launch: true
+      route_table: {id: rtb-0a1b2c3d4e5f60002, routes: [{destination: 10.20.0.0/16, target: local, state: active}, {destination: 0.0.0.0/0, target: igw-0a1b2c3d4e5f60001, state: active}]}
+      route_table_association: explicit
+      internet_gateway_route: true
+      network_acl_id: acl-0a1b2c3d4e5f60002
+  - id: "arn:aws:ec2:us-east-1:111111111111:subnet/subnet-0a1b2c3d4e5f60004"
+    scenario: S16
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_subnet
+    name: nimbus-lab-sftp
+    attributes:
+      subnet_id: subnet-0a1b2c3d4e5f60004
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      cidr: 10.20.4.0/24
+      availability_zone: us-east-1a
+      map_public_ip_on_launch: true
+      route_table: {id: rtb-0a1b2c3d4e5f60002, routes: [{destination: 10.20.0.0/16, target: local, state: active}, {destination: 0.0.0.0/0, target: igw-0a1b2c3d4e5f60001, state: active}]}
+      route_table_association: explicit
+      internet_gateway_route: true
+      network_acl_id: acl-0a1b2c3d4e5f60001
+  - id: "arn:aws:ec2:us-east-1:111111111111:subnet/subnet-0a1b2c3d4e5f60005"
+    scenario: S17
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_subnet
+    name: nimbus-lab-isolated-a
+    attributes:
+      subnet_id: subnet-0a1b2c3d4e5f60005
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      cidr: 10.20.5.0/24
+      availability_zone: us-east-1a
+      map_public_ip_on_launch: false
+      route_table: {id: rtb-0a1b2c3d4e5f60001, routes: [{destination: 10.20.0.0/16, target: local, state: active}]}
+      route_table_association: explicit
+      internet_gateway_route: false
+      network_acl_id: acl-0a1b2c3d4e5f60002
+  - id: "arn:aws:ec2:us-east-1:111111111111:subnet/subnet-0a1b2c3d4e5f60006"
+    scenario: S17
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_subnet
+    name: nimbus-lab-isolated-b
+    attributes:
+      subnet_id: subnet-0a1b2c3d4e5f60006
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      cidr: 10.20.6.0/24
+      availability_zone: us-east-1b
+      map_public_ip_on_launch: false
+      route_table: {id: rtb-0a1b2c3d4e5f60001, routes: [{destination: 10.20.0.0/16, target: local, state: active}]}
+      route_table_association: explicit
+      internet_gateway_route: false
+      network_acl_id: acl-0a1b2c3d4e5f60002
+  - id: "arn:aws:ec2:us-east-1:111111111111:network-acl/acl-0a1b2c3d4e5f60002"
+    scenario: NET
+    provider: aws
+    account: "111111111111"
+    region: us-east-1
+    type: aws_network_acl
+    name: nimbus-lab-default-nacl
+    attributes:
+      network_acl_id: acl-0a1b2c3d4e5f60002
+      vpc_id: vpc-0a1b2c3d4e5f60001
+      default: true
+      subnet_ids: [subnet-0a1b2c3d4e5f60001, subnet-0a1b2c3d4e5f60002, subnet-0a1b2c3d4e5f60005, subnet-0a1b2c3d4e5f60006]
+      ingress:
+        - {rule_number: 100, protocol: "-1", from_port: 0, to_port: 0, cidr: 0.0.0.0/0, action: allow}
+        - {rule_number: 32767, protocol: "-1", cidr: 0.0.0.0/0, action: deny}
+      egress:
+        - {rule_number: 100, protocol: "-1", from_port: 0, to_port: 0, cidr: 0.0.0.0/0, action: allow}
+        - {rule_number: 32767, protocol: "-1", cidr: 0.0.0.0/0, action: deny}
+  - id: "arn:aws:ec2:us-east-1:222222222222:subnet/subnet-0a1b2c3d4e5f60007"
+    scenario: NET
+    provider: aws
+    account: "222222222222"
+    region: us-east-1
+    type: aws_subnet
+    name: nimbus-lab-workloads-public-a
+    attributes:
+      subnet_id: subnet-0a1b2c3d4e5f60007
+      vpc_id: vpc-0a1b2c3d4e5f60003
+      cidr: 10.30.1.0/24
+      availability_zone: us-east-1a
+      map_public_ip_on_launch: true
+      route_table: {id: rtb-0a1b2c3d4e5f60003, routes: [{destination: 10.30.0.0/16, target: local, state: active}, {destination: 0.0.0.0/0, target: igw-0a1b2c3d4e5f60003, state: active}]}
+      route_table_association: explicit
+      internet_gateway_route: true
+      network_acl_id: acl-0a1b2c3d4e5f60003
+  - id: "arn:aws:ec2:us-east-1:222222222222:network-acl/acl-0a1b2c3d4e5f60003"
+    scenario: NET
+    provider: aws
+    account: "222222222222"
+    region: us-east-1
+    type: aws_network_acl
+    name: nimbus-lab-workloads-default-nacl
+    attributes:
+      network_acl_id: acl-0a1b2c3d4e5f60003
+      vpc_id: vpc-0a1b2c3d4e5f60003
+      default: true
+      subnet_ids: [subnet-0a1b2c3d4e5f60007]
+      ingress:
+        - {rule_number: 100, protocol: "-1", from_port: 0, to_port: 0, cidr: 0.0.0.0/0, action: allow}
+        - {rule_number: 32767, protocol: "-1", cidr: 0.0.0.0/0, action: deny}
+      egress:
+        - {rule_number: 100, protocol: "-1", from_port: 0, to_port: 0, cidr: 0.0.0.0/0, action: allow}
+        - {rule_number: 32767, protocol: "-1", cidr: 0.0.0.0/0, action: deny}
+
+  # ---------------------------------------------------------------- S31 (P21 / F10) aws:PrincipalOrgID trusts judged against the own organisation (W7-ENGINE r5 #15)
+  # Account metadata as the AWS collector records it (organizations:DescribeOrganization): the
+  # account node of 111111111111 carries its organisation id. Appended after NET so earlier
+  # inventory ids (lab-inv-<index>) do not change.
+  - id: "aws:account:111111111111"
+    scenario: S31
+    provider: aws
+    account: "111111111111"
+    type: aws_account
+    name: "111111111111"
+    attributes:
+      organization_id: o-lab0000001
+      organization_id_status: collected
+      organization_id_source: "organizations:DescribeOrganization"
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-partner-sync"
+    scenario: S31
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-partner-sync
+    attributes:
+      trust_principals: ["arn:aws:iam::777777777777:root"]
+      trust_conditions: {StringEquals: {"aws:PrincipalOrgID": o-partner00001}}
+      external_id_required: false
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+  - id: "arn:aws:iam::111111111111:role/nimbus-lab-org-admin"
+    scenario: S31
+    provider: aws
+    account: "111111111111"
+    type: aws_iam_role
+    name: nimbus-lab-org-admin
+    attributes:
+      trust_principals: ["arn:aws:iam::222222222222:root"]
+      trust_conditions: {StringEquals: {"aws:PrincipalOrgID": o-lab0000001}}
+      external_id_required: false
+      attached_policies: ["arn:aws:iam::aws:policy/AdministratorAccess"]
+
+  # ---------------------------------------------------------------- PASS (W7-ENGINE r5 #9) weakness-free resources whose checks pass
+  # CIS Kubernetes and CIS GCP had no passing control on the lab (0%): a pod with no privileged
+  # container (CIS K8s 5.2.1 / 5.2.2) and a private Cloud Storage bucket (CIS GCP 5.1). Neither is
+  # exposed or sensitive, so no label or path changes.
+  - id: "web/pod/healthcheck-0"
+    scenario: PASS
+    provider: kubernetes
+    account: nimbus-lab-eks
+    type: k8s_pod
+    name: healthcheck-0
+    pass_check: core_minimize_privileged_containers
+    pass_title: "Pod runs no privileged container"
+    attributes:
+      namespace: web
+      privileged: false
+      image: "ghcr.io/nimbus-lab/healthcheck:1.0.0"
+  - id: "//storage.googleapis.com/projects/nimbus-lab-gcp/buckets/nimbus-lab-gcp-build-cache"
+    scenario: PASS
+    provider: gcp
+    account: nimbus-lab-gcp
+    region: us-central1
+    type: gcp_storage_bucket
+    name: nimbus-lab-gcp-build-cache
+    pass_check: cloudstorage_bucket_public_access
+    pass_title: "Cloud Storage bucket is not publicly accessible"
+    attributes:
+      uniform_bucket_level_access: true
+      public_access_prevention: enforced
+
+weaknesses:
+  - {id: W01, resource: "arn:aws:s3:::nimbus-lab-customer-pii", check_id: s3_bucket_public_access, severity: CRITICAL, weaknesses: [PUBLIC_DATA_STORE], title: "S3 bucket holding PII is publicly readable"}
+  - {id: W02, resource: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60001", check_id: ec2_securitygroup_allow_ingress_from_internet_to_any_port, severity: CRITICAL, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Security group allows all ports from 0.0.0.0/0"}
+  - {id: W03, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60001", check_id: ec2_instance_port_ssh_exposed_to_internet, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "EC2 instance reachable from 0.0.0.0/0", attributes: {exposure_cidrs: [0.0.0.0/0]}}
+  - {id: W04, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60001", check_id: ec2_instance_imdsv2_enabled, severity: HIGH, weaknesses: [IMDSV1_ENABLED], title: "EC2 instance allows IMDSv1"}
+  - {id: W05, resource: "arn:aws:iam::111111111111:role/nimbus-lab-web-instance-role", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Instance role has AdministratorAccess"}
+  - {id: W06, resource: "arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-orders", check_id: rds_instance_no_public_access, severity: CRITICAL, weaknesses: [PUBLIC_NETWORK_EXPOSURE, DATABASE], title: "RDS instance is publicly accessible"}
+  - {id: W07, resource: "arn:aws:iam::111111111111:role/nimbus-lab-vendor-access", check_id: iam_role_cross_account_readonlyaccess_policy, severity: HIGH, weaknesses: [CROSS_ACCOUNT_TRUST], title: "Role trusts external account 999999999999 without ExternalId"}
+  - {id: W08, resource: "arn:aws:iam::111111111111:role/nimbus-lab-vendor-access", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Vendor role has AdministratorAccess"}
+  - {id: W09, resource: "arn:aws:iam::111111111111:user/nimbus-lab-ops-jane", check_id: iam_user_mfa_enabled_console_access, severity: HIGH, weaknesses: [NO_MFA], title: "IAM user with console password has no MFA"}
+  - {id: W10, resource: "arn:aws:iam::111111111111:user/nimbus-lab-ops-jane", check_id: iam_rotate_access_key_90_days, severity: MEDIUM, weaknesses: [STALE_CREDENTIALS], title: "Access key not rotated for 400 days", attributes: {access_key_1_age_days: 400}}
+  - {id: W11, resource: "arn:aws:iam::111111111111:user/nimbus-lab-ops-jane", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "IAM user has AdministratorAccess"}
+  - {id: W12, resource: "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-export", check_id: awslambda_function_url_public, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Lambda function URL has AuthType NONE"}
+  - {id: W13, resource: "arn:aws:eks:us-east-1:111111111111:cluster/nimbus-lab-eks", check_id: eks_control_plane_endpoint_access_publicly_accessible, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE, K8S_API], title: "EKS API endpoint is public to 0.0.0.0/0"}
+  - {id: W14, resource: "cluster/clusterrolebinding/ci-deployer-admin", check_id: cluster_role_binding_cluster_admin_disabled, severity: CRITICAL, weaknesses: [CLUSTER_ADMIN, OVERPRIVILEGED_IDENTITY], title: "ServiceAccount ci/deployer bound to cluster-admin"}
+  - {id: W15, resource: "ci/pod/build-runner-0", check_id: service_type_loadbalancer_public, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Pod exposed to the internet by a LoadBalancer service"}
+  - {id: W16, resource: "ci/pod/build-runner-0", check_id: CVE-2025-1974, severity: HIGH, weaknesses: [UNPATCHED], title: "Exploitable RCE in running image build-runner:1.4.0"}
+  - {id: W17, resource: "ci/pod/build-runner-0", check_id: pod_service_account_token_disabled, severity: MEDIUM, weaknesses: [SERVICE_ACCOUNT_TOKEN], title: "Pod auto-mounts the deployer service account token"}
+  - {id: W18, resource: "//compute.googleapis.com/projects/nimbus-lab-gcp/global/firewalls/nimbus-lab-allow-ssh-any", check_id: compute_firewall_ssh_access_from_the_internet_allowed, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Firewall allows SSH from 0.0.0.0/0"}
+  - {id: W19, resource: "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-web", check_id: compute_instance_public_ip, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "GCE instance has an external IP reachable on SSH"}
+  - {id: W20, resource: "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-web", check_id: compute_instance_default_service_account_in_use_with_full_api_access, severity: HIGH, weaknesses: [DEFAULT_SERVICE_ACCOUNT], title: "GCE instance runs as the default compute SA with cloud-platform scope"}
+  - {id: W21, resource: "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/123456789012-compute@developer.gserviceaccount.com", check_id: iam_role_assigned_to_user_or_sa_primitive, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Default compute SA holds roles/editor on the project"}
+  - {id: W22, resource: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Storage/storageAccounts/nimbuslabhrexports", check_id: storage_blob_public_access_level_is_disabled, severity: HIGH, weaknesses: [PUBLIC_DATA_STORE], title: "Storage account allows anonymous blob access"}
+  - {id: W23, resource: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.Network/networkSecurityGroups/nimbus-lab-jump-nsg", check_id: network_rdp_internet_access_restricted, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "NSG allows RDP from any source"}
+  - {id: W24, resource: "/subscriptions/00000000-0000-4000-8000-000000000001/resourceGroups/nimbus-lab-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nimbus-lab-jump-mi", check_id: lab_azure_identity_subscription_contributor, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Managed identity is Contributor on the subscription"}
+  - {id: W25, resource: "github.com/nimbus-lab/infra-live", check_id: repository_default_branch_protection_enabled, severity: HIGH, weaknesses: [BRANCH_UNPROTECTED], title: "Default branch main has no protection"}
+  - {id: W26, resource: "arn:aws:iam::111111111111:role/nimbus-lab-gha-deploy", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "GitHub OIDC deploy role has AdministratorAccess"}
+  # S13: what a CIDR-blind scanner reports for the corporate-only SSH rule. trusted_cidrs must neutralise it.
+  - {id: W27, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60002", check_id: ec2_instance_port_ssh_exposed_to_internet, severity: MEDIUM, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "EC2 instance reachable on SSH from a non-RFC1918 range", attributes: {exposure_cidrs: [203.0.113.0/24]}}
+  - {id: W28, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60002", check_id: ec2_instance_imdsv2_enabled, severity: HIGH, weaknesses: [IMDSV1_ENABLED], title: "EC2 instance allows IMDSv1"}
+  - {id: W29, resource: "arn:aws:iam::111111111111:role/nimbus-lab-corp-tools-role", check_id: iam_policy_allows_privilege_escalation, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Corp tools role has PowerUserAccess"}
+  # S14: a real chain neutralised by an SCP deny on the role.
+  - {id: W30, resource: "arn:aws:ec2:us-east-1:222222222222:instance/i-0a1b2c3d4e5f60003", check_id: ec2_instance_port_ssh_exposed_to_internet, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "EC2 instance reachable from 0.0.0.0/0", attributes: {exposure_cidrs: [0.0.0.0/0]}}
+  - {id: W31, resource: "arn:aws:ec2:us-east-1:222222222222:instance/i-0a1b2c3d4e5f60003", check_id: ec2_instance_imdsv2_enabled, severity: HIGH, weaknesses: [IMDSV1_ENABLED], title: "EC2 instance allows IMDSv1"}
+  - {id: W32, resource: "arn:aws:iam::222222222222:role/nimbus-lab-batch-role", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Batch role has AdministratorAccess (denied by SCP p-lab0quarantine)"}
+  # ---------------------------------------------------------------- P1-LAB L1 (S15–S30)
+  - {id: W33, resource: "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-claims-intake", check_id: awslambda_function_url_public, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Lambda function URL has AuthType NONE"}
+  - {id: W34, resource: "arn:aws:ec2:us-east-1:111111111111:security-group/sg-0a1b2c3d4e5f60004", check_id: ec2_securitygroup_allow_ingress_from_internet_to_tcp_port_22, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Security group allows SSH from 0.0.0.0/0"}
+  - {id: W35, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60004", check_id: ec2_instance_port_ssh_exposed_to_internet, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "EC2 instance reachable on SSH from 0.0.0.0/0 (security group view; the subnet NACL is not evaluated)", attributes: {exposure_cidrs: [0.0.0.0/0]}}
+  - {id: W36, resource: "arn:aws:iam::111111111111:role/nimbus-lab-sftp-role", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "SFTP instance role has AdministratorAccess"}
+  - {id: W37, resource: "arn:aws:rds:us-east-1:111111111111:db:nimbus-lab-ledger", check_id: rds_instance_no_public_access, severity: CRITICAL, weaknesses: [PUBLIC_NETWORK_EXPOSURE, DATABASE], title: "RDS instance is publicly accessible (flag only; its subnets have no internet-gateway route)"}
+  - {id: W38, resource: "arn:aws:iam::111111111111:role/nimbus-lab-gha-payments-deploy", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Payments deploy role has AdministratorAccess"}
+  - {id: W39, resource: "arn:aws:iam::111111111111:user/nimbus-lab-dev-sam", check_id: iam_user_mfa_enabled_console_access, severity: HIGH, weaknesses: [NO_MFA], title: "IAM user with console password has no MFA"}
+  - {id: W40, resource: "arn:aws:iam::111111111111:user/nimbus-lab-dev-sam", check_id: iam_rotate_access_key_90_days, severity: MEDIUM, weaknesses: [STALE_CREDENTIALS], title: "Access key not rotated for 200 days", attributes: {access_key_1_age_days: 200}}
+  - {id: W41, resource: "arn:aws:iam::111111111111:role/nimbus-lab-ec2-admin-role", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "EC2 builder role has AdministratorAccess"}
+  - {id: W42, resource: "arn:aws:iam::111111111111:role/nimbus-lab-gha-legacy-deploy", check_id: iam_role_github_oidc_trust_without_subject_condition, severity: CRITICAL, weaknesses: [CROSS_ACCOUNT_TRUST], title: "Role trusts GitHub OIDC tokens from any repository (no sub condition)"}
+  - {id: W43, resource: "arn:aws:iam::111111111111:role/nimbus-lab-gha-legacy-deploy", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Legacy GitHub deploy role has AdministratorAccess"}
+  - {id: W44, resource: "okta:user/00u0nimbuslab0contractor", check_id: okta_signon_rule_mfa_exempt, severity: HIGH, weaknesses: [NO_MFA], title: "Okta user signs in under a rule that does not require MFA"}
+  - {id: W45, resource: "arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_0a1b2c3d4e5f6001", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Identity Center permission set role has AdministratorAccess"}
+  - {id: W46, resource: "web/pod/storefront-0", check_id: service_type_loadbalancer_public, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Pod exposed to the internet by a LoadBalancer service"}
+  - {id: W47, resource: "web/pod/storefront-0", check_id: pod_service_account_token_disabled, severity: MEDIUM, weaknesses: [SERVICE_ACCOUNT_TOKEN], title: "Pod auto-mounts the storefront service account token"}
+  - {id: W48, resource: "cluster/clusterrolebinding/storefront-secrets-reader", check_id: rbac_minimize_secret_access, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "ServiceAccount web/storefront can get/list secrets in every namespace"}
+  - {id: W49, resource: "analytics/pod/report-worker-0", check_id: service_type_loadbalancer_public, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Pod exposed to the internet by a LoadBalancer service"}
+  - {id: W50, resource: "analytics/pod/report-worker-0", check_id: CVE-2023-46604, severity: CRITICAL, weaknesses: [UNPATCHED], title: "Exploitable RCE (Apache ActiveMQ, CISA KEV) in running image report-worker:2.0.3", attributes: {kev: true}}
+  - {id: W51, resource: "arn:aws:bedrock:us-east-1:111111111111:agent/NIMBUSLAB01", check_id: bedrock_agent_publicly_invocable, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Bedrock agent is invoked by an unauthenticated public chat endpoint"}
+  - {id: W52, resource: "arn:aws:iam::111111111111:role/nimbus-lab-support-agent-role", check_id: iam_policy_allows_privilege_escalation, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Agent role can call iam:PutRolePolicy on any role"}
+  # S25: what a CIDR-blind scanner reports for the corporate-only GCP firewall. trusted_cidrs must neutralise it.
+  - {id: W53, resource: "//compute.googleapis.com/projects/nimbus-lab-gcp/global/firewalls/nimbus-lab-allow-ssh-corp", check_id: compute_firewall_ssh_access_from_the_internet_allowed, severity: MEDIUM, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Firewall allows SSH from a non-RFC1918 range", attributes: {exposure_cidrs: [203.0.113.0/24]}}
+  - {id: W54, resource: "//compute.googleapis.com/projects/nimbus-lab-gcp/zones/us-central1-a/instances/nimbus-lab-gce-bastion", check_id: compute_instance_public_ip, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "GCE instance has an external IP reachable on SSH", attributes: {exposure_cidrs: [203.0.113.0/24]}}
+  - {id: W55, resource: "//iam.googleapis.com/projects/nimbus-lab-gcp/serviceAccounts/nimbus-lab-bastion@nimbus-lab-gcp.iam.gserviceaccount.com", check_id: iam_role_assigned_to_user_or_sa_primitive, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Bastion SA holds roles/editor on the project"}
+  # S26 / S27: what an auth-blind scanner reports. Exposure analysis must mark both private.
+  - {id: W56, resource: "arn:aws:lambda:us-east-1:111111111111:function:nimbus-lab-partner-export", check_id: awslambda_function_url_public, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Lambda function URL is internet-facing (AuthType AWS_IAM not evaluated)"}
+  - {id: W57, resource: "arn:aws:s3:::nimbus-lab-shared-reports", check_id: s3_bucket_public_access, severity: CRITICAL, weaknesses: [PUBLIC_DATA_STORE], title: "Bucket policy grants Principal * (aws:PrincipalOrgID condition not evaluated)"}
+  - {id: W58, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60005", check_id: ec2_instance_port_https_exposed_to_internet, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "EC2 instance reachable on 443 from 0.0.0.0/0", attributes: {exposure_cidrs: [0.0.0.0/0]}}
+  - {id: W59, resource: "arn:aws:ec2:us-east-1:111111111111:instance/i-0a1b2c3d4e5f60005", check_id: CVE-2021-44228, severity: CRITICAL, weaknesses: [UNPATCHED], title: "Log4Shell (CISA KEV) in the media transcoder", attributes: {kev: true}}
+  - {id: W60, resource: "arn:aws:iam::111111111111:role/nimbus-lab-auditor", check_id: iam_role_cross_account_readonlyaccess_policy, severity: HIGH, weaknesses: [CROSS_ACCOUNT_TRUST], title: "Role trusts external account 888888888888 without ExternalId"}
+  - {id: W61, resource: "arn:aws:iam::111111111111:role/nimbus-lab-break-glass", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Break-glass role has AdministratorAccess"}
+  - {id: W62, resource: "arn:aws:lambda:us-east-1:222222222222:function:nimbus-lab-records-api", check_id: awslambda_function_url_public, severity: HIGH, weaknesses: [PUBLIC_NETWORK_EXPOSURE], title: "Lambda function URL has AuthType NONE"}
+  - {id: W63, resource: "arn:aws:iam::111111111111:role/nimbus-lab-partner-sync", check_id: iam_role_cross_account_readonlyaccess_policy, severity: HIGH, weaknesses: [CROSS_ACCOUNT_TRUST], title: "Role trusts external account 777777777777 (aws:PrincipalOrgID o-partner00001) without ExternalId"}
+  - {id: W64, resource: "arn:aws:iam::111111111111:role/nimbus-lab-partner-sync", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Partner sync role has AdministratorAccess"}
+  - {id: W65, resource: "arn:aws:iam::111111111111:role/nimbus-lab-org-admin", check_id: iam_role_cross_account_readonlyaccess_policy, severity: HIGH, weaknesses: [CROSS_ACCOUNT_TRUST], title: "Role trusts account 222222222222 (aws:PrincipalOrgID o-lab0000001) without ExternalId"}
+  - {id: W66, resource: "arn:aws:iam::111111111111:role/nimbus-lab-org-admin", check_id: iam_aws_attached_policy_no_administrative_privileges, severity: HIGH, weaknesses: [OVERPRIVILEGED_IDENTITY], title: "Org admin role has AdministratorAccess"}

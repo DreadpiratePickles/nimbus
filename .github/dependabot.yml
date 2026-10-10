@@ -1,0 +1,28 @@
+# Weekly, grouped updates. Actions are pinned by SHA; Dependabot keeps the SHA and the `# vX.Y.Z`
+# comment in sync.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule: {interval: weekly}
+    open-pull-requests-limit: 10
+    groups:
+      gomod-minor-patch: {update-types: [minor, patch]}
+  - package-ecosystem: pip
+    directory: /python
+    schedule: {interval: weekly}
+    groups:
+      pip-minor-patch: {update-types: [minor, patch]}
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: {interval: weekly}
+    groups:
+      actions: {patterns: ["*"]}
+  - package-ecosystem: npm
+    directory: /tools/ui-smoke
+    schedule: {interval: weekly}
+    groups:
+      ui-smoke: {patterns: ["*"]}
+  - package-ecosystem: docker
+    directory: /
+    schedule: {interval: weekly}

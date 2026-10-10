@@ -1,0 +1,132 @@
+# Security groups (stateful, allow-only) and exposure width. The width vocabulary follows Microsoft Defender for
+# Cloud's internet exposure analysis (wide / narrow, trusted IPs suppress) and nimbus core.ExposureWidth.
+cases:
+  - name: sg allows only a private range
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-group-rules.html (security groups are allow-only; a private source is not the internet)
+    port: {protocol: tcp, number: 22}
+    target: &inst
+      id: i-2
+      kind: instance
+      public_ip: true
+      subnets:
+        - id: subnet-a
+          route_table: {id: rtb-pub, routes: [{destination: 0.0.0.0/0, target: igw-1}]}
+          nacl: &allow_all {id: acl-default, inbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}], outbound: [{rule: 100, protocol: "-1", cidr: 0.0.0.0/0, action: allow}]}
+      security_groups: [{id: sg-vpn, ingress: [{protocol: tcp, from: 22, to: 22, sources: [10.0.0.0/8]}]}]
+    expect:
+      status: blocked
+      width: private
+      blocker: "security groups sg-vpn admit no internet source on 22/tcp (only private sources: 10.0.0.0/8)"
+
+  - name: sg open on another port only
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-group-rules.html
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      security_groups: [{id: sg-web, ingress: [{protocol: tcp, from: 443, to: 443, sources: [0.0.0.0/0]}]}]
+    expect:
+      status: blocked
+      blocker: "security groups sg-web admit no internet source on 22/tcp"
+
+  - name: sg narrow public cidr
+    source: https://learn.microsoft.com/en-us/azure/defender-for-cloud/internet-exposure-analysis (narrow = specific public ranges)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      security_groups: [{id: sg-office, ingress: [{protocol: tcp, from: 22, to: 22, sources: [198.51.100.0/24]}]}]
+    expect:
+      status: reachable
+      width: narrow
+      sources: [198.51.100.0/24]
+
+  - name: sg narrow cidr inside trusted ranges
+    source: https://learn.microsoft.com/en-us/azure/defender-for-cloud/internet-exposure-analysis (trusted IPs)
+    port: {protocol: tcp, number: 22}
+    trusted: [198.51.100.0/22]
+    target:
+      <<: *inst
+      security_groups: [{id: sg-office, ingress: [{protocol: tcp, from: 22, to: 22, sources: [198.51.100.0/24]}]}]
+    expect:
+      status: reachable
+      width: trusted
+
+  - name: two sgs union their sources
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html (rules of every attached group are aggregated)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      security_groups:
+        - {id: sg-a, ingress: [{protocol: tcp, from: 22, to: 22, sources: [198.51.100.0/24]}]}
+        - {id: sg-b, ingress: [{protocol: tcp, from: 22, to: 22, sources: [203.0.113.0/24]}]}
+    expect:
+      status: reachable
+      width: narrow
+      sources: [198.51.100.0/24, 203.0.113.0/24]
+
+  - name: sg all traffic any-port picks a remote-admin port
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-group-rules.html (protocol -1 = all traffic)
+    target:
+      <<: *inst
+      security_groups: [{id: sg-all, ingress: [{protocol: "-1", sources: [0.0.0.0/0]}]}]
+    expect:
+      status: reachable
+      width: wide
+      port: {protocol: tcp, number: 22}
+
+  - name: sg port range any-port evaluates the first port
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-group-rules.html (port ranges)
+    target:
+      <<: *inst
+      security_groups: [{id: sg-range, ingress: [{protocol: tcp, from: 8000, to: 8100, sources: [0.0.0.0/0]}]}]
+    expect:
+      status: reachable
+      port: {protocol: tcp, number: 8000}
+
+  - name: any-port picks the port the nacl lets through
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/nacl-rules.html (NACL and SG must both allow)
+    target:
+      <<: *inst
+      security_groups: [{id: sg-two, ingress: [{protocol: tcp, from: 22, to: 22, sources: [0.0.0.0/0]}, {protocol: tcp, from: 443, to: 443, sources: [0.0.0.0/0]}]}]
+      subnets:
+        - id: subnet-a
+          route_table: {id: rtb-pub, routes: [{destination: 0.0.0.0/0, target: igw-1}]}
+          nacl:
+            id: acl-https
+            inbound: [{rule: 90, protocol: tcp, from: 22, to: 22, cidr: 0.0.0.0/0, action: deny}, {rule: 100, protocol: tcp, from: 443, to: 443, cidr: 0.0.0.0/0, action: allow}]
+            outbound: [{rule: 100, protocol: tcp, from: 1024, to: 65535, cidr: 0.0.0.0/0, action: allow}]
+    expect:
+      status: reachable
+      port: {protocol: tcp, number: 443}
+
+  - name: sg rules not collected, exposure sources from the edge
+    source: https://learn.microsoft.com/en-us/azure/defender-for-cloud/internet-exposure-analysis (exposure sources as reported by the scanner)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      security_groups: null
+      sources: [0.0.0.0/0]
+    expect:
+      status: reachable
+      width: wide
+      path_has: "exposure sources 0.0.0.0/0"
+      confidence: inferred
+
+  - name: sg rules and sources both unknown
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      security_groups: null
+    expect:
+      status: unknown
+      unknown: "security group rules for i-2 not collected"
+
+  - name: no security group admits anything
+    source: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html (no inbound rule = no inbound traffic)
+    port: {protocol: tcp, number: 22}
+    target:
+      <<: *inst
+      security_groups: [{id: sg-empty, ingress: []}]
+    expect:
+      status: blocked
+      blocker: "security groups sg-empty admit no internet source on 22/tcp"

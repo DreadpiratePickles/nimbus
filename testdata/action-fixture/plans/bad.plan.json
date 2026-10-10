@@ -1,0 +1,1149 @@
+{
+ "format_version": "1.2",
+ "terraform_version": "1.13.1",
+ "variables": {
+  "ssh_cidr": {
+   "value": "0.0.0.0/0"
+  }
+ },
+ "planned_values": {
+  "root_module": {
+   "child_modules": [
+    {
+     "resources": [
+      {
+       "address": "module.web.aws_iam_instance_profile.host",
+       "mode": "managed",
+       "type": "aws_iam_instance_profile",
+       "name": "host",
+       "provider_name": "registry.opentofu.org/hashicorp/aws",
+       "schema_version": 0,
+       "values": {
+        "arn": "arn:aws:iam::123456789012:instance-profile/fixture-host-profile",
+        "create_date": "2026-10-01T00:00:00Z",
+        "id": "fixture-host-profile",
+        "name": "fixture-host-profile",
+        "name_prefix": "",
+        "path": "/",
+        "role": "fixture-host-role",
+        "tags": null,
+        "tags_all": {},
+        "unique_id": "AIPAFIXTURE000000001"
+       },
+       "sensitive_values": {
+        "tags_all": {}
+       }
+      },
+      {
+       "address": "module.web.aws_iam_role.host",
+       "mode": "managed",
+       "type": "aws_iam_role",
+       "name": "host",
+       "provider_name": "registry.opentofu.org/hashicorp/aws",
+       "schema_version": 0,
+       "values": {
+        "arn": "arn:aws:iam::123456789012:role/fixture-host-role",
+        "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}]}",
+        "create_date": "2026-10-01T00:00:00Z",
+        "description": "",
+        "force_detach_policies": false,
+        "id": "fixture-host-role",
+        "inline_policy": [],
+        "managed_policy_arns": [
+         "arn:aws:iam::aws:policy/AdministratorAccess"
+        ],
+        "max_session_duration": 3600,
+        "name": "fixture-host-role",
+        "name_prefix": "",
+        "path": "/",
+        "permissions_boundary": "",
+        "tags": null,
+        "tags_all": {},
+        "unique_id": "AROAFIXTURE000000001"
+       },
+       "sensitive_values": {
+        "inline_policy": [],
+        "managed_policy_arns": [
+         false
+        ],
+        "tags_all": {}
+       }
+      },
+      {
+       "address": "module.web.aws_iam_role_policy_attachment.admin",
+       "mode": "managed",
+       "type": "aws_iam_role_policy_attachment",
+       "name": "admin",
+       "provider_name": "registry.opentofu.org/hashicorp/aws",
+       "schema_version": 0,
+       "values": {
+        "id": "fixture-host-role-20261001000000000000000001",
+        "policy_arn": "arn:aws:iam::aws:policy/AdministratorAccess",
+        "role": "fixture-host-role"
+       },
+       "sensitive_values": {}
+      },
+      {
+       "address": "module.web.aws_instance.host",
+       "mode": "managed",
+       "type": "aws_instance",
+       "name": "host",
+       "provider_name": "registry.opentofu.org/hashicorp/aws",
+       "schema_version": 1,
+       "values": {
+        "ami": "ami-0fixture000000001",
+        "arn": "arn:aws:ec2:us-east-1:123456789012:instance/i-0fixture000000001",
+        "associate_public_ip_address": true,
+        "availability_zone": "us-east-1a",
+        "capacity_reservation_specification": [],
+        "cpu_core_count": 1,
+        "cpu_options": [],
+        "cpu_threads_per_core": 2,
+        "credit_specification": [],
+        "disable_api_stop": false,
+        "disable_api_termination": false,
+        "ebs_block_device": [],
+        "ebs_optimized": false,
+        "enable_primary_ipv6": null,
+        "enclave_options": [],
+        "ephemeral_block_device": [],
+        "get_password_data": false,
+        "hibernation": false,
+        "host_id": "",
+        "host_resource_group_arn": null,
+        "iam_instance_profile": "fixture-host-profile",
+        "id": "i-0fixture000000001",
+        "instance_initiated_shutdown_behavior": "stop",
+        "instance_lifecycle": "",
+        "instance_market_options": [],
+        "instance_state": "running",
+        "instance_type": "t3.micro",
+        "ipv6_address_count": 0,
+        "ipv6_addresses": [],
+        "key_name": "",
+        "launch_template": [],
+        "maintenance_options": [],
+        "metadata_options": [
+         {
+          "http_endpoint": "enabled",
+          "http_protocol_ipv6": "disabled",
+          "http_put_response_hop_limit": 2,
+          "http_tokens": "required",
+          "instance_metadata_tags": "disabled"
+         }
+        ],
+        "monitoring": false,
+        "network_interface": [],
+        "outpost_arn": "",
+        "password_data": "",
+        "placement_group": "",
+        "placement_partition_number": 0,
+        "primary_network_interface_id": "eni-0fixture000000001",
+        "private_dns": "ip-10-0-1-10.ec2.internal",
+        "private_dns_name_options": [],
+        "private_ip": "10.0.1.10",
+        "public_dns": "",
+        "public_ip": "198.51.100.10",
+        "root_block_device": [],
+        "secondary_private_ips": [],
+        "security_groups": [],
+        "source_dest_check": true,
+        "spot_instance_request_id": "",
+        "subnet_id": "subnet-0fixture000001",
+        "tags": {
+         "Name": "fixture-host"
+        },
+        "tags_all": {
+         "Name": "fixture-host"
+        },
+        "tenancy": "default",
+        "timeouts": null,
+        "user_data": null,
+        "user_data_base64": null,
+        "user_data_replace_on_change": false,
+        "volume_tags": null,
+        "vpc_security_group_ids": [
+         "sg-0fixture000000001"
+        ]
+       },
+       "sensitive_values": {
+        "capacity_reservation_specification": [],
+        "cpu_options": [],
+        "credit_specification": [],
+        "ebs_block_device": [],
+        "enclave_options": [],
+        "ephemeral_block_device": [],
+        "instance_market_options": [],
+        "ipv6_addresses": [],
+        "launch_template": [],
+        "maintenance_options": [],
+        "metadata_options": [
+         {}
+        ],
+        "network_interface": [],
+        "private_dns_name_options": [],
+        "root_block_device": [],
+        "secondary_private_ips": [],
+        "security_groups": [],
+        "tags": {},
+        "tags_all": {},
+        "vpc_security_group_ids": [
+         false
+        ]
+       }
+      },
+      {
+       "address": "module.web.aws_security_group.ssh",
+       "mode": "managed",
+       "type": "aws_security_group",
+       "name": "ssh",
+       "provider_name": "registry.opentofu.org/hashicorp/aws",
+       "schema_version": 1,
+       "values": {
+        "arn": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0fixture000000001",
+        "description": "SSH for the fixture host",
+        "egress": [],
+        "id": "sg-0fixture000000001",
+        "ingress": [
+         {
+          "cidr_blocks": [
+           "0.0.0.0/0"
+          ],
+          "description": "ssh",
+          "from_port": 22,
+          "ipv6_cidr_blocks": [],
+          "prefix_list_ids": [],
+          "protocol": "tcp",
+          "security_groups": [],
+          "self": false,
+          "to_port": 22
+         }
+        ],
+        "name": "fixture-ssh",
+        "name_prefix": "",
+        "owner_id": "123456789012",
+        "revoke_rules_on_delete": false,
+        "tags": null,
+        "tags_all": {},
+        "timeouts": null,
+        "vpc_id": "vpc-0fixture00000001"
+       },
+       "sensitive_values": {
+        "egress": [],
+        "ingress": [
+         {
+          "cidr_blocks": [
+           false
+          ],
+          "ipv6_cidr_blocks": [],
+          "prefix_list_ids": [],
+          "security_groups": []
+         }
+        ],
+        "tags_all": {}
+       }
+      }
+     ],
+     "address": "module.web"
+    }
+   ]
+  }
+ },
+ "resource_changes": [
+  {
+   "address": "module.web.aws_iam_instance_profile.host",
+   "module_address": "module.web",
+   "mode": "managed",
+   "type": "aws_iam_instance_profile",
+   "name": "host",
+   "provider_name": "registry.opentofu.org/hashicorp/aws",
+   "change": {
+    "actions": [
+     "no-op"
+    ],
+    "before": {
+     "arn": "arn:aws:iam::123456789012:instance-profile/fixture-host-profile",
+     "create_date": "2026-10-01T00:00:00Z",
+     "id": "fixture-host-profile",
+     "name": "fixture-host-profile",
+     "name_prefix": "",
+     "path": "/",
+     "role": "fixture-host-role",
+     "tags": null,
+     "tags_all": {},
+     "unique_id": "AIPAFIXTURE000000001"
+    },
+    "after": {
+     "arn": "arn:aws:iam::123456789012:instance-profile/fixture-host-profile",
+     "create_date": "2026-10-01T00:00:00Z",
+     "id": "fixture-host-profile",
+     "name": "fixture-host-profile",
+     "name_prefix": "",
+     "path": "/",
+     "role": "fixture-host-role",
+     "tags": null,
+     "tags_all": {},
+     "unique_id": "AIPAFIXTURE000000001"
+    },
+    "after_unknown": {},
+    "before_sensitive": {
+     "tags_all": {}
+    },
+    "after_sensitive": {
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "module.web.aws_iam_role.host",
+   "module_address": "module.web",
+   "mode": "managed",
+   "type": "aws_iam_role",
+   "name": "host",
+   "provider_name": "registry.opentofu.org/hashicorp/aws",
+   "change": {
+    "actions": [
+     "no-op"
+    ],
+    "before": {
+     "arn": "arn:aws:iam::123456789012:role/fixture-host-role",
+     "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}]}",
+     "create_date": "2026-10-01T00:00:00Z",
+     "description": "",
+     "force_detach_policies": false,
+     "id": "fixture-host-role",
+     "inline_policy": [],
+     "managed_policy_arns": [
+      "arn:aws:iam::aws:policy/AdministratorAccess"
+     ],
+     "max_session_duration": 3600,
+     "name": "fixture-host-role",
+     "name_prefix": "",
+     "path": "/",
+     "permissions_boundary": "",
+     "tags": null,
+     "tags_all": {},
+     "unique_id": "AROAFIXTURE000000001"
+    },
+    "after": {
+     "arn": "arn:aws:iam::123456789012:role/fixture-host-role",
+     "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}]}",
+     "create_date": "2026-10-01T00:00:00Z",
+     "description": "",
+     "force_detach_policies": false,
+     "id": "fixture-host-role",
+     "inline_policy": [],
+     "managed_policy_arns": [
+      "arn:aws:iam::aws:policy/AdministratorAccess"
+     ],
+     "max_session_duration": 3600,
+     "name": "fixture-host-role",
+     "name_prefix": "",
+     "path": "/",
+     "permissions_boundary": "",
+     "tags": null,
+     "tags_all": {},
+     "unique_id": "AROAFIXTURE000000001"
+    },
+    "after_unknown": {},
+    "before_sensitive": {
+     "inline_policy": [],
+     "managed_policy_arns": [
+      false
+     ],
+     "tags_all": {}
+    },
+    "after_sensitive": {
+     "inline_policy": [],
+     "managed_policy_arns": [
+      false
+     ],
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "module.web.aws_iam_role_policy_attachment.admin",
+   "module_address": "module.web",
+   "mode": "managed",
+   "type": "aws_iam_role_policy_attachment",
+   "name": "admin",
+   "provider_name": "registry.opentofu.org/hashicorp/aws",
+   "change": {
+    "actions": [
+     "no-op"
+    ],
+    "before": {
+     "id": "fixture-host-role-20261001000000000000000001",
+     "policy_arn": "arn:aws:iam::aws:policy/AdministratorAccess",
+     "role": "fixture-host-role"
+    },
+    "after": {
+     "id": "fixture-host-role-20261001000000000000000001",
+     "policy_arn": "arn:aws:iam::aws:policy/AdministratorAccess",
+     "role": "fixture-host-role"
+    },
+    "after_unknown": {},
+    "before_sensitive": {},
+    "after_sensitive": {}
+   }
+  },
+  {
+   "address": "module.web.aws_instance.host",
+   "module_address": "module.web",
+   "mode": "managed",
+   "type": "aws_instance",
+   "name": "host",
+   "provider_name": "registry.opentofu.org/hashicorp/aws",
+   "change": {
+    "actions": [
+     "no-op"
+    ],
+    "before": {
+     "ami": "ami-0fixture000000001",
+     "arn": "arn:aws:ec2:us-east-1:123456789012:instance/i-0fixture000000001",
+     "associate_public_ip_address": true,
+     "availability_zone": "us-east-1a",
+     "capacity_reservation_specification": [],
+     "cpu_core_count": 1,
+     "cpu_options": [],
+     "cpu_threads_per_core": 2,
+     "credit_specification": [],
+     "disable_api_stop": false,
+     "disable_api_termination": false,
+     "ebs_block_device": [],
+     "ebs_optimized": false,
+     "enable_primary_ipv6": null,
+     "enclave_options": [],
+     "ephemeral_block_device": [],
+     "get_password_data": false,
+     "hibernation": false,
+     "host_id": "",
+     "host_resource_group_arn": null,
+     "iam_instance_profile": "fixture-host-profile",
+     "id": "i-0fixture000000001",
+     "instance_initiated_shutdown_behavior": "stop",
+     "instance_lifecycle": "",
+     "instance_market_options": [],
+     "instance_state": "running",
+     "instance_type": "t3.micro",
+     "ipv6_address_count": 0,
+     "ipv6_addresses": [],
+     "key_name": "",
+     "launch_template": [],
+     "maintenance_options": [],
+     "metadata_options": [
+      {
+       "http_endpoint": "enabled",
+       "http_protocol_ipv6": "disabled",
+       "http_put_response_hop_limit": 2,
+       "http_tokens": "required",
+       "instance_metadata_tags": "disabled"
+      }
+     ],
+     "monitoring": false,
+     "network_interface": [],
+     "outpost_arn": "",
+     "password_data": "",
+     "placement_group": "",
+     "placement_partition_number": 0,
+     "primary_network_interface_id": "eni-0fixture000000001",
+     "private_dns": "ip-10-0-1-10.ec2.internal",
+     "private_dns_name_options": [],
+     "private_ip": "10.0.1.10",
+     "public_dns": "",
+     "public_ip": "198.51.100.10",
+     "root_block_device": [],
+     "secondary_private_ips": [],
+     "security_groups": [],
+     "source_dest_check": true,
+     "spot_instance_request_id": "",
+     "subnet_id": "subnet-0fixture000001",
+     "tags": {
+      "Name": "fixture-host"
+     },
+     "tags_all": {
+      "Name": "fixture-host"
+     },
+     "tenancy": "default",
+     "timeouts": null,
+     "user_data": null,
+     "user_data_base64": null,
+     "user_data_replace_on_change": false,
+     "volume_tags": null,
+     "vpc_security_group_ids": [
+      "sg-0fixture000000001"
+     ]
+    },
+    "after": {
+     "ami": "ami-0fixture000000001",
+     "arn": "arn:aws:ec2:us-east-1:123456789012:instance/i-0fixture000000001",
+     "associate_public_ip_address": true,
+     "availability_zone": "us-east-1a",
+     "capacity_reservation_specification": [],
+     "cpu_core_count": 1,
+     "cpu_options": [],
+     "cpu_threads_per_core": 2,
+     "credit_specification": [],
+     "disable_api_stop": false,
+     "disable_api_termination": false,
+     "ebs_block_device": [],
+     "ebs_optimized": false,
+     "enable_primary_ipv6": null,
+     "enclave_options": [],
+     "ephemeral_block_device": [],
+     "get_password_data": false,
+     "hibernation": false,
+     "host_id": "",
+     "host_resource_group_arn": null,
+     "iam_instance_profile": "fixture-host-profile",
+     "id": "i-0fixture000000001",
+     "instance_initiated_shutdown_behavior": "stop",
+     "instance_lifecycle": "",
+     "instance_market_options": [],
+     "instance_state": "running",
+     "instance_type": "t3.micro",
+     "ipv6_address_count": 0,
+     "ipv6_addresses": [],
+     "key_name": "",
+     "launch_template": [],
+     "maintenance_options": [],
+     "metadata_options": [
+      {
+       "http_endpoint": "enabled",
+       "http_protocol_ipv6": "disabled",
+       "http_put_response_hop_limit": 2,
+       "http_tokens": "required",
+       "instance_metadata_tags": "disabled"
+      }
+     ],
+     "monitoring": false,
+     "network_interface": [],
+     "outpost_arn": "",
+     "password_data": "",
+     "placement_group": "",
+     "placement_partition_number": 0,
+     "primary_network_interface_id": "eni-0fixture000000001",
+     "private_dns": "ip-10-0-1-10.ec2.internal",
+     "private_dns_name_options": [],
+     "private_ip": "10.0.1.10",
+     "public_dns": "",
+     "public_ip": "198.51.100.10",
+     "root_block_device": [],
+     "secondary_private_ips": [],
+     "security_groups": [],
+     "source_dest_check": true,
+     "spot_instance_request_id": "",
+     "subnet_id": "subnet-0fixture000001",
+     "tags": {
+      "Name": "fixture-host"
+     },
+     "tags_all": {
+      "Name": "fixture-host"
+     },
+     "tenancy": "default",
+     "timeouts": null,
+     "user_data": null,
+     "user_data_base64": null,
+     "user_data_replace_on_change": false,
+     "volume_tags": null,
+     "vpc_security_group_ids": [
+      "sg-0fixture000000001"
+     ]
+    },
+    "after_unknown": {},
+    "before_sensitive": {
+     "capacity_reservation_specification": [],
+     "cpu_options": [],
+     "credit_specification": [],
+     "ebs_block_device": [],
+     "enclave_options": [],
+     "ephemeral_block_device": [],
+     "instance_market_options": [],
+     "ipv6_addresses": [],
+     "launch_template": [],
+     "maintenance_options": [],
+     "metadata_options": [
+      {}
+     ],
+     "network_interface": [],
+     "private_dns_name_options": [],
+     "root_block_device": [],
+     "secondary_private_ips": [],
+     "security_groups": [],
+     "tags": {},
+     "tags_all": {},
+     "vpc_security_group_ids": [
+      false
+     ]
+    },
+    "after_sensitive": {
+     "capacity_reservation_specification": [],
+     "cpu_options": [],
+     "credit_specification": [],
+     "ebs_block_device": [],
+     "enclave_options": [],
+     "ephemeral_block_device": [],
+     "instance_market_options": [],
+     "ipv6_addresses": [],
+     "launch_template": [],
+     "maintenance_options": [],
+     "metadata_options": [
+      {}
+     ],
+     "network_interface": [],
+     "private_dns_name_options": [],
+     "root_block_device": [],
+     "secondary_private_ips": [],
+     "security_groups": [],
+     "tags": {},
+     "tags_all": {},
+     "vpc_security_group_ids": [
+      false
+     ]
+    }
+   }
+  },
+  {
+   "address": "module.web.aws_security_group.ssh",
+   "module_address": "module.web",
+   "mode": "managed",
+   "type": "aws_security_group",
+   "name": "ssh",
+   "provider_name": "registry.opentofu.org/hashicorp/aws",
+   "change": {
+    "actions": [
+     "update"
+    ],
+    "before": {
+     "arn": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0fixture000000001",
+     "description": "SSH for the fixture host",
+     "egress": [],
+     "id": "sg-0fixture000000001",
+     "ingress": [
+      {
+       "cidr_blocks": [
+        "203.0.113.0/24"
+       ],
+       "description": "ssh",
+       "from_port": 22,
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "protocol": "tcp",
+       "security_groups": [],
+       "self": false,
+       "to_port": 22
+      }
+     ],
+     "name": "fixture-ssh",
+     "name_prefix": "",
+     "owner_id": "123456789012",
+     "revoke_rules_on_delete": false,
+     "tags": null,
+     "tags_all": {},
+     "timeouts": null,
+     "vpc_id": "vpc-0fixture00000001"
+    },
+    "after": {
+     "arn": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0fixture000000001",
+     "description": "SSH for the fixture host",
+     "egress": [],
+     "id": "sg-0fixture000000001",
+     "ingress": [
+      {
+       "cidr_blocks": [
+        "0.0.0.0/0"
+       ],
+       "description": "ssh",
+       "from_port": 22,
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "protocol": "tcp",
+       "security_groups": [],
+       "self": false,
+       "to_port": 22
+      }
+     ],
+     "name": "fixture-ssh",
+     "name_prefix": "",
+     "owner_id": "123456789012",
+     "revoke_rules_on_delete": false,
+     "tags": null,
+     "tags_all": {},
+     "timeouts": null,
+     "vpc_id": "vpc-0fixture00000001"
+    },
+    "after_unknown": {},
+    "before_sensitive": {
+     "egress": [],
+     "ingress": [
+      {
+       "cidr_blocks": [
+        false
+       ],
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "security_groups": []
+      }
+     ],
+     "tags_all": {}
+    },
+    "after_sensitive": {
+     "egress": [],
+     "ingress": [
+      {
+       "cidr_blocks": [
+        false
+       ],
+       "ipv6_cidr_blocks": [],
+       "prefix_list_ids": [],
+       "security_groups": []
+      }
+     ],
+     "tags_all": {}
+    }
+   }
+  }
+ ],
+ "prior_state": {
+  "format_version": "1.0",
+  "terraform_version": "1.13.1",
+  "values": {
+   "root_module": {
+    "child_modules": [
+     {
+      "resources": [
+       {
+        "address": "module.web.aws_iam_instance_profile.host",
+        "mode": "managed",
+        "type": "aws_iam_instance_profile",
+        "name": "host",
+        "provider_name": "registry.opentofu.org/hashicorp/aws",
+        "schema_version": 0,
+        "values": {
+         "arn": "arn:aws:iam::123456789012:instance-profile/fixture-host-profile",
+         "create_date": "2026-10-01T00:00:00Z",
+         "id": "fixture-host-profile",
+         "name": "fixture-host-profile",
+         "name_prefix": "",
+         "path": "/",
+         "role": "fixture-host-role",
+         "tags": null,
+         "tags_all": {},
+         "unique_id": "AIPAFIXTURE000000001"
+        },
+        "sensitive_values": {
+         "tags_all": {}
+        },
+        "depends_on": [
+         "module.web.aws_iam_role.host"
+        ]
+       },
+       {
+        "address": "module.web.aws_iam_role.host",
+        "mode": "managed",
+        "type": "aws_iam_role",
+        "name": "host",
+        "provider_name": "registry.opentofu.org/hashicorp/aws",
+        "schema_version": 0,
+        "values": {
+         "arn": "arn:aws:iam::123456789012:role/fixture-host-role",
+         "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}]}",
+         "create_date": "2026-10-01T00:00:00Z",
+         "description": "",
+         "force_detach_policies": false,
+         "id": "fixture-host-role",
+         "inline_policy": [],
+         "managed_policy_arns": [
+          "arn:aws:iam::aws:policy/AdministratorAccess"
+         ],
+         "max_session_duration": 3600,
+         "name": "fixture-host-role",
+         "name_prefix": "",
+         "path": "/",
+         "permissions_boundary": "",
+         "tags": null,
+         "tags_all": {},
+         "unique_id": "AROAFIXTURE000000001"
+        },
+        "sensitive_values": {
+         "inline_policy": [],
+         "managed_policy_arns": [
+          false
+         ],
+         "tags_all": {}
+        }
+       },
+       {
+        "address": "module.web.aws_iam_role_policy_attachment.admin",
+        "mode": "managed",
+        "type": "aws_iam_role_policy_attachment",
+        "name": "admin",
+        "provider_name": "registry.opentofu.org/hashicorp/aws",
+        "schema_version": 0,
+        "values": {
+         "id": "fixture-host-role-20261001000000000000000001",
+         "policy_arn": "arn:aws:iam::aws:policy/AdministratorAccess",
+         "role": "fixture-host-role"
+        },
+        "sensitive_values": {},
+        "depends_on": [
+         "module.web.aws_iam_role.host"
+        ]
+       },
+       {
+        "address": "module.web.aws_instance.host",
+        "mode": "managed",
+        "type": "aws_instance",
+        "name": "host",
+        "provider_name": "registry.opentofu.org/hashicorp/aws",
+        "schema_version": 1,
+        "values": {
+         "ami": "ami-0fixture000000001",
+         "arn": "arn:aws:ec2:us-east-1:123456789012:instance/i-0fixture000000001",
+         "associate_public_ip_address": true,
+         "availability_zone": "us-east-1a",
+         "capacity_reservation_specification": [],
+         "cpu_core_count": 1,
+         "cpu_options": [],
+         "cpu_threads_per_core": 2,
+         "credit_specification": [],
+         "disable_api_stop": false,
+         "disable_api_termination": false,
+         "ebs_block_device": [],
+         "ebs_optimized": false,
+         "enable_primary_ipv6": null,
+         "enclave_options": [],
+         "ephemeral_block_device": [],
+         "get_password_data": false,
+         "hibernation": false,
+         "host_id": "",
+         "host_resource_group_arn": null,
+         "iam_instance_profile": "fixture-host-profile",
+         "id": "i-0fixture000000001",
+         "instance_initiated_shutdown_behavior": "stop",
+         "instance_lifecycle": "",
+         "instance_market_options": [],
+         "instance_state": "running",
+         "instance_type": "t3.micro",
+         "ipv6_address_count": 0,
+         "ipv6_addresses": [],
+         "key_name": "",
+         "launch_template": [],
+         "maintenance_options": [],
+         "metadata_options": [
+          {
+           "http_endpoint": "enabled",
+           "http_protocol_ipv6": "disabled",
+           "http_put_response_hop_limit": 2,
+           "http_tokens": "required",
+           "instance_metadata_tags": "disabled"
+          }
+         ],
+         "monitoring": false,
+         "network_interface": [],
+         "outpost_arn": "",
+         "password_data": "",
+         "placement_group": "",
+         "placement_partition_number": 0,
+         "primary_network_interface_id": "eni-0fixture000000001",
+         "private_dns": "ip-10-0-1-10.ec2.internal",
+         "private_dns_name_options": [],
+         "private_ip": "10.0.1.10",
+         "public_dns": "",
+         "public_ip": "198.51.100.10",
+         "root_block_device": [],
+         "secondary_private_ips": [],
+         "security_groups": [],
+         "source_dest_check": true,
+         "spot_instance_request_id": "",
+         "subnet_id": "subnet-0fixture000001",
+         "tags": {
+          "Name": "fixture-host"
+         },
+         "tags_all": {
+          "Name": "fixture-host"
+         },
+         "tenancy": "default",
+         "timeouts": null,
+         "user_data": null,
+         "user_data_base64": null,
+         "user_data_replace_on_change": false,
+         "volume_tags": null,
+         "vpc_security_group_ids": [
+          "sg-0fixture000000001"
+         ]
+        },
+        "sensitive_values": {
+         "capacity_reservation_specification": [],
+         "cpu_options": [],
+         "credit_specification": [],
+         "ebs_block_device": [],
+         "enclave_options": [],
+         "ephemeral_block_device": [],
+         "instance_market_options": [],
+         "ipv6_addresses": [],
+         "launch_template": [],
+         "maintenance_options": [],
+         "metadata_options": [
+          {}
+         ],
+         "network_interface": [],
+         "private_dns_name_options": [],
+         "root_block_device": [],
+         "secondary_private_ips": [],
+         "security_groups": [],
+         "tags": {},
+         "tags_all": {},
+         "vpc_security_group_ids": [
+          false
+         ]
+        },
+        "depends_on": [
+         "module.web.aws_iam_instance_profile.host",
+         "module.web.aws_iam_role.host",
+         "module.web.aws_security_group.ssh"
+        ]
+       },
+       {
+        "address": "module.web.aws_security_group.ssh",
+        "mode": "managed",
+        "type": "aws_security_group",
+        "name": "ssh",
+        "provider_name": "registry.opentofu.org/hashicorp/aws",
+        "schema_version": 1,
+        "values": {
+         "arn": "arn:aws:ec2:us-east-1:123456789012:security-group/sg-0fixture000000001",
+         "description": "SSH for the fixture host",
+         "egress": [],
+         "id": "sg-0fixture000000001",
+         "ingress": [
+          {
+           "cidr_blocks": [
+            "203.0.113.0/24"
+           ],
+           "description": "ssh",
+           "from_port": 22,
+           "ipv6_cidr_blocks": [],
+           "prefix_list_ids": [],
+           "protocol": "tcp",
+           "security_groups": [],
+           "self": false,
+           "to_port": 22
+          }
+         ],
+         "name": "fixture-ssh",
+         "name_prefix": "",
+         "owner_id": "123456789012",
+         "revoke_rules_on_delete": false,
+         "tags": null,
+         "tags_all": {},
+         "timeouts": null,
+         "vpc_id": "vpc-0fixture00000001"
+        },
+        "sensitive_values": {
+         "egress": [],
+         "ingress": [
+          {
+           "cidr_blocks": [
+            false
+           ],
+           "ipv6_cidr_blocks": [],
+           "prefix_list_ids": [],
+           "security_groups": []
+          }
+         ],
+         "tags_all": {}
+        }
+       }
+      ],
+      "address": "module.web"
+     }
+    ]
+   }
+  }
+ },
+ "configuration": {
+  "provider_config": {
+   "aws": {
+    "name": "aws",
+    "full_name": "registry.opentofu.org/hashicorp/aws",
+    "version_constraint": "~> 5.0",
+    "expressions": {
+     "access_key": {
+      "constant_value": "mock-access-key"
+     },
+     "region": {
+      "constant_value": "us-east-1"
+     },
+     "secret_key": {
+      "constant_value": "mock-secret-key"
+     },
+     "skip_credentials_validation": {
+      "constant_value": true
+     },
+     "skip_metadata_api_check": {
+      "constant_value": true
+     },
+     "skip_region_validation": {
+      "constant_value": true
+     },
+     "skip_requesting_account_id": {
+      "constant_value": true
+     }
+    }
+   }
+  },
+  "root_module": {
+   "module_calls": {
+    "web": {
+     "source": "./modules/web",
+     "expressions": {
+      "ssh_cidr": {
+       "references": [
+        "var.ssh_cidr"
+       ]
+      }
+     },
+     "module": {
+      "resources": [
+       {
+        "address": "aws_iam_instance_profile.host",
+        "mode": "managed",
+        "type": "aws_iam_instance_profile",
+        "name": "host",
+        "provider_config_key": "aws",
+        "expressions": {
+         "name": {
+          "constant_value": "fixture-host-profile"
+         },
+         "role": {
+          "references": [
+           "aws_iam_role.host.name",
+           "aws_iam_role.host"
+          ]
+         }
+        },
+        "schema_version": 0
+       },
+       {
+        "address": "aws_iam_role.host",
+        "mode": "managed",
+        "type": "aws_iam_role",
+        "name": "host",
+        "provider_config_key": "aws",
+        "expressions": {
+         "assume_role_policy": {},
+         "name": {
+          "constant_value": "fixture-host-role"
+         }
+        },
+        "schema_version": 0
+       },
+       {
+        "address": "aws_iam_role_policy_attachment.admin",
+        "mode": "managed",
+        "type": "aws_iam_role_policy_attachment",
+        "name": "admin",
+        "provider_config_key": "aws",
+        "expressions": {
+         "policy_arn": {
+          "constant_value": "arn:aws:iam::aws:policy/AdministratorAccess"
+         },
+         "role": {
+          "references": [
+           "aws_iam_role.host.name",
+           "aws_iam_role.host"
+          ]
+         }
+        },
+        "schema_version": 0
+       },
+       {
+        "address": "aws_instance.host",
+        "mode": "managed",
+        "type": "aws_instance",
+        "name": "host",
+        "provider_config_key": "aws",
+        "expressions": {
+         "ami": {
+          "constant_value": "ami-0fixture000000001"
+         },
+         "iam_instance_profile": {
+          "references": [
+           "aws_iam_instance_profile.host.name",
+           "aws_iam_instance_profile.host"
+          ]
+         },
+         "instance_type": {
+          "constant_value": "t3.micro"
+         },
+         "metadata_options": [
+          {
+           "http_tokens": {
+            "constant_value": "required"
+           }
+          }
+         ],
+         "subnet_id": {
+          "constant_value": "subnet-0fixture000001"
+         },
+         "tags": {
+          "constant_value": {
+           "Name": "fixture-host"
+          }
+         },
+         "vpc_security_group_ids": {
+          "references": [
+           "aws_security_group.ssh.id",
+           "aws_security_group.ssh"
+          ]
+         }
+        },
+        "schema_version": 1
+       },
+       {
+        "address": "aws_security_group.ssh",
+        "mode": "managed",
+        "type": "aws_security_group",
+        "name": "ssh",
+        "provider_config_key": "aws",
+        "expressions": {
+         "description": {
+          "constant_value": "SSH for the fixture host"
+         },
+         "ingress": {
+          "references": [
+           "var.ssh_cidr"
+          ]
+         },
+         "name": {
+          "constant_value": "fixture-ssh"
+         },
+         "vpc_id": {
+          "constant_value": "vpc-0fixture00000001"
+         }
+        },
+        "schema_version": 1
+       }
+      ],
+      "variables": {
+       "ssh_cidr": {
+        "type": "string",
+        "required": true
+       }
+      }
+     }
+    }
+   },
+   "variables": {
+    "ssh_cidr": {
+     "type": "string",
+     "default": "203.0.113.0/24"
+    }
+   }
+  }
+ },
+ "timestamp": "2026-10-10T01:50:30Z",
+ "errored": false
+}

@@ -1,0 +1,17 @@
+# Remediation plan metadata for s3_public_bucket.tf (schema: internal/remediation/metadata.go).
+actions_required:
+  - "s3:PutBucketPublicAccessBlock"
+  - "s3:GetBucketPublicAccessBlock"
+  - "s3:PutBucketOwnershipControls"
+  - "s3:GetBucketOwnershipControls"
+validation:
+  sql: "SELECT id, resource_id, status FROM findings WHERE canonical_id = {{ sqlstr .F.CanonicalID }} AND resource_id = {{ sqlstr .F.Resource.ID }} AND status = 'FAIL'"
+  expect: no_rows
+  note: "Confirm with `cloud-posture verify <issue-id>`: it re-reads the resource and closes the Issue only once the finding is gone (`cloud-posture issues` lists the id). Quick check after a re-scan: zero rows from this query."
+mitigation: "Turn on account-level S3 Block Public Access (s3control put-public-access-block) if no bucket should be public."
+effort: S
+confidence: medium
+rollback: "terraform destroy -target for the two resources, or aws s3api delete-public-access-block / delete-bucket-ownership-controls."
+breaks_function:
+  value: true
+  note: "Intentionally public content (static websites, public downloads) stops working. BucketOwnerEnforced disables ACLs, which breaks writers that still set ACLs (for example CloudFront standard logs)."
