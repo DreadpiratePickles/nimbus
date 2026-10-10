@@ -8,6 +8,7 @@ import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 
 const args = process.argv.slice(2);
 const report = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--shots');
@@ -1074,26 +1075,46 @@ await check('27 graph query (r5 #8): paths> --from/--to/--through runs over the 
   await shot(page, 'v7-paths-query.png');
 });
 
-await check('28 potential escalation (item 13): a finding Issue page that carries potential_escalations lists them (rule, title, target link, because, credit) as inferred and not a path Issue; a page without them shows no block', async () => {
-  const pages = DATA.issue_pages || {};
-  const id = Object.keys(pages).find((k) => (pages[k].issue || {}).kind !== 'path' && !(pages[k].potential_escalations || []).length);
-  assert.ok(id, 'no finding Issue page in the payload');
-  const tgt = ((DATA.graph && DATA.graph.nodes) || []).find((n) => n.id !== 'internet') || { id: 'arn:x', name: 'x' };
-  const url = variant((D) => { D.issue_pages[id].potential_escalations = [{ rule_id: 'aws-iam-privesc-put-role-policy', title: 'Inline Policy Injection for Self-Escalation (IAM-005)', anchor: 'a', target: tgt.id, confidence: 'inferred', because: ['may iam:PutRolePolicy on itself'], credit: { source: 'Prowler', licence: 'Apache-2.0', upstream_id: 'IAM-005' } }]; }, 'potential');
+await check('28 potential escalation (item 13, W8-FIX 1): the real builder\'s lab report carries potential_escalations and score_history on its Issue pages; a finding Issue page lists them (rule, title, target link, because, credit) as inferred and not a path Issue; a page without them shows no block', async () => {
+  // No hand-built payload: build a lab report with the real binary (ingest + dashboard) into a temp dir.
+  const repo = resolve(report, '..', '..');
+  const bin = process.env.CLOUD_POSTURE_BIN || join(repo, 'bin', 'cloud-posture');
+  const dir = mkdtempSync(join(tmpdir(), 'nimbus-lab-'));
+  const env = { ...process.env, CLOUD_POSTURE_NO_NETWORK: '1', CLOUD_POSTURE_PYTHON: '/nonexistent/python' };
+  const db = join(dir, 'p.db'), out = join(dir, 'index.html');
+  execFileSync(bin, ['--db', db, '-q', 'ingest', join(repo, 'lab', 'local', 'out', 'estate.findings.json'), '-o', 'summary'], { env, cwd: dir, stdio: 'ignore' });
+  execFileSync(bin, ['--db', db, '-q', 'dashboard', '--out', out], { env, cwd: dir, stdio: 'ignore' });
+  const LS = readFileSync(out, 'utf8');
+  const li = LS.indexOf(DATA_OPEN) + DATA_OPEN.length;
+  const LAB = JSON.parse(LS.slice(li, LS.indexOf('</script>', li)));
+  const pages = LAB.issue_pages || {};
+  const ids = Object.keys(pages);
+  assert.ok(ids.length > 0, 'lab report has no issue_pages');
+  for (const k of ids) {
+    assert.ok(Array.isArray(pages[k].potential_escalations), 'page ' + k + ' lacks potential_escalations');
+    assert.ok(pages[k].score_history && Array.isArray(pages[k].score_history.points) && pages[k].score_history.points.length > 0, 'page ' + k + ' lacks score_history');
+  }
+  const id = ids.find((k) => (LAB.issues || []).some((i) => i.id === k && i.kind !== 'path') && pages[k].potential_escalations.length);
+  assert.ok(id, 'no lab finding Issue page carries a potential escalation');
+  const pe = pages[id].potential_escalations[0];
   const p2 = await ctx.newPage();
   const errs = [];
   watch(p2, errs);
-  await p2.goto(url);
+  await p2.goto(pathToFileURL(out).href);
   await p2.waitForFunction(() => document.querySelector('main .panel'), null, { timeout: 5000 });
   await p2.evaluate((x) => window.CWM.open('issue', x), id);
   await settle(p2);
   const it = await textOf('aside.pane .panel-b', p2);
-  assert.match(it, /Potential escalation \(1, inferred: .* not a path Issue\)/);
-  assert.ok(it.includes('aws-iam-privesc-put-role-policy') && it.includes('credit: Prowler IAM-005 (Apache-2.0)'), it);
-  assert.ok(await p2.$('aside.pane [data-potential="aws-iam-privesc-put-role-policy"]'), 'no potential row');
+  assert.match(it, /Potential escalation \(\d+, inferred: .* not a path Issue\)/);
+  assert.ok(it.includes(pe.rule_id), it);
+  assert.ok(it.includes('journey ' + pages[id].score_history.line), 'pane lacks the score journey: ' + it);
+  if (pe.credit && pe.credit.source) assert.ok(it.includes('credit: ' + pe.credit.source), it);
+  assert.ok(await p2.$('aside.pane [data-potential="' + pe.rule_id + '"]'), 'no potential row');
   await p2.close();
   assert.deepEqual(errs, []);
-  await page.evaluate((x) => window.CWM.open('issue', x), id);
+  const plain = Object.keys(DATA.issue_pages || {}).find((k) => (DATA.issue_pages[k].issue || {}).kind !== 'path' && !(DATA.issue_pages[k].potential_escalations || []).length);
+  assert.ok(plain, 'no finding Issue page without escalations in the payload');
+  await page.evaluate((x) => window.CWM.open('issue', x), plain);
   await settle();
   assert.doesNotMatch(await textOf('aside.pane .panel-b'), /Potential escalation/);
   await page.keyboard.press('Escape');

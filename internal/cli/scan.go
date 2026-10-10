@@ -919,6 +919,10 @@ type dashIssuePage struct {
 	Tickets     []server.PageTicket    `json:"tickets"`
 	Timeline    []server.TimelineEntry `json:"timeline"`
 	Suppression server.PageSuppression `json:"suppression"`
+	// ScoreHistory and PotentialEscalations are carried for every Issue page (W8-FIX 1): the
+	// score journey and the inferred escalations the API page and `issues show` print.
+	ScoreHistory         server.PageScoreHistory    `json:"score_history"`
+	PotentialEscalations []attackpath.PathRuleMatch `json:"potential_escalations"`
 }
 
 // dashboardIssuePages builds the Issue pages of res's Issues from the store (nil without a
@@ -934,7 +938,7 @@ func dashboardIssuePages(res *scanResult) map[string]dashIssuePage {
 	defer st.Close()
 	cfg, _ := config.Load(flagConfig)
 	ctx := context.Background()
-	o := server.IssuePageOptions{Graph: res.Graph, Paths: res.Paths, Analysis: res.Analysis, Issues: res.Issues, Risk: riskOptions(ctx, cfg)}
+	o := server.IssuePageOptions{Graph: res.Graph, Paths: res.Paths, Analysis: res.Analysis, Issues: res.Issues, Risk: riskOptions(ctx, cfg), PathRules: pathRulesFor(cfg)}
 	o.Risk.Analysis = res.Analysis
 	if o.Paths == nil {
 		o.Paths = []model.AttackPath{}
@@ -949,7 +953,13 @@ func dashboardIssuePages(res *scanResult) map[string]dashIssuePage {
 		sc := pg.Score
 		sc.Explanation = nil
 		out[id] = dashIssuePage{Hops: pg.Hops, Paths: pg.Paths, Score: sc, Confidence: pg.Confidence, Owner: pg.Owner, Linked: pg.Linked,
-			Fixes: pg.Fixes, Tickets: pg.Tickets, Timeline: pg.Timeline, Suppression: pg.Suppression}
+			Fixes: pg.Fixes, Tickets: pg.Tickets, Timeline: pg.Timeline, Suppression: pg.Suppression,
+			ScoreHistory: pg.ScoreHistory, PotentialEscalations: pg.PotentialEscalations}
+		if out[id].PotentialEscalations == nil {
+			p := out[id]
+			p.PotentialEscalations = []attackpath.PathRuleMatch{}
+			out[id] = p
+		}
 	}
 	return out
 }
