@@ -16,3 +16,4 @@ python/.venv/
 # tests/groundtruth benchmark.json (written by `make groundtruth`; GROUNDTRUTH_JSON overrides)
 lab/local/out/benchmark.json
 .DS_Store
+cloud-posture.yaml

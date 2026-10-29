@@ -9,7 +9,7 @@ shows the fix that breaks it, the Terraform patch or pull request that applies t
 check it. It is a single Go binary with a published scoring formula and no SaaS. You can bring your
 own AI model.
 
-> **Status: pre-release (`0.1.0-dev`). nimbus has not yet been run against a live cloud account.**
+> **Status: pre-release (`0.1.0-dev`). The native collector has had its first live run — a read-only GCP scan ([docs/sessions/2026-10-29-first-live-gcp.md](docs/sessions/2026-10-29-first-live-gcp.md)). No live run has yet exercised attack-path traversal, and AWS, Azure and Kubernetes have never run live.**
 > Every collector is tested against fake SDK clients, and every attack-path number below comes from a
 > synthetic, hand-labelled lab. No signed release has been published yet, so build from source.
 > What is verified and what is not is listed below, with links to the tests. <!-- claim: docs/benchmark.md#cloud-lab-validated-never-applied, internal/collector/aws/TestCollectGraph, internal/collector/azure/TestCollectGraph, internal/collector/gcp/TestGraph, internal/collector/k8s/TestGraph, TestGitHubCollect, TestOktaCollect, TestM365Collect -->
@@ -43,7 +43,7 @@ sits outside the current plan's core, and no quality claim is made for it
 
 ## Coverage, stated plainly
 
-- **Live clouds:** not yet run against a live cloud account. The Terraform twin of the lab exists but has been validated with OpenTofu but never applied. That first live run is item 1 of the plan, and it is blocked on a lab AWS account. <!-- claim: docs/benchmark.md#cloud-lab-validated-never-applied -->
+- **Live clouds:** the native GCP collector has had its first live run — read-only, one operator-owned project, native collector only — recorded in [docs/sessions/2026-10-29-first-live-gcp.md](docs/sessions/2026-10-29-first-live-gcp.md). It exercised collection and finding-level scoring, not attack-path traversal (no path was found in that estate). AWS, Azure and Kubernetes have still never run live. The Terraform twin of the lab exists but has been validated with OpenTofu and never applied; that apply→scan→score→destroy run is still blocked on a lab AWS account. <!-- claim: docs/benchmark.md#cloud-lab-validated-never-applied -->
 - **AWS depth, Azure/GCP breadth.** AWS has the deepest collector: policy analysis that classifies admin as none, conditional or full, account-level S3 Block Public Access, and trust analysis. Azure and GCP collectors cover exposure and configuration (NSG/firewall evaluation, public storage, default service accounts), but identity is not yet modelled as permission edges (Azure RBAC, GCP IAM). That is Phase 2 work. <!-- claim: TestAdminLevel, TestS3AccountLevelBlockPublicAccess, TestNICAndSubnetNSGAreANDed, TestEvaluateIngressPriorityZeroAndRanges -->
 - **Effective IAM:** policies are evaluated by a pure-Go evaluator (`internal/iam`: identity, resource, boundary, SCP/RCP and session policies, conditions; an unknown condition key never grants). It is tested against an adversarial corpus and recorded simulator fixtures, not yet against a live account's `SimulatePrincipalPolicy`. <!-- claim: internal/iam/TestCorpus, internal/iam/TestSimulatorParity -->
 - **IaC: Terraform first.** Native scanning, cloud-to-code mapping (`--tfstate`) and in-place patches support Terraform. CloudFormation, Bicep, Kubernetes, Helm, CDK, Pulumi and Ansible are scanned when Checkov or Trivy is installed, and their output is ingested. Fix templates exist for CloudFormation, Bicep and Kubernetes, but there is no in-place patching for them. <!-- claim: TestScanAndPatch, TestMapCloudToCodeResolvesModuleAddress, TestYAMLTemplatesParse -->
@@ -278,6 +278,6 @@ Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md) (DCO sign-off, tests first
 
 ## Status
 
-Pre-release `0.1.0-dev`. Phase 0 is not yet closed ([ROADMAP.md](ROADMAP.md#where-we-are-2026-10-09)). In particular, nimbus has not yet been run against a live cloud account. Treat collector output as beta until it has.
+Pre-release `0.1.0-dev`. Phase 0 is not yet closed ([ROADMAP.md](ROADMAP.md#where-we-are-2026-10-09)). The native collector has had its first live run against a cloud account (GCP, read-only — [docs/sessions/2026-10-29-first-live-gcp.md](docs/sessions/2026-10-29-first-live-gcp.md)), but that run covered one GCP project and did not exercise attack-path traversal, and no other provider has run live. Treat collector output as beta until it has.
 
 Licensed under Apache-2.0. Paths, fixes, adapters, the MCP server and the benchmark are never moved behind a paid tier ([OPEN_SOURCE_PROMISE.md](OPEN_SOURCE_PROMISE.md)).
