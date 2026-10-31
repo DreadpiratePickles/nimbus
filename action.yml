@@ -62,7 +62,7 @@ runs:
         if [ -n "$CP_ACCOUNTS" ]; then args+=(--accounts "$CP_ACCOUNTS"); fi
         cloud-posture scan "${args[@]}" || echo "CP_FAILED=1" >> "$GITHUB_ENV"
     - if: inputs.sarif == 'true' && hashFiles('cloud-posture.sarif') != ''
-      uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with: {sarif_file: cloud-posture.sarif}
     - if: inputs.pr-comment == 'true' && github.event_name == 'pull_request'
       shell: bash
@@ -147,7 +147,7 @@ runs:
         rc=${PIPESTATUS[0]}
         if [ "$rc" = "3" ]; then echo "CP_OPENED=1" >> "$GITHUB_ENV"; elif [ "$rc" != "0" ]; then exit "$rc"; fi
     - if: (inputs.plan-json != '' || inputs.terraform-dir != '') && inputs.sarif == 'true' && hashFiles('nimbus-paths.sarif') != ''
-      uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with: {sarif_file: nimbus-paths.sarif, category: nimbus-plan-diff}
     - shell: bash
       env:
