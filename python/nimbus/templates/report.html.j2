@@ -5,36 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ r.framework.name }} compliance report</title>
 <style>
-:root{--ink:#0b0b0b;--ink-2:#52514e;--muted:#8a8984;--line:#e4e3de;--surface:#fcfcfb;--panel:#ffffff;
---good:#0ca30c;--warning:#fab219;--serious:#ec835a;--critical:#d03b3b;--na:#b7b6af;--accent:#2a78d6}
+:root{--root:#2b1d14;--root-2:#3a281b;--win:#efe4cf;--win-2:#e4d6bc;--ink:#2a1a10;--ink-2:#5a4330;--muted:#8a7058;--focus:#c9a87a;--idle:#6b4e36;--line:#cdb995;--good:#5f7a2a;--warning:#b8860b;--serious:#c4621d;--critical:#a8321e;--na:#a8957a;--accent:#4f6d8a;--mono:Spleen,Terminus,"Terminus (TTF)",fixed,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 *{box-sizing:border-box}
-body{margin:0;background:var(--surface);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-main{max-width:1080px;margin:0 auto;padding:32px 20px}
-h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;margin:36px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+body{margin:0;color:var(--ink);font:13px/1.5 var(--mono);background:var(--root) repeating-conic-gradient(var(--root) 0 25%,var(--root-2) 0 50%) 0 0/4px 4px}
+main{max-width:1080px;margin:16px auto;padding:20px;background:var(--win);border:1px solid var(--idle)}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:36px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
 h3{font-size:15px;margin:18px 0 6px}
 .sub{color:var(--ink-2)}.muted{color:var(--muted)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
-.tile .v{font-size:24px;font-weight:650}.tile .k{color:var(--ink-2);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tile{background:var(--win);border:1px solid var(--line);padding:12px 14px}
+.tile .v{font-size:24px;font-weight:700}.tile .k{color:var(--ink-2);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
 .summary{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
 .table-wrap{overflow-x:auto}
-table{border-collapse:collapse;width:100%;background:var(--panel)}
+table{border-collapse:collapse;width:100%;background:var(--win)}
 th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px}
-th{font-size:12px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.03em;background:#f6f5f2}
+th{font-size:12px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.03em;background:var(--win-2)}
 .badge{display:inline-flex;align-items:center;gap:5px;font-weight:600;font-size:12px;white-space:nowrap}
-.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.dot{width:9px;height:9px;display:inline-block}
 .FAIL .dot{background:var(--critical)}.PASS .dot{background:var(--good)}.NOT_ASSESSED .dot{background:var(--na)}
 .sev-CRITICAL .dot{background:var(--critical)}.sev-HIGH .dot{background:var(--serious)}.sev-MEDIUM .dot{background:var(--warning)}
 .sev-LOW .dot{background:var(--accent)}.sev-INFO .dot{background:var(--na)}
-code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
-pre{white-space:pre-wrap;word-break:break-all;background:#f6f5f2;border:1px solid var(--line);border-radius:6px;padding:8px;margin:6px 0}
-.ev{border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0;background:var(--panel);break-inside:avoid}
-.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px;background:var(--surface);margin:8px 0}
+code,pre{font-family:var(--mono);font-size:12px}
+pre{white-space:pre-wrap;word-break:break-all;background:var(--win-2);border:1px solid var(--line);padding:8px;margin:6px 0}
+.ev{border:1px solid var(--line);padding:10px 14px;margin:10px 0;background:var(--win);break-inside:avoid}
+.bar{display:flex;height:12px;overflow:hidden;gap:2px;background:var(--win-2);margin:8px 0}
 .bar span{display:block;height:100%}
 .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
 footer{margin-top:48px;color:var(--muted);font-size:12px}
 .page{break-before:page}
-@media print{body{background:#fff}main{padding:0}.tile,.ev,table{break-inside:avoid}h2{break-after:avoid}a{color:inherit;text-decoration:none}}
+@media print{body{background:#fff}main{margin:0;padding:0;border:0;background:#fff}.tile,.ev,table{break-inside:avoid}h2{break-after:avoid}a{color:inherit;text-decoration:none}}
 </style>
 </head>
 <body>

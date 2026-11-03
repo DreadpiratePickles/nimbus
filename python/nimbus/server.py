@@ -86,12 +86,13 @@ def summary(store: Store) -> dict[str, Any]:
 
 BUILTIN_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>cloud-posture</title><style>
-body{margin:0;background:#fcfcfb;color:#0b0b0b;font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-main{max-width:1000px;margin:0 auto;padding:24px 16px}h1{font-size:22px;margin:0}.sub{color:#52514e}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:16px 0}
-.tile{background:#fff;border:1px solid #e4e3de;border-radius:8px;padding:10px 12px}.tile b{display:block;font-size:22px}
-.wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;background:#fff}th,td{padding:6px 8px;border-bottom:1px solid #e4e3de;text-align:left;font-size:13px}
-th{color:#52514e;font-size:12px;text-transform:uppercase}code{font-size:12px}
+:root{--root:#2b1d14;--root-2:#3a281b;--win:#efe4cf;--win-2:#e4d6bc;--ink:#2a1a10;--ink-2:#5a4330;--muted:#8a7058;--focus:#c9a87a;--idle:#6b4e36;--line:#cdb995;--good:#5f7a2a;--warning:#b8860b;--serious:#c4621d;--critical:#a8321e;--na:#a8957a;--accent:#4f6d8a;--mono:Spleen,Terminus,"Terminus (TTF)",fixed,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+body{margin:0;color:var(--ink);font:13px/1.5 var(--mono);background:var(--root) repeating-conic-gradient(var(--root) 0 25%,var(--root-2) 0 50%) 0 0/4px 4px}
+main{max-width:1000px;margin:16px auto;padding:14px 16px;background:var(--win);border:1px solid var(--idle)}main:hover{border-color:var(--focus)}h1{font-size:15px;margin:0}h2{font-size:13px;border-bottom:1px solid var(--line);padding-bottom:3px}.sub{color:var(--ink-2)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin:12px 0}
+.tile{background:var(--win-2);border:1px solid var(--line);padding:6px 10px}.tile b{display:block;font-size:20px}
+.wrap{overflow-x:auto}table{border-collapse:collapse;width:100%}th,td{padding:4px 8px;border-bottom:1px dotted var(--line);text-align:left;font-size:12.5px}
+th{color:var(--ink-2);font-size:12px;border-bottom:1px solid var(--idle)}tbody tr:hover{background:var(--ink);color:var(--win)}code{font-family:var(--mono);font-size:12px}
 </style></head><body><main><h1>cloud-posture</h1><div class="sub">nimbus __VERSION__ · <span id="live">live</span></div>
 <div class="grid">__TILES__</div><h2>Top risks</h2><div class="wrap"><table><thead><tr><th>Risk</th><th>Severity</th><th>Check</th><th>Resource</th><th>Why</th></tr></thead>
 <tbody>__ROWS__</tbody></table></div>

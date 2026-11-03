@@ -37,3 +37,22 @@ def test_gauge_and_executive():
     reps = [build_report(k, sample_findings()) for k in ("soc2", "pci_dss")]
     html = executive_summary_html(reps, findings_total=12)
     assert "SOC 2" in html and "PCI DSS" in html
+
+
+CWM_TOKENS = ("--root:#2b1d14", "--win:#efe4cf", "--ink:#2a1a10", "--idle:#6b4e36")
+
+
+def test_html_outputs_use_cwm_brown_theme():
+    from nimbus.server import BUILTIN_HTML
+
+    fs = sample_findings()
+    pages = {
+        "report": render_html(build_report("soc2", fs)),
+        "executive": executive_summary_html([build_report("soc2", fs)], findings_total=len(fs)),
+        "server": BUILTIN_HTML,
+    }
+    for name, page in pages.items():
+        for tok in CWM_TOKENS:
+            assert tok in page, f"{name} missing {tok}"
+        assert "border-radius" not in page and "box-shadow" not in page, f"{name} has modern chrome"
+        assert "monospace" in page, f"{name} not monospace"

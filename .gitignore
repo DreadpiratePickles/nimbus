@@ -10,3 +10,5 @@ dist/
 *.egg-info/
 .pytest_cache/
 vscode-extension/node_modules/
+site/public/
+bin/

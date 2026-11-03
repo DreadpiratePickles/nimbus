@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="{{ config.theme.locale|default('en') }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="{% if page and page.meta and page.meta.description %}{{ page.meta.description }}{% else %}{{ config.site_description }}{% endif %}">
+<meta name="theme-color" content="#2b1d14">
+{%- if page and page.canonical_url %}<link rel="canonical" href="{{ page.canonical_url }}">{% endif %}
+<title>{% block title %}{% if page and page.is_homepage %}{{ config.site_name }} · cloud-posture{% elif page and page.title %}{{ page.title|striptags }} · {{ config.site_name }}{% else %}{{ config.site_name }}{% endif %}{% endblock %}</title>
+<link rel="icon" href="{{ 'img/favicon.svg'|url }}" type="image/svg+xml">
+<link rel="stylesheet" href="{{ 'css/cwm.css'|url }}">
+<script>var base_url = {{ base_url|tojson }};</script>
+</head>
+<body>
+<div class="desk">
+  <nav class="win bar" aria-label="sections">
+    <a class="name" href="{{ nav.homepage.url|url }}">nimbus</a>
+    <ul class="groups">
+      {%- for item in nav %}
+      <li><a href="{{ item.url|url }}"{% if item.active %} aria-current="page"{% endif %} data-group="{{ loop.index }}"><b>{{ loop.index }}</b> {{ item.title }}</a></li>
+      {%- endfor %}
+    </ul>
+    <form class="search" role="search" action="{{ 'search.html'|url }}" autocomplete="off">
+      <label for="mkdocs-search-query">search»</label>
+      <input id="mkdocs-search-query" name="q" type="search" placeholder="/ to search" aria-controls="mkdocs-search-results">
+      <span class="echar" aria-hidden="true">«</span>
+      <div class="win menu" id="mkdocs-search-results" data-no-results-text="no match" role="listbox"></div>
+    </form>
+    <a class="gh" href="{{ config.repo_url }}">github</a>
+  </nav>
+  {% block content %}
+  <div class="docs">
+    <main class="win prose" id="content">
+      {{ page.content }}
+    </main>
+    {%- if page.toc and page.toc.items %}
+    {%- set top = page.toc.items[0] %}
+    {%- set entries = top.children if (page.toc.items|length == 1) else page.toc.items %}
+    {%- if entries %}
+    <aside class="win toc" aria-label="on this page">
+      {%- if entries|length > 24 %}
+      <details><summary>on this page ({{ entries|length }})</summary>
+      {%- else %}
+      <h2>on this page</h2>
+      {%- endif %}
+      <ul>
+        {%- for h in entries %}
+        <li><a href="{{ h.url }}">{{ h.title }}</a>
+          {%- if h.children and entries|length <= 24 %}
+          <ul>{% for c in h.children %}<li><a href="{{ c.url }}">{{ c.title }}</a></li>{% endfor %}</ul>
+          {%- endif %}
+        </li>
+        {%- endfor %}
+      </ul>
+      {%- if entries|length > 24 %}</details>{% endif %}
+    </aside>
+    {%- endif %}
+    {%- endif %}
+  </div>
+  {% endblock %}
+</div>
+<footer>
+  <span>nimbus · <code>cloud-posture</code> · {{ config.copyright }}</span>
+  <a href="{{ config.repo_url }}">{{ config.repo_name }}</a>
+  <span class="keys">keys: 1–9 switch section · / search · ↑↓ ⏎ pick · esc close</span>
+</footer>
+{%- for script in config.extra_javascript %}
+{{ script|script_tag }}
+{%- endfor %}
+<script src="{{ 'js/keys.js'|url }}"></script>
+</body>
+</html>

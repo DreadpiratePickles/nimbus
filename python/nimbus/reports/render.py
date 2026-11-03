@@ -14,7 +14,8 @@ from ..models import go_time
 
 _env = Environment(loader=PackageLoader("nimbus", "templates"), autoescape=select_autoescape(["html", "j2"]))
 
-GOOD, WARN, CRIT, TRACK, INK, INK2 = "#0ca30c", "#fab219", "#d03b3b", "#e4e3de", "#0b0b0b", "#52514e"
+GOOD, WARN, CRIT, TRACK, INK, INK2 = "#5f7a2a", "#b8860b", "#a8321e", "#cdb995", "#2a1a10", "#5a4330"
+MONO = "Spleen,Terminus,fixed,ui-monospace,Menlo,monospace"
 
 
 def _score_color(score: float) -> tuple[str, str]:
@@ -39,12 +40,12 @@ def gauge_svg(score: float, label: str = "Compliance score", size: int = 180) ->
     return (
         f'<svg class="gauge" role="img" aria-label="{html.escape(label)}: {score:.1f}% ({status})" width="{size}" height="{h}" '
         f'viewBox="0 0 180 130" xmlns="http://www.w3.org/2000/svg">'
-        f'<path d="{track}" fill="none" stroke="{TRACK}" stroke-width="{w}" stroke-linecap="round"/>'
-        + (f'<path d="{value}" fill="none" stroke="{color}" stroke-width="{w}" stroke-linecap="round"/>' if value else "")
+        f'<path d="{track}" fill="none" stroke="{TRACK}" stroke-width="{w}" stroke-linecap="butt"/>'
+        + (f'<path d="{value}" fill="none" stroke="{color}" stroke-width="{w}" stroke-linecap="butt"/>' if value else "")
         + f'<text x="90" y="80" text-anchor="middle" font-size="30" font-weight="700" fill="{INK}" '
-        f'font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">{score:.1f}%</text>'
+        f'font-family="{MONO}">{score:.1f}%</text>'
         f'<text x="90" y="104" text-anchor="middle" font-size="12" fill="{INK2}" '
-        f'font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">{html.escape(status)} · {html.escape(label)}</text>'
+        f'font-family="{MONO}">{html.escape(status)} · {html.escape(label)}</text>'
         "</svg>"
     )
 

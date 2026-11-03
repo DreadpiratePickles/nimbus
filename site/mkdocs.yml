@@ -1,0 +1,45 @@
+site_name: nimbus
+site_description: The open-source, unified Cloud Security Posture Manager. One binary, every scanner, the attack paths that matter and the fix that breaks them.
+site_url: ""  # set to https://<your-domain>/ before deploying (enables sitemap + canonical links)
+repo_url: https://github.com/DreadpiratePickles/nimbus
+repo_name: DreadpiratePickles/nimbus
+copyright: Apache-2.0
+
+docs_dir: docs
+site_dir: public
+strict: true
+
+theme:
+  name: null
+  custom_dir: theme
+  include_search_page: true
+  static_templates:
+    - 404.html
+  locale: en
+
+hooks:
+  - hooks.py
+
+plugins:
+  - search:
+      min_search_length: 2
+
+markdown_extensions:
+  - toc:
+      permalink: "#"
+      toc_depth: 3
+  - tables
+  - fenced_code
+  - admonition
+  - attr_list
+
+nav:
+  - home: index.md
+  - quickstart: quickstart.md
+  - commands: commands.md
+  - attack paths: attack-paths.md
+  - risk scoring: risk-scoring.md
+  - compliance: compliance.md
+  - checks: checks.md
+  - config: configuration.md
+  - architecture: architecture.md
