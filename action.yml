@@ -34,7 +34,7 @@ runs:
   steps:
     - name: Install cosign
       if: inputs.install == 'true' && inputs.require-signature == 'true'
-      uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
     - name: Install cloud-posture (verified release)
       if: inputs.install == 'true'
       shell: bash
@@ -62,7 +62,7 @@ runs:
         if [ -n "$CP_ACCOUNTS" ]; then args+=(--accounts "$CP_ACCOUNTS"); fi
         cloud-posture scan "${args[@]}" || echo "CP_FAILED=1" >> "$GITHUB_ENV"
     - if: inputs.sarif == 'true' && hashFiles('cloud-posture.sarif') != ''
-      uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with: {sarif_file: cloud-posture.sarif}
     - if: inputs.pr-comment == 'true' && github.event_name == 'pull_request'
       shell: bash
@@ -147,7 +147,7 @@ runs:
         rc=${PIPESTATUS[0]}
         if [ "$rc" = "3" ]; then echo "CP_OPENED=1" >> "$GITHUB_ENV"; elif [ "$rc" != "0" ]; then exit "$rc"; fi
     - if: (inputs.plan-json != '' || inputs.terraform-dir != '') && inputs.sarif == 'true' && hashFiles('nimbus-paths.sarif') != ''
-      uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with: {sarif_file: nimbus-paths.sarif, category: nimbus-plan-diff}
     - shell: bash
       env:
