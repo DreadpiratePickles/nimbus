@@ -16,7 +16,7 @@
 # their output to `cloud-posture ingest`.
 ARG BIN_STAGE=build
 
-FROM golang:1.26@sha256:52d57e3542f28ad72e9a1084e209366d8ca6af04997636134c138d16702a70a6 AS build
+FROM golang:1.27@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
